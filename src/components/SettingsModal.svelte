@@ -30,6 +30,7 @@
   import RecordingPanel from './settings/RecordingPanel.svelte';
   import SubtitlesPanel from './settings/SubtitlesPanel.svelte';
   import VideoPanel from './settings/VideoPanel.svelte';
+import { settings, defaultSettings } from '../stores/settings';
 
   export let open = false;
   export let onClose: () => void = () => {};
@@ -208,6 +209,7 @@
             </p>
           {/if}
         </aside>
+        <button type="button" class="h-9 px-4 rounded-[8px] bg-vlc-danger/20 text-vlc-danger hover:bg-vlc-danger/30" aria-label="Reset all settings" on:click={() => { if (confirm('Reset all settings to defaults? This cannot be undone.')) { settings.set({ ...defaultSettings }); } }}>Reset All Settings</button>
 
         <section
           bind:this={contentEl}
