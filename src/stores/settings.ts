@@ -94,6 +94,7 @@ export interface SettingsState {
   skipFrames: boolean;
   dropLateFrames: boolean;
   hardwareDecoding: string;
+  hardwareDecodingEnabled: boolean;
   allowSpeedPlayback: boolean;
   defaultPlaybackSpeed: string;
   loopMode: string;
@@ -269,6 +270,7 @@ export const defaultSettings: SettingsState = {
   skipFrames: true,
   dropLateFrames: true,
   hardwareDecoding: 'Automatic',
+  hardwareDecodingEnabled: true,
   allowSpeedPlayback: true,
   defaultPlaybackSpeed: '1.0x',
   loopMode: 'off',

@@ -1,12 +1,16 @@
 <script lang="ts">
-  import { ArrowLeft, ArrowUpDown, ChevronRight, LayoutGrid, LayoutList, Search } from 'lucide-svelte';
+  import { ArrowLeft, ArrowUpDown, ChevronRight, LayoutGrid, LayoutList } from 'lucide-svelte';
   import { artists } from '../lib/mock';
-  import { musicBreadcrumb, selectedArtistId, selectedAlbumId, musicSearch, musicViewMode, musicSort } from '../stores/music';
+  import { musicBreadcrumb, selectedArtistId, selectedAlbumId, musicViewMode, musicSort } from '../stores/music';
+  import FuzzySearch from '../components/FuzzySearch.svelte';
 
   let localBreadcrumb = $musicBreadcrumb;
   $: localBreadcrumb = $musicBreadcrumb;
 
-  $: query = $musicSearch.trim().toLowerCase();
+  let query = '';
+  function handleSearch(e: CustomEvent<string>) {
+    query = e.detail;
+  }
 
   $: artist = $selectedArtistId ? artists.find(a => a.id === $selectedArtistId) : null;
   $: album = $selectedAlbumId && artist ? artist.albums.find(al => al.id === $selectedAlbumId) : null;
@@ -14,7 +18,7 @@
   $: isArtistView = !!$selectedArtistId && !$selectedAlbumId;
   $: isAlbumView = !!$selectedArtistId && !!$selectedAlbumId;
 
-  $: filteredArtists = artists.filter(a => !query || a.name.toLowerCase().includes(query));
+  $: filteredArtists = artists.filter(item => item.name.toLowerCase().includes(query));
   $: filteredAlbums = artist ? artist.albums.filter(al => !query || al.title.toLowerCase().includes(query) || al.year.toString().includes(query)) : [];
   $: filteredTracks = album ? album.tracks.filter(t => !query || t.title.toLowerCase().includes(query)) : [];
 
@@ -73,10 +77,13 @@
       {/each}
     </nav>
 
-    <div class="ml-auto flex shrink-0 items-center gap-1">
+    <div class="ml-auto flex shrink-0 items-center gap-2">
       <span class="mr-2 whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
         {isAlbumView ? filteredTracks.length : isArtistView ? filteredAlbums.length : filteredArtists.length} items
       </span>
+      <div class="w-60">
+        <FuzzySearch placeholder="Search…" on:search={handleSearch} />
+      </div>
       <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card hover:text-white" title="Sort">
         <ArrowUpDown size={16} strokeWidth={1.75} />
       </button>
@@ -87,11 +94,6 @@
           <LayoutGrid size={16} strokeWidth={1.75} />
         {/if}
       </button>
-      <label class="relative ml-2 block w-60">
-        <Search size={14} strokeWidth={1.75} class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-vlc-muted" />
-        <input type="search" placeholder="Search" aria-label="Search music" bind:value={$musicSearch}
-          class="h-8 w-full rounded-input border border-vlc-border bg-vlc-card pl-8 pr-3 text-xs text-white outline-none transition-colors placeholder:text-vlc-muted focus:border-vlc-orange/40 focus:ring-1 focus:ring-vlc-orange/40" />
-      </label>
     </div>
   </header>
 

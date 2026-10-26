@@ -301,12 +301,12 @@
   <div class="flex shrink-0 items-center gap-1">
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Previous"
       aria-label="Previous"
       on:click={goPrevious}
     >
-      <SkipBack size={16} strokeWidth={1.75} />
+      <SkipBack size={16} strokeWidth={1.75} aria-hidden="true" />
     </button>
 
     <button
@@ -317,20 +317,20 @@
       on:click={() => void togglePlay()}
     >
       {#if $player.isPlaying}
-        <Pause size={15} fill="currentColor" strokeWidth={1.5} />
+        <Pause size={15} fill="currentColor" strokeWidth={1.5} aria-hidden="true" />
       {:else}
-        <Play size={15} fill="currentColor" strokeWidth={1.5} class="ml-0.5" />
+        <Play size={15} fill="currentColor" strokeWidth={1.5} class="ml-0.5" aria-hidden="true" />
       {/if}
     </button>
 
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Next"
       aria-label="Next"
       on:click={goNext}
     >
-      <SkipForward size={16} strokeWidth={1.75} />
+      <SkipForward size={16} strokeWidth={1.75} aria-hidden="true" />
     </button>
   </div>
 
@@ -392,15 +392,15 @@
   <div class="ml-1 flex shrink-0 items-center gap-1">
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={volumeMuted ? 'Unmute' : 'Mute'}
       aria-label={volumeMuted ? 'Unmute' : 'Mute'}
       on:click={handleMute}
     >
       {#if volumeMuted}
-        <VolumeX size={17} strokeWidth={1.75} />
+        <VolumeX size={17} strokeWidth={1.75} aria-hidden="true" />
       {:else}
-        <Volume2 size={17} strokeWidth={1.75} />
+        <Volume2 size={17} strokeWidth={1.75} aria-hidden="true" />
       {/if}
     </button>
 
@@ -435,7 +435,7 @@
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       class:text-vlc-orange={$dockMode === 'subtitles'}
       class:text-vlc-secondary={$dockMode !== 'subtitles'}
       class:bg-vlc-card={$dockMode === 'subtitles'}
@@ -444,28 +444,28 @@
       aria-pressed={$dockMode === 'subtitles'}
       on:click={() => openDock('subtitles')}
     >
-      <Captions size={18} strokeWidth={1.6} />
+      <Captions size={18} strokeWidth={1.6} aria-hidden="true" />
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Settings"
       aria-label="Open settings"
       on:click={onSettings}
     >
-      <Settings size={18} strokeWidth={1.6} />
+      <Settings size={18} strokeWidth={1.6} aria-hidden="true" />
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
       aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
       on:click={toggleFullscreen}
     >
       {#if isFullscreen}
-        <Minimize size={18} strokeWidth={1.6} />
+        <Minimize size={18} strokeWidth={1.6} aria-hidden="true" />
       {:else}
-        <Maximize size={18} strokeWidth={1.6} />
+        <Maximize size={18} strokeWidth={1.6} aria-hidden="true" />
       {/if}
     </button>
     <button

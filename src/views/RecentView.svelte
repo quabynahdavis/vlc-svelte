@@ -1,15 +1,22 @@
 <script lang="ts">
-  import { Trash2, Search } from 'lucide-svelte';
+  import { Trash2 } from 'lucide-svelte';
   import { recentItems } from '../lib/mock';
   import { recentActiveTab, recentSearch, recentFilterType } from '../stores/recent';
+  import FuzzySearch from '../components/FuzzySearch.svelte';
 
-  $: query = $recentSearch.toLowerCase();
+  let query = '';
+  function handleSearch(e: CustomEvent<string>) {
+    query = e.detail;
+  }
+
   $: filter = $recentFilterType;
 
-  $: filtered = recentItems.filter(it => {
-    const matchesQuery = !query || it.title.toLowerCase().includes(query) || it.source.toLowerCase().includes(query);
-    const matchesType = !filter || it.type === filter;
-    const matchesTab = $recentActiveTab === 'media' ? it.type === 'media' : $recentActiveTab === 'devices' ? it.type === 'device' : it.type === 'network';
+  $: historyItems = recentItems;
+
+  $: filtered = historyItems.filter(item => {
+    const matchesQuery = !query || item.title.toLowerCase().includes(query) || item.source.toLowerCase().includes(query);
+    const matchesType = !filter || item.type === filter;
+    const matchesTab = $recentActiveTab === 'media' ? item.type === 'media' : $recentActiveTab === 'devices' ? item.type === 'device' : item.type === 'network';
     return matchesQuery && matchesType && matchesTab;
   });
 
@@ -47,6 +54,7 @@
   function clearHistory() {
     recentSearch.set('');
     recentFilterType.set(null);
+    query = '';
   }
 </script>
 
@@ -58,10 +66,9 @@
       {/each}
     </nav>
     <div class="ml-auto flex items-center gap-2">
-      <label class="relative block w-56">
-        <Search size={14} class="absolute left-2.5 top-1/2 -translate-y-1/2 text-vlc-muted" />
-        <input class="h-8 w-full rounded-input border border-vlc-border bg-vlc-card pl-8 pr-3 text-xs text-white placeholder:text-vlc-muted focus:border-vlc-orange/40 focus:ring-1 focus:ring-vlc-orange/40" placeholder="Search history" bind:value={$recentSearch} />
-      </label>
+      <div class="w-56">
+        <FuzzySearch placeholder="Search…" on:search={handleSearch} />
+      </div>
       <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card" title="Clear history" on:click={clearHistory}>
         <Trash2 size={16} />
       </button>

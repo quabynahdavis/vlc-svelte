@@ -54,6 +54,10 @@
       </div>
     </SettingRow>
 
+    <SettingRow label="Hardware decoding" info hint="Enable hardware-accelerated video decoding.">
+      <Toggle bind:value={$settings.hardwareDecodingEnabled} label="Hardware decoding" />
+    </SettingRow>
+
     <SettingRow label="Deinterlace mode" info hint="Choose the deinterlacing algorithm.">
       <div class="w-[426px]">
         <Select bind:value={$settings.deinterlaceMode} options={deinterlaceModes} ariaLabel="Deinterlace mode" />

@@ -1,22 +1,22 @@
 <script lang="ts">
-  import { ArrowLeft, Search, ChevronRight } from 'lucide-svelte';
+  import { ArrowLeft, ChevronRight } from 'lucide-svelte';
   import { networkCategories, radioStations, podcastShows, podcastEpisodes } from '../lib/mock';
-  import { networkSelectedCategory, networkSearch, networkPath } from '../stores/network';
+  import { networkSelectedCategory, networkPath } from '../stores/network';
+  import FuzzySearch from '../components/FuzzySearch.svelte';
 
   $: category = $networkSelectedCategory;
-  $: query = $networkSearch.toLowerCase();
+  let query = '';
+  function handleSearch(e: CustomEvent<string>) {
+    query = e.detail;
+  }
 
-  $: filteredStations = radioStations.filter(s =>
-    !query || s.name.toLowerCase().includes(query) || s.genre.toLowerCase().includes(query) || s.country.toLowerCase().includes(query)
-  );
+  $: filteredStations = radioStations.filter(item => item.name.toLowerCase().includes(query));
 
   $: shows = podcastShows;
   $: selectedShowId = $networkPath[1];
 
   $: showEpisodes = selectedShowId ? podcastEpisodes.filter(e => e.showId === selectedShowId) : [];
-  $: filteredShowEpisodes = showEpisodes.filter(e =>
-    !query || e.title.toLowerCase().includes(query)
-  );
+  $: filteredShowEpisodes = showEpisodes.filter(e => !query || e.title.toLowerCase().includes(query));
 
   function selectCategory(cat: string) {
     networkSelectedCategory.set(cat);
@@ -69,11 +69,8 @@
           <span class="{i === breadcrumb.length -1 ? 'text-white' : 'text-vlc-secondary'} truncate">{crumb}</span>
         {/each}
       </nav>
-      <div class="ml-auto flex items-center gap-3">
-        <label class="relative block w-56">
-          <Search size={14} class="absolute left-2.5 top-1/2 -translate-y-1/2 text-vlc-muted" />
-          <input class="h-8 w-full rounded-input border border-vlc-border bg-vlc-card pl-8 pr-3 text-xs text-white placeholder:text-vlc-muted focus:border-vlc-orange/40 focus:ring-1 focus:ring-vlc-orange/40" placeholder="Search" bind:value={$networkSearch} />
-        </label>
+      <div class="ml-auto flex items-center gap-3 w-56">
+        <FuzzySearch placeholder="Search…" on:search={handleSearch} />
       </div>
     </header>
 

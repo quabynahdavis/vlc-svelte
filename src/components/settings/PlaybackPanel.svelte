@@ -47,9 +47,13 @@
       <Toggle bind:value={$settings.dropLateFrames} label="Drop late frames" />
     </SettingRow>
 
-    <SettingRow label="Hardware decoding" info hint="Select the hardware acceleration method for video decoding.">
+    <SettingRow label="Hardware decoding" info hint="Enable or disable hardware decoding.">
+      <Toggle bind:value={$settings.hardwareDecodingEnabled} label="Hardware decoding" />
+    </SettingRow>
+
+    <SettingRow label="Hardware decoding mode" info hint="Select the hardware acceleration method for video decoding.">
       <div class="w-[426px]">
-        <Select bind:value={$settings.hardwareDecoding} options={hardwareDecodingOptions} ariaLabel="Hardware decoding" />
+        <Select bind:value={$settings.hardwareDecoding} options={hardwareDecodingOptions} ariaLabel="Hardware decoding" disabled={!$settings.hardwareDecodingEnabled} />
       </div>
     </SettingRow>
 

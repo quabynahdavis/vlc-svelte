@@ -1,28 +1,24 @@
 <script lang="ts">
-  import { ArrowLeft, Plus, MoreHorizontal, Search, GripVertical } from 'lucide-svelte';
+  import { ArrowLeft, Plus, MoreHorizontal, GripVertical } from 'lucide-svelte';
   import { playlists } from '../lib/mock';
-  import { playlistsSelectedId, playlistsSearch, playlistsSort } from '../stores/playlists';
+  import { playlistsSelectedId, playlistsSort } from '../stores/playlists';
+  import FuzzySearch from '../components/FuzzySearch.svelte';
 
-  $: query = $playlistsSearch.toLowerCase();
   $: sort = $playlistsSort;
   $: selected = $playlistsSelectedId;
 
-  $: filtered = playlists.filter(p => !query || p.name.toLowerCase().includes(query));
+  let query = '';
+  function handleSearch(e: CustomEvent<string>) {
+    query = e.detail;
+  }
+
+  $: filtered = playlists.filter(item => item.name.toLowerCase().includes(query));
 
   function formatDuration(s: number) {
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     if (h) return `${h}h ${m}m`;
     return `${m}m`;
-  }
-
-  function formatModified(ts: number) {
-    const d = new Date(ts);
-    const diff = Date.now() - ts;
-    const days = Math.floor(diff / 86400000);
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    return d.toLocaleDateString();
   }
 
   function openPlaylist(id: string) {
@@ -78,10 +74,9 @@
           <span class="text-white truncate">{activePlaylist?.name}</span>
         </nav>
         <div class="ml-auto flex items-center gap-2">
-          <label class="relative block w-56">
-            <Search size={14} class="absolute left-2.5 top-1/2 -translate-y-1/2 text-vlc-muted" />
-            <input class="h-8 w-full rounded-input border border-vlc-border bg-vlc-card pl-8 pr-3 text-xs text-white placeholder:text-vlc-muted focus:border-vlc-orange/40 focus:ring-1 focus:ring-vlc-orange/40" placeholder="Search playlist" bind:value={$playlistsSearch} />
-          </label>
+          <div class="w-56">
+            <FuzzySearch placeholder="Search…" on:search={handleSearch} />
+          </div>
           <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card" title="Sort">
             <span class="text-xs">Sort: {sort}</span>
           </button>
