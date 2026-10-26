@@ -21,8 +21,9 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Default volume</label>
+      <label for="default-volume" class="block text-sm font-medium text-gray-700 mb-1">Default volume</label>
       <input
+        id="default-volume"
         type="range"
         min="0"
         max="100"
