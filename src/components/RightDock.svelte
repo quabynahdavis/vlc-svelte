@@ -5,7 +5,7 @@
     Clapperboard,
     Play,
     X,
-    WaveSquare,
+    Activity,
   } from 'lucide-svelte';
   import type { ComponentType } from 'svelte';
   import { player } from '../stores/player';
@@ -25,7 +25,7 @@
     { id: 'playback', label: 'Playback', icon: Play },
     { id: 'video', label: 'Video', icon: Clapperboard },
     { id: 'audio', label: 'Audio', icon: AudioLines },
-    { id: 'visualizer', label: 'Visualizer', icon: WaveSquare },
+    { id: 'visualizer', label: 'Visualizer', icon: Activity },
     { id: 'subtitles', label: 'Subtitles', icon: Captions },
   ];
 
