@@ -1,25 +1,11 @@
 <script lang="ts">
-  import {
-    AudioLines,
-    Captions,
-    ChevronDown,
-    Clapperboard,
-    Play,
-    Settings as SettingsIcon,
-  } from 'lucide-svelte';
+  import { ChevronDown, Settings as SettingsIcon } from 'lucide-svelte';
   import { settings } from '../../stores/settings';
   import Accordion from './Accordion.svelte';
   import DockSlider from './DockSlider.svelte';
   import TogglePill from './TogglePill.svelte';
 
   export let onAdvancedSettings: (category?: string) => void = () => {};
-
-  const tabs = [
-    { id: 'playback', label: 'Playback', icon: Play },
-    { id: 'video', label: 'Video', icon: Clapperboard },
-    { id: 'audio', label: 'Audio', icon: AudioLines },
-    { id: 'subtitles', label: 'Subtitles', icon: Captions },
-  ];
 
   let embeddedSubFormat = $settings.embeddedSubFormat;
   let presetOpen = $settings.subtitlePresetOpen;
@@ -84,43 +70,6 @@
 </script>
 
 <div class="flex min-h-full flex-col" data-subtitle-dock>
-  <div
-    class="sticky top-0 z-10 grid h-12 shrink-0 grid-cols-4 items-stretch border-b border-vlc-border bg-[#141414]"
-    role="tablist"
-    aria-label="Settings categories"
-  >
-    {#each tabs as tab (tab.id)}
-      {@const active = tab.id === 'subtitles'}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={active}
-        title={active ? 'Subtitles' : `Open ${tab.label} settings`}
-        class="relative flex h-full min-w-0 items-center justify-center gap-1.5 px-1 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
-        class:text-vlc-text={active}
-        class:text-vlc-dim={!active}
-        class:hover:text-vlc-text={!active}
-        on:click={() => {
-          if (!active) onAdvancedSettings(tab.label);
-        }}
-      >
-        <svelte:component
-          this={tab.icon}
-          size={14}
-          strokeWidth={1.7}
-          class={active ? 'shrink-0 text-vlc-orange' : 'shrink-0'}
-        />
-        <span class="truncate">{tab.label}</span>
-        {#if active}
-          <span
-            class="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-vlc-orange"
-            aria-hidden="true"
-          ></span>
-        {/if}
-      </button>
-    {/each}
-  </div>
-
   <div class="divide-y divide-vlc-border">
     <section class="px-4 py-4">
       <h3 class="text-[15px] leading-5 text-vlc-text">Defaults</h3>

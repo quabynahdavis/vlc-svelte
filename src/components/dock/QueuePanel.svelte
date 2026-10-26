@@ -19,14 +19,6 @@
 </script>
 
 <div class="flex min-h-full flex-col" data-queue-panel>
-  <div class="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-vlc-border px-4">
-    <h3 class="text-[13px] font-medium leading-5 text-vlc-text">Playing Queue</h3>
-    <span class="shrink-0 text-[11px] leading-4 text-vlc-muted">
-      {$player.queue.length}
-      {$player.queue.length === 1 ? 'item' : 'items'}
-    </span>
-  </div>
-
   {#if $player.queue.length === 0}
     <div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
       <ListMusic size={28} strokeWidth={1.4} class="text-vlc-muted/60" aria-hidden="true" />

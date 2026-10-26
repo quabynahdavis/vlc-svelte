@@ -192,6 +192,10 @@
           </div>
         </div>
       {/if}
+
+      <RightDock
+        onAdvancedSettings={(category) => dispatch('advancedSettings', category ?? 'Subtitles')}
+      />
     </div>
 
     <TransportBar
@@ -202,10 +206,6 @@
       onSettings={() => dispatch('settings')}
     />
   </div>
-
-  <RightDock
-    onAdvancedSettings={(category) => dispatch('advancedSettings', category ?? 'Subtitles')}
-  />
 </div>
 
 <style>

@@ -1,15 +1,40 @@
 <script lang="ts">
-  import { X } from 'lucide-svelte';
+  import {
+    AudioLines,
+    Captions,
+    Clapperboard,
+    Play,
+    X,
+  } from 'lucide-svelte';
+  import type { ComponentType } from 'svelte';
+  import { player } from '../stores/player';
   import { dockMode, openDock } from '../stores/ui';
+  import type { DockMode } from '../stores/ui';
   import AudioEffectsPanel from './dock/AudioEffectsPanel.svelte';
   import EqPanel from './dock/EqPanel.svelte';
+  import PlaybackPanel from './dock/PlaybackPanel.svelte';
   import QueuePanel from './dock/QueuePanel.svelte';
   import SubtitleDockPanel from './dock/SubtitleDockPanel.svelte';
   import VideoEffectsPanel from './dock/VideoEffectsPanel.svelte';
 
   export let onAdvancedSettings: (category?: string) => void = () => {};
 
-  const titles: Record<string, string> = {
+  type DockTab = {
+    id: DockMode;
+    label: string;
+    icon: ComponentType;
+  };
+
+  const tabs: DockTab[] = [
+    { id: 'playback', label: 'Playback', icon: Play },
+    { id: 'video', label: 'Video', icon: Clapperboard },
+    { id: 'audio', label: 'Audio', icon: AudioLines },
+    { id: 'subtitles', label: 'Subtitles', icon: Captions },
+  ];
+
+  const titles: Record<DockMode, string> = {
+    closed: '',
+    playback: 'Playback',
     audio: 'Audio',
     subtitles: 'Subtitles',
     video: 'Video',
@@ -17,17 +42,29 @@
   };
 
   $: title = titles[$dockMode] ?? 'Panel';
+  $: showTabs = $dockMode !== 'closed' && $dockMode !== 'queue';
+  $: queueCount = `${$player.queue.length} ${$player.queue.length === 1 ? 'item' : 'items'}`;
+
+  function selectTab(mode: DockMode): void {
+    if (mode === 'closed' || mode === 'queue') return;
+    dockMode.set(mode);
+  }
 </script>
 
 {#if $dockMode !== 'closed'}
   <aside
-    class="flex h-full w-[340px] shrink-0 flex-col border-l border-vlc-border bg-[#141414]"
+    class="dock-shadow absolute inset-y-0 right-0 z-20 flex w-[340px] flex-col border-l border-vlc-border bg-[#141414]"
     aria-label={`${title} dock`}
     data-right-dock
     data-dock-mode={$dockMode}
   >
     <header class="flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-vlc-border px-4">
-      <h2 class="min-w-0 truncate text-[14px] font-medium leading-5 text-vlc-text">{title}</h2>
+      <div class="flex min-w-0 items-center gap-2">
+        <h2 class="min-w-0 truncate text-[14px] font-medium leading-5 text-vlc-text">{title}</h2>
+        {#if $dockMode === 'queue'}
+          <span class="shrink-0 text-[11px] leading-4 text-vlc-muted">{queueCount}</span>
+        {/if}
+      </div>
 
       <button
         type="button"
@@ -40,8 +77,46 @@
       </button>
     </header>
 
+    {#if showTabs}
+      <div
+        class="grid h-14 shrink-0 grid-cols-4 items-stretch border-b border-vlc-border"
+        role="tablist"
+        aria-label="Dock tabs"
+      >
+        {#each tabs as tab (tab.id)}
+          {@const active = $dockMode === tab.id}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={active}
+            class="relative flex h-full min-w-0 items-center justify-center gap-1.5 px-0.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
+            class:text-vlc-text={active}
+            class:text-vlc-dim={!active}
+            class:hover:text-vlc-text={!active}
+            on:click={() => selectTab(tab.id)}
+          >
+            <svelte:component
+              this={tab.icon}
+              size={18}
+              strokeWidth={1.7}
+              class={active ? 'shrink-0 text-vlc-orange' : 'shrink-0'}
+            />
+            <span class="truncate">{tab.label}</span>
+            {#if active}
+              <span
+                class="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-vlc-orange"
+                aria-hidden="true"
+              ></span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     <div class="dock-scroll min-h-0 flex-1 overflow-y-auto">
-      {#if $dockMode === 'audio'}
+      {#if $dockMode === 'playback'}
+        <PlaybackPanel />
+      {:else if $dockMode === 'audio'}
         <div class="space-y-3 p-3">
           <EqPanel />
           <AudioEffectsPanel />
@@ -60,6 +135,10 @@
 {/if}
 
 <style>
+  .dock-shadow {
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+  }
+
   .dock-scroll {
     scrollbar-width: thin;
     scrollbar-color: #2a2a2a transparent;
