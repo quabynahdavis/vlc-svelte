@@ -24,7 +24,7 @@ export default defineConfig({
     }),
   ],
   build: {
-    outDir: '../src-tauri/gen/dist',
+    outDir: 'src-tauri/gen/dist',
     emptyOutDir: true,
   },
   server: {
