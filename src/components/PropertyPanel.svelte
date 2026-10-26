@@ -192,24 +192,24 @@
 </script>
 
 <section
-  class="w-full overflow-hidden rounded-panel border border-[#262626] bg-[#1A1A1A]"
+  class="w-full overflow-hidden rounded-panel border border-vlc-border bg-vlc-card"
   aria-label={title}
   data-property-panel
 >
   <button
     type="button"
-    class="flex h-[52px] w-full items-center justify-between gap-4 border-b border-[#262626] px-5 text-left transition-colors hover:bg-[#1E1E1E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#D37918]"
+    class="flex h-[52px] w-full items-center justify-between gap-4 border-b border-vlc-border px-5 text-left transition-colors hover:bg-vlc-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-vlc-orange"
     aria-expanded={open}
     on:click={toggleOpen}
   >
-    <span class="min-w-0 truncate text-[15px] font-normal leading-6 text-[#8F8F8F]">
+    <span class="min-w-0 truncate text-[15px] font-normal leading-6 text-vlc-dim">
       {title}
     </span>
 
     <ChevronDown
       size={20}
       strokeWidth={1.8}
-      class={`shrink-0 text-[#8F8F8F] transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+      class={`shrink-0 text-vlc-dim transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
       aria-hidden="true"
     />
   </button>
@@ -218,7 +218,7 @@
     <div class="space-y-5 p-5">
       {#each localSections as section, sectionIndex (section.id)}
         {#if sectionIndex > 0}
-          <div class="h-px w-full bg-[#262626]" aria-hidden="true"></div>
+          <div class="h-px w-full bg-vlc-border" aria-hidden="true"></div>
         {/if}
 
         <div class="space-y-5">
@@ -236,7 +236,7 @@
               />
             {:else if row.type === 'toggle'}
               <div class="flex min-h-10 items-center justify-between gap-3" data-property-row>
-                <span class="min-w-0 truncate text-[14px] leading-5 text-[#8F8F8F]">
+                <span class="min-w-0 truncate text-[14px] leading-5 text-vlc-dim">
                   {row.label}
                 </span>
 
@@ -245,18 +245,18 @@
                   role="switch"
                   aria-checked={row.value}
                   aria-label={row.label}
-                  class="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#262626] bg-[#141414] p-1 pr-2.5 transition-colors hover:border-[#333333] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D37918]"
+                  class="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-vlc-border bg-vlc-panel p-1 pr-2.5 transition-colors hover:border-vlc-borderStrong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vlc-orange"
                   on:click={() => (row.value = !row.value)}
                 >
                   <span
                     class={`h-7 w-7 rounded-md transition-colors ${
-                      row.value ? 'bg-[#D37918]' : 'bg-[#4A4A4A]'
+                      row.value ? 'bg-vlc-orange' : 'bg-vlc-borderStrong'
                     }`}
                     aria-hidden="true"
                   ></span>
                   <span
                     class={`w-[22px] text-center text-[12px] leading-4 ${
-                      row.value ? 'text-[#E6E6E6]' : 'text-[#8F8F8F]'
+                      row.value ? 'text-vlc-text' : 'text-vlc-dim'
                     }`}
                   >
                     {row.value ? 'ON' : 'OFF'}
@@ -265,17 +265,17 @@
               </div>
             {:else if row.type === 'color'}
               <div class="flex min-h-10 items-center justify-between gap-3" data-property-row>
-                <span class="min-w-0 flex-1 truncate text-[14px] leading-5 text-[#8F8F8F]">
+                <span class="min-w-0 flex-1 truncate text-[14px] leading-5 text-vlc-dim">
                   {row.label}
                 </span>
 
                 <div class="flex shrink-0 items-center gap-2">
                   <div
-                    class="flex h-9 w-[102px] items-center gap-1 rounded-[6px] border border-[#262626] bg-[#0E0E0E] pl-2.5 pr-1 focus-within:border-[#D37918]"
+                    class="flex h-9 w-[102px] items-center gap-1 rounded-[6px] border border-vlc-border bg-vlc-app pl-2.5 pr-1 focus-within:border-vlc-orange"
                   >
                     <input
                       type="text"
-                      class="min-w-0 flex-1 bg-transparent text-[12px] leading-4 text-[#B8B8B8] outline-none"
+                      class="min-w-0 flex-1 bg-transparent text-[12px] leading-4 text-vlc-secondary outline-none"
                       value={row.value}
                       maxlength="7"
                       spellcheck="false"
@@ -295,18 +295,18 @@
                     role="switch"
                     aria-checked={row.enabled}
                     aria-label={`${row.label} enabled`}
-                    class="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#262626] bg-[#141414] p-1 pr-2.5 transition-colors hover:border-[#333333] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D37918]"
+                    class="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-vlc-border bg-vlc-panel p-1 pr-2.5 transition-colors hover:border-vlc-borderStrong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vlc-orange"
                     on:click={() => (row.enabled = !row.enabled)}
                   >
                     <span
                       class={`h-7 w-7 rounded-md transition-colors ${
-                        row.enabled ? 'bg-[#D37918]' : 'bg-[#4A4A4A]'
+                        row.enabled ? 'bg-vlc-orange' : 'bg-vlc-borderStrong'
                       }`}
                       aria-hidden="true"
                     ></span>
                     <span
                       class={`w-[22px] text-center text-[12px] leading-4 ${
-                        row.enabled ? 'text-[#E6E6E6]' : 'text-[#8F8F8F]'
+                        row.enabled ? 'text-vlc-text' : 'text-vlc-dim'
                       }`}
                     >
                       {row.enabled ? 'ON' : 'OFF'}

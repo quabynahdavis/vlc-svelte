@@ -39,7 +39,7 @@
         <ChevronRight
           size={14}
           strokeWidth={1.75}
-          class="shrink-0 text-[#5A5A5A]"
+          class="shrink-0 text-vlc-muted"
           aria-hidden="true"
         />
       {/if}

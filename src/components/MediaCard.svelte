@@ -17,7 +17,7 @@
   on:click={() => onSelect(item)}
 >
   <div
-    class="relative aspect-video w-full overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1A1A1A_0%,#0F0F0F_100%)] transition-[border-color,filter] duration-150 group-hover:border-[#3A3A3A] group-hover:brightness-105 group-focus-visible:border-vlc-orange/70 group-focus-visible:ring-1 group-focus-visible:ring-vlc-orange/50"
+    class="relative aspect-video w-full overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105 group-focus-visible:border-vlc-orange/70 group-focus-visible:ring-1 group-focus-visible:ring-vlc-orange/50"
   >
     {#if item.thumbnailPath}
       <img

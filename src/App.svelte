@@ -27,6 +27,8 @@
   import PlayerView from './views/PlayerView.svelte';
 
   let activeNav: NavId = 'home';
+  let sidebarExpanded = false;
+  const sidebarPreference: Partial<Record<NavId, boolean>> = {};
   let showSettings = false;
   let showRightPanel = false;
   let hideChrome = false;
@@ -39,6 +41,12 @@
   function handleNavSelect(id: RailItemId) {
     if (id === 'add') return;
     activeNav = id;
+    sidebarExpanded = sidebarPreference[id] ?? id !== 'home';
+  }
+
+  function handleSidebarExpanded(value: boolean) {
+    sidebarExpanded = value;
+    sidebarPreference[activeNav] = value;
   }
 
   function stopPlayback(): void {
@@ -107,7 +115,7 @@
 </script>
 
 <div
-  class="app-shell flex h-screen w-screen flex-col overflow-hidden bg-vlc-app text-white"
+  class="app-shell flex h-screen w-screen flex-col overflow-hidden bg-vlc-app text-vlc-text"
   class:chrome-hidden={hideChrome}
 >
   <div class="chrome-titlebar shrink-0">
@@ -116,7 +124,12 @@
 
   <div class="flex min-h-0 flex-1">
     <div class="chrome-rail h-full shrink-0">
-      <IconRail active={activeNav} onSelect={handleNavSelect} />
+      <IconRail
+        active={activeNav}
+        expanded={sidebarExpanded}
+        onSelect={handleNavSelect}
+        onExpandedChange={handleSidebarExpanded}
+      />
     </div>
 
     <main

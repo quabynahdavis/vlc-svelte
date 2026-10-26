@@ -14,7 +14,7 @@
 
 <button
   type="button"
-  class="flex h-9 w-[42px] items-center justify-center rounded-[7px] transition-colors hover:bg-[#1A1A1A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+  class="flex h-9 w-[42px] items-center justify-center rounded-[7px] transition-colors hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
   aria-label={label}
   aria-pressed={selected}
   title={label}

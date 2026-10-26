@@ -46,7 +46,7 @@
   $: progressPct = duration > 0 ? clamp((elapsed / duration) * 100, 0, 100) : 0;
   $: bufferedPct = duration > 0 ? clamp(bufferedRatio * 100, 0, 100) : 0;
   $: volumeMuted = $player.muted || $player.volume === 0;
-  $: volumeBackground = `linear-gradient(to right, #F08A1C 0%, #F08A1C ${$player.volume}%, #262626 ${$player.volume}%, #262626 100%)`;
+  $: volumeBackground = `linear-gradient(to right, #D37918 0%, #D37918 ${$player.volume}%, #262626 ${$player.volume}%, #262626 100%)`;
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -360,12 +360,12 @@
     on:keydown={handleSeekKeydown}
   >
     <div
-      class="pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-[#262626]"
+      class="pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-vlc-border"
       aria-hidden="true"
     >
       {#if bufferedPct > 0}
         <div
-          class="absolute inset-y-0 left-0 bg-[#3A3A3A]"
+          class="absolute inset-y-0 left-0 bg-vlc-borderStrong"
           style={`width: ${bufferedPct}%`}
         ></div>
       {/if}
@@ -376,7 +376,7 @@
     </div>
 
     <span
-      class="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow-[0_0_0_3px_rgba(240,138,28,0.18)] transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+      class="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow-[0_0_0_3px_rgba(211,121,24,0.18)] transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
       class:opacity-100={scrubbing}
       style={`left: ${progressPct}%`}
       aria-hidden="true"
@@ -486,8 +486,8 @@
     width: 10px;
     height: 10px;
     border-radius: 9999px;
-    background: #ffffff;
-    box-shadow: 0 0 0 3px rgba(240, 138, 28, 0.18);
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(211, 121, 24, 0.18);
     opacity: 0;
     transition: opacity 120ms ease;
   }
@@ -502,8 +502,8 @@
     height: 10px;
     border: 0;
     border-radius: 9999px;
-    background: #ffffff;
-    box-shadow: 0 0 0 3px rgba(240, 138, 28, 0.18);
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(211, 121, 24, 0.18);
     opacity: 0;
     transition: opacity 120ms ease;
   }

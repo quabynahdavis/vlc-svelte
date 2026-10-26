@@ -42,14 +42,14 @@
             y2="22"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F6A64B" />
-            <stop offset="1" stop-color="#D9770C" />
+            <stop stop-color="#D37918" />
+            <stop offset="1" stop-color="#AB6314" />
           </linearGradient>
         </defs>
         <path d="M12 2.4 17.1 18.2H6.9L12 2.4Z" fill="url(#vlc-title-cone-gradient)" />
         <path
           d="M9.55 9.9h4.9l.62 2.5H8.93l.62-2.5Z"
-          fill="#0B0B0B"
+          fill="#0E0E0E"
           fill-opacity=".22"
         />
         <rect
@@ -65,7 +65,7 @@
 
     <button
       type="button"
-      class="flex h-7 w-8 items-center justify-center rounded-input text-[#8A8A8A] transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-7 w-8 items-center justify-center rounded-input text-vlc-dim transition-colors hover:bg-vlc-card hover:text-vlc-text"
       title="Menu"
       aria-label="Open menu"
       on:click={onSettings}

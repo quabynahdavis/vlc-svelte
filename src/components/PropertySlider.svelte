@@ -19,8 +19,8 @@
 
 <div class="w-full">
   <div class="flex items-baseline justify-between gap-3">
-    <span class="min-w-0 truncate text-[14px] leading-5 text-[#8F8F8F]">{label}</span>
-    <span class="shrink-0 text-[13px] leading-5 tabular-nums text-[#8F8F8F]">{display}</span>
+    <span class="min-w-0 truncate text-[14px] leading-5 text-vlc-dim">{label}</span>
+    <span class="shrink-0 text-[13px] leading-5 tabular-nums text-vlc-dim">{display}</span>
   </div>
 
   <input
@@ -54,7 +54,7 @@
     height: 10px;
     border: 0;
     border-radius: 9999px;
-    background: #d37918;
+    background: #D37918;
     cursor: pointer;
     transition: transform 120ms ease;
   }
@@ -64,7 +64,7 @@
     height: 10px;
     border: 0;
     border-radius: 9999px;
-    background: #d37918;
+    background: #D37918;
     cursor: pointer;
     transition: transform 120ms ease;
   }

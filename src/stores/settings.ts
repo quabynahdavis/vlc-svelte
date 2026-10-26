@@ -108,7 +108,7 @@ export const defaultSettings: SettingsState = {
   embeddedSubFormat: false,
   subtitleFont: 'Inter',
   subtitleTextColor: '#B8B8B8',
-  subtitleOutlineColor: '#0C0C0C',
+  subtitleOutlineColor: '#0E0E0E',
   subtitlePresetOpen: true,
 };
 

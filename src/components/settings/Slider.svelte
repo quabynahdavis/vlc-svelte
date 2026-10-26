@@ -35,7 +35,7 @@
   />
   {#if leftCaption || centerCaption || rightCaption}
     <div
-      class="mt-2 flex items-center justify-between text-[11px] leading-4 text-[#6B6B6B]"
+      class="mt-2 flex items-center justify-between text-[11px] leading-4 text-vlc-muted"
       aria-hidden="true"
     >
       <span>{leftCaption}</span>
@@ -60,8 +60,8 @@
     border-radius: 9999px;
     background: linear-gradient(
       to right,
-      #d37918 0%,
-      #d37918 var(--slider-pct),
+      #D37918 0%,
+      #D37918 var(--slider-pct),
       #262626 var(--slider-pct),
       #262626 100%
     );
@@ -75,7 +75,7 @@
     margin-top: -3px;
     border: 0;
     border-radius: 9999px;
-    background: #d37918;
+    background: #D37918;
     transition: transform 120ms ease;
   }
 
@@ -100,7 +100,7 @@
   .vl-range::-moz-range-progress {
     height: 4px;
     border-radius: 9999px;
-    background: #d37918;
+    background: #D37918;
   }
 
   .vl-range::-moz-range-thumb {
@@ -108,6 +108,6 @@
     height: 10px;
     border: 0;
     border-radius: 9999px;
-    background: #d37918;
+    background: #D37918;
   }
 </style>

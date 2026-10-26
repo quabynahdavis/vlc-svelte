@@ -14,7 +14,7 @@
 </script>
 
 <div
-  class="grid overflow-hidden rounded-[8px] border border-[#262626] bg-[#1A1A1A]"
+  class="grid overflow-hidden rounded-[8px] border border-vlc-border bg-vlc-card"
   style={`grid-template-columns: repeat(${Math.max(options.length, 1)}, minmax(0, 1fr));`}
   role="group"
 >
@@ -22,12 +22,12 @@
     {@const optionVal = optionValue(option)}
     <button
       type="button"
-      class="h-9 border-r border-[#262626] text-[13px] transition-colors last:border-r-0"
-      class:bg-[#D37918]={value === optionVal}
-      class:text-[#0E0E0E]={value === optionVal}
-      class:text-[#8F8F8F]={value !== optionVal}
-      class:hover:bg-[#212121]={value !== optionVal}
-      class:hover:text-[#EAEAEA]={value !== optionVal}
+      class="h-9 border-r border-vlc-border text-[13px] transition-colors last:border-r-0"
+      class:bg-vlc-orange={value === optionVal}
+      class:text-vlc-app={value === optionVal}
+      class:text-vlc-dim={value !== optionVal}
+      class:hover:bg-vlc-raised={value !== optionVal}
+      class:hover:text-vlc-text={value !== optionVal}
       aria-pressed={value === optionVal}
       on:click={() => (value = optionVal)}
     >

@@ -36,7 +36,7 @@
     <div class="flex justify-center pb-1 pt-3">
       <button
         type="button"
-        class="inline-flex items-center gap-2 text-[13px] text-[#B8B8B8] transition-colors hover:text-[#EAEAEA]"
+        class="inline-flex items-center gap-2 text-[13px] text-vlc-secondary transition-colors hover:text-vlc-text"
         aria-expanded={$settings.equalizerOpen}
         on:click={() => toggleSetting('equalizerOpen')}
       >
@@ -69,9 +69,9 @@
                   on:input={(event) => setEqualizerGain(index, Number(event.currentTarget.value))}
                 />
               </div>
-              <span class="mt-4 block text-[11px] leading-4 text-[#6B6B6B]">{band.label}</span>
+              <span class="mt-4 block text-[11px] leading-4 text-vlc-muted">{band.label}</span>
               <span
-                class="mt-2 flex h-7 min-w-[62px] items-center justify-center rounded-[6px] bg-[#1A1A1A] px-1.5 text-[11px] tabular-nums text-[#B8B8B8]"
+                class="mt-2 flex h-7 min-w-[62px] items-center justify-center rounded-[6px] bg-vlc-card px-1.5 text-[11px] tabular-nums text-vlc-secondary"
               >
                 {gain.toFixed(1)} dB
               </span>
@@ -121,12 +121,12 @@
     border-radius: 9999px;
     background: linear-gradient(
       to right,
-      #d37918 0%,
-      #d37918 var(--eq-pct),
+      #D37918 0%,
+      #D37918 var(--eq-pct),
       #0e0e0e var(--eq-pct),
       #0e0e0e 100%
     );
-    box-shadow: inset 0 0 0 1px #2a2a2a;
+    box-shadow: inset 0 0 0 1px #232323;
   }
 
   .eq-slider::-webkit-slider-thumb {
@@ -137,7 +137,7 @@
     margin-top: -5px;
     border: 0;
     border-radius: 3px;
-    background: #d37918;
+    background: #D37918;
   }
 
   .eq-slider:focus-visible {
@@ -157,7 +157,7 @@
   .eq-slider::-moz-range-progress {
     height: 6px;
     border-radius: 9999px;
-    background: #d37918;
+    background: #D37918;
   }
 
   .eq-slider::-moz-range-thumb {
@@ -165,6 +165,6 @@
     height: 16px;
     border: 0;
     border-radius: 3px;
-    background: #d37918;
+    background: #D37918;
   }
 </style>

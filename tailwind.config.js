@@ -5,16 +5,21 @@ export default {
     extend: {
       colors: {
         vlc: {
-          app: '#0B0B0B',
-          panel: '#111111',
-          card: '#1A1A1A',
+          app: '#0E0E0E',
+          panel: '#181818',
+          card: '#1B1B1B',
           raised: '#232323',
           border: '#262626',
-          orange: '#F08A1C',
-          'orange-dark': '#A85A0F',
-          text: '#FFFFFF',
+          borderStrong: '#373737',
+          orange: '#D37918',
+          orangeDark: '#AB6314',
+          orangeDeep: '#371F06',
+          // Retained for existing consumers; matches the camelCase token above.
+          'orange-dark': '#AB6314',
+          text: '#EAEAEA',
           secondary: '#B8B8B8',
-          muted: '#7A7A7A',
+          muted: '#6B6B6B',
+          dim: '#8F8F8F',
           danger: '#E81123',
         },
       },
@@ -35,7 +40,7 @@ export default {
         input: '6px',
       },
       backgroundImage: {
-        'vlc-accent': 'linear-gradient(135deg, #A85A0F 0%, #F08A1C 100%)',
+        'vlc-accent': 'linear-gradient(135deg, #AB6314 0%, #D37918 100%)',
       },
     },
   },

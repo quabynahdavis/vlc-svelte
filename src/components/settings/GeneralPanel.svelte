@@ -75,7 +75,7 @@
         <TextInput bind:value={$settings.logFile} ariaLabel="Log file" placeholder="Select a log file" />
         <button
           type="button"
-          class="h-9 shrink-0 rounded-[8px] px-2 text-[13px] text-[#B8B8B8] transition-colors hover:bg-[#1A1A1A] hover:text-[#EAEAEA]"
+          class="h-9 shrink-0 rounded-[8px] px-2 text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text"
         >
           Browse
         </button>
@@ -95,7 +95,7 @@
   <div class="flex justify-center pb-2 pt-1">
     <button
       type="button"
-      class="inline-flex items-center gap-2 text-[13px] text-[#8F8F8F] transition-colors hover:text-[#EAEAEA]"
+      class="inline-flex items-center gap-2 text-[13px] text-vlc-dim transition-colors hover:text-vlc-text"
     >
       Advanced Options
       <ChevronRight size={14} strokeWidth={1.8} />

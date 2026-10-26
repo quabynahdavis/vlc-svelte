@@ -239,7 +239,7 @@
 {#if open}
   <div
     bind:this={menuEl}
-    class="fixed z-50 w-[300px] rounded-panel border border-[#262626] bg-[#181818] p-1.5 shadow-xl"
+    class="fixed z-50 w-[300px] rounded-panel border border-vlc-border bg-vlc-panel p-1.5 shadow-xl"
     style={`left: ${menuLeft}px; top: ${menuTop}px;`}
     role="menu"
     tabindex="-1"
@@ -253,12 +253,12 @@
   >
     {#each menuItems as item, index (item.type === 'divider' ? `divider-${index}` : item.id)}
       {#if item.type === 'divider'}
-        <div class="my-1 h-px bg-[#262626]" role="separator" data-menu-divider></div>
+        <div class="my-1 h-px bg-vlc-border" role="separator" data-menu-divider></div>
       {:else}
         <div class="relative">
           <button
             type="button"
-            class="flex h-11 w-full items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-[#232323] focus-visible:bg-[#232323] focus-visible:outline-none"
+            class="flex h-11 w-full items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
             role="menuitem"
             aria-haspopup={item.children ? 'menu' : undefined}
             aria-expanded={item.children ? openSubmenu === item.id : undefined}
@@ -275,20 +275,20 @@
               <svelte:component this={item.icon} size={20} strokeWidth={1.6} />
             </span>
 
-            <span class="min-w-0 flex-1 truncate text-[14px] text-[#B8B8B8]">{item.label}</span>
+            <span class="min-w-0 flex-1 truncate text-[14px] text-vlc-secondary">{item.label}</span>
 
             {#if item.shortcut}
-              <span class="shrink-0 text-[12px] text-[#6B6B6B]">{item.shortcut}</span>
+              <span class="shrink-0 text-[12px] text-vlc-muted">{item.shortcut}</span>
             {/if}
 
             {#if item.children}
-              <ChevronRight size={14} strokeWidth={2} class="shrink-0 text-[#6B6B6B]" />
+              <ChevronRight size={14} strokeWidth={2} class="shrink-0 text-vlc-muted" />
             {/if}
           </button>
 
           {#if item.children && openSubmenu === item.id}
             <div
-              class="absolute top-0 z-10 w-[208px] rounded-panel border border-[#262626] bg-[#181818] p-1.5 shadow-xl"
+              class="absolute top-0 z-10 w-[208px] rounded-panel border border-vlc-border bg-vlc-panel p-1.5 shadow-xl"
               style={flipSubmenu
                 ? 'right: calc(100% - 1px);'
                 : 'left: calc(100% - 1px);'}
@@ -300,14 +300,14 @@
               {#each item.children as child (child.id)}
                 <button
                   type="button"
-                  class="flex h-9 w-full items-center justify-between gap-3 rounded-md px-2.5 text-left text-[13px] text-[#B8B8B8] transition-colors hover:bg-[#232323] focus-visible:bg-[#232323] focus-visible:outline-none"
+                  class="flex h-9 w-full items-center justify-between gap-3 rounded-md px-2.5 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
                   role="menuitem"
                   data-submenu-item
                   on:click={() => select(child.id)}
                 >
                   <span class="truncate">{child.label}</span>
                   {#if child.shortcut}
-                    <span class="shrink-0 text-[12px] text-[#6B6B6B]">{child.shortcut}</span>
+                    <span class="shrink-0 text-[12px] text-vlc-muted">{child.shortcut}</span>
                   {/if}
                 </button>
               {/each}

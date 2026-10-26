@@ -121,7 +121,7 @@
   <div class="flex min-w-0 flex-1 flex-col">
     <div
       bind:this={stageEl}
-      class="player-stage relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#0B0B0B] lg:pl-0"
+      class="player-stage relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-vlc-app lg:pl-0"
       class:pl-[300px]={showPlaylist}
     >
       {#if hasMedia}
@@ -146,7 +146,7 @@
       {:else}
         <div class="flex flex-col items-center gap-4 px-6 text-center">
           <svg
-            class="h-24 w-24 drop-shadow-[0_0_40px_rgba(240,138,28,0.18)]"
+            class="h-24 w-24 drop-shadow-[0_0_40px_rgba(211,121,24,0.18)]"
             viewBox="0 0 96 96"
             fill="none"
             aria-hidden="true"
@@ -160,19 +160,19 @@
                 y2="85"
                 gradientUnits="userSpaceOnUse"
               >
-                <stop stop-color="#F6A64B" />
-                <stop offset="1" stop-color="#C96B09" />
+                <stop stop-color="#D37918" />
+                <stop offset="1" stop-color="#AB6314" />
               </linearGradient>
             </defs>
             <path d="M48 8 68 72H28L48 8Z" fill="url(#vlc-empty-cone-gradient)" />
             <path
               d="M38.9 34h18.2l2.6 10H36.3l2.6-10Z"
-              fill="#0B0B0B"
+              fill="#0E0E0E"
               fill-opacity=".18"
             />
             <path
               d="M35.2 50h25.6l2.2 8.5H33l2.2-8.5Z"
-              fill="#0B0B0B"
+              fill="#0E0E0E"
               fill-opacity=".12"
             />
             <rect

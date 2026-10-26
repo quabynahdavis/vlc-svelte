@@ -6,7 +6,7 @@
 </script>
 
 <div
-  class="flex h-9 w-[190px] items-center gap-2 rounded-[8px] border border-[#262626] bg-[#1A1A1A] pl-3 pr-2 transition-colors focus-within:border-[#D37918]/70 hover:border-[#343434]"
+  class="flex h-9 w-[190px] items-center gap-2 rounded-[8px] border border-vlc-border bg-vlc-card pl-3 pr-2 transition-colors focus-within:border-vlc-orange/70 hover:border-vlc-borderStrong"
 >
   <input
     bind:value
@@ -14,7 +14,7 @@
     aria-label={`${ariaLabel} hex value`}
     autocomplete="off"
     spellcheck="false"
-    class="min-w-0 flex-1 bg-transparent text-[13px] uppercase text-[#EAEAEA] outline-none placeholder:text-[#6B6B6B]"
+    class="min-w-0 flex-1 bg-transparent text-[13px] uppercase text-vlc-text outline-none placeholder:text-vlc-muted"
   />
   <span
     class="relative block h-[22px] w-[22px] shrink-0 overflow-hidden rounded-[4px] border border-white/15"
