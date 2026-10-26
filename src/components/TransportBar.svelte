@@ -24,13 +24,12 @@
     toggle,
     toggleMute,
   } from '../stores/player';
+  import { dockMode, openDock } from '../stores/ui';
 
   export let videoEl: HTMLVideoElement | null = null;
   export let mediaAvailable = false;
   export let bufferedRatio = 0;
-  export let playlistOpen = true;
   export let fullscreenTarget: HTMLElement | null = null;
-  export let onTogglePlaylist: () => void = () => {};
   export let onSettings: () => void = () => {};
 
   let seekTrack: HTMLDivElement | null = null;
@@ -423,17 +422,27 @@
   <div class="flex shrink-0 items-center gap-0.5">
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
-      title="Audio track"
-      aria-label="Audio track"
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card hover:text-white"
+      class:text-vlc-orange={$dockMode === 'audio'}
+      class:text-vlc-secondary={$dockMode !== 'audio'}
+      class:bg-vlc-card={$dockMode === 'audio'}
+      title="Audio"
+      aria-label="Open audio dock"
+      aria-pressed={$dockMode === 'audio'}
+      on:click={() => openDock('audio')}
     >
       <AudioLines size={18} strokeWidth={1.6} />
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card hover:text-white"
+      class:text-vlc-orange={$dockMode === 'subtitles'}
+      class:text-vlc-secondary={$dockMode !== 'subtitles'}
+      class:bg-vlc-card={$dockMode === 'subtitles'}
       title="Subtitles"
-      aria-label="Subtitles"
+      aria-label="Open subtitles dock"
+      aria-pressed={$dockMode === 'subtitles'}
+      on:click={() => openDock('subtitles')}
     >
       <Captions size={18} strokeWidth={1.6} />
     </button>
@@ -461,13 +470,14 @@
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card"
-      class:text-vlc-orange={playlistOpen}
-      class:text-vlc-secondary={!playlistOpen}
-      title={playlistOpen ? 'Hide playlist' : 'Show playlist'}
-      aria-label={playlistOpen ? 'Hide playlist' : 'Show playlist'}
-      aria-pressed={playlistOpen}
-      on:click={onTogglePlaylist}
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card hover:text-white"
+      class:text-vlc-orange={$dockMode === 'queue'}
+      class:text-vlc-secondary={$dockMode !== 'queue'}
+      class:bg-vlc-card={$dockMode === 'queue'}
+      title="Playing queue"
+      aria-label="Open playing queue"
+      aria-pressed={$dockMode === 'queue'}
+      on:click={() => openDock('queue')}
     >
       <ListVideo size={18} strokeWidth={1.6} />
     </button>

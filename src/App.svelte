@@ -1,5 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store';
+  import { tick } from 'svelte';
   import ContextMenu from './components/ContextMenu.svelte';
   import IconRail from './components/IconRail.svelte';
   import PropertyPanel, {
@@ -21,6 +22,7 @@
     closeContextMenu,
     contextMenu,
     openContextMenu,
+    openDock,
     propertiesPanel,
   } from './stores/ui';
   import LibraryView from './views/LibraryView.svelte';
@@ -51,6 +53,22 @@
 
   function stopPlayback(): void {
     player.update((state) => ({ ...state, isPlaying: false, currentTime: 0 }));
+  }
+
+  /** Open Global Settings and select a category once the modal is mounted. */
+  async function openSettingsAt(category: string): Promise<void> {
+    showSettings = true;
+    await tick();
+
+    requestAnimationFrame(() => {
+      const buttons = document.querySelectorAll<HTMLButtonElement>(
+        'aside[aria-label="Settings categories"] button',
+      );
+      const target = Array.from(buttons).find(
+        (button) => button.textContent?.trim() === category,
+      );
+      target?.click();
+    });
   }
 
   async function quitApp(): Promise<void> {
@@ -97,9 +115,7 @@
         propertiesPanel.set(true);
         break;
       case 'effects-video':
-        propertyPreset = 'video';
-        panelOpen = true;
-        propertiesPanel.set(true);
+        openDock('video');
         break;
       case 'effects-hide':
         propertiesPanel.set(false);
@@ -137,7 +153,10 @@
       on:contextmenu|preventDefault={openContextMenu}
     >
       {#if activeNav === 'home'}
-        <PlayerView on:settings={() => (showSettings = true)} />
+        <PlayerView
+          on:settings={() => (showSettings = true)}
+          on:advancedSettings={(event) => void openSettingsAt(event.detail)}
+        />
       {:else if activeNav === 'videos'}
         <LibraryView />
       {:else}

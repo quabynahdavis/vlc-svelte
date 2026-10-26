@@ -1,10 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import PlaylistPanel from '../components/PlaylistPanel.svelte';
+  import RightDock from '../components/RightDock.svelte';
   import TransportBar from '../components/TransportBar.svelte';
   import { currentTrack, next, player } from '../stores/player';
 
-  const dispatch = createEventDispatcher<{ settings: void }>();
+  const dispatch = createEventDispatcher<{ settings: void; advancedSettings: string }>();
 
   // Optional external source kept for compatibility with the shell/library flow.
   export let src = '';
@@ -197,12 +198,14 @@
       {videoEl}
       mediaAvailable={hasMedia}
       bufferedRatio={buffered}
-      playlistOpen={showPlaylist}
       fullscreenTarget={stageEl}
-      onTogglePlaylist={() => (showPlaylist = !showPlaylist)}
       onSettings={() => dispatch('settings')}
     />
   </div>
+
+  <RightDock
+    onAdvancedSettings={(category) => dispatch('advancedSettings', category ?? 'Subtitles')}
+  />
 </div>
 
 <style>

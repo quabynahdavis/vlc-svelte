@@ -18,6 +18,19 @@ export const contextMenu = writable<ContextMenuState>(initialContextMenu);
 /** Whether the docked property/effects panel is visible. */
 export const propertiesPanel = writable(false);
 
+export type DockMode = 'closed' | 'audio' | 'subtitles' | 'video' | 'queue';
+
+/** Which panel the right-hand dock is showing. */
+export const dockMode = writable<DockMode>('closed');
+
+/**
+ * Toggle the right dock. Selecting the active mode closes it,
+ * selecting another mode swaps the panel in place.
+ */
+export function openDock(mode: DockMode): void {
+  dockMode.update((current) => (current === mode ? 'closed' : mode));
+}
+
 /**
  * Open the context menu at the pointer position.
  * Right-click handlers call this directly; the native menu is suppressed.
