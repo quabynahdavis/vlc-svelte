@@ -31,10 +31,12 @@
   import SubtitlesPanel from './settings/SubtitlesPanel.svelte';
   import VideoPanel from './settings/VideoPanel.svelte';
   import ExportImportPanel from './settings/ExportImportPanel.svelte';
-import { settings, defaultSettings } from '../stores/settings';
+import { settings } from '../stores/settings';
 
   export let open = false;
   export let onClose: () => void = () => {};
+
+  let resetError = '';
 
   interface SettingsItem {
     id: string;
@@ -210,7 +212,14 @@ import { settings, defaultSettings } from '../stores/settings';
               No settings found for “{query}”.
             </p>
           {/if}
-          <button type="button" class="h-9 px-4 rounded-[8px] bg-vlc-danger/20 text-vlc-danger hover:bg-vlc-danger/30" aria-label="Reset all settings" on:click={() => { if (confirm('Reset all settings to defaults? This cannot be undone.')) { settings.set({ ...defaultSettings }); } }}>Reset All Settings</button>
+          <button 
+            type="button" 
+            class="h-9 px-4 rounded-[8px] bg-vlc-danger/20 text-vlc-danger hover:bg-vlc-danger/30"
+            aria-label="Reset all settings"
+            on:click={() => { if (confirm('Reset all settings to defaults? This cannot be undone.')) { settings.set({ ...settings }); } }}
+          >
+            Reset All Settings
+          </button>
         </aside>
 
         <section
