@@ -5,17 +5,19 @@
     Clapperboard,
     Play,
     X,
+    WaveSquare,
   } from 'lucide-svelte';
   import type { ComponentType } from 'svelte';
   import { player } from '../stores/player';
   import { dockMode, openDock } from '../stores/ui';
   import type { DockMode } from '../stores/ui';
-  import AudioEffectsPanel from './dock/AudioEffectsPanel.svelte';
   import EqPanel from './dock/EqPanel.svelte';
-  import PlaybackPanel from './dock/PlaybackPanel.svelte';
-  import QueuePanel from './dock/QueuePanel.svelte';
-  import SubtitleDockPanel from './dock/SubtitleDockPanel.svelte';
-  import VideoEffectsPanel from './dock/VideoEffectsPanel.svelte';
+  let AudioEffectsPanel: any;
+let AudioVisualizerPanel: any;
+  let PlaybackPanel: any;
+  let QueuePanel: any;
+  let SubtitleDockPanel: any;
+  let VideoEffectsPanel: any;
 
   export let onAdvancedSettings: (category?: string) => void = () => {};
 
@@ -29,6 +31,7 @@
     { id: 'playback', label: 'Playback', icon: Play },
     { id: 'video', label: 'Video', icon: Clapperboard },
     { id: 'audio', label: 'Audio', icon: AudioLines },
+    { id: 'visualizer', label: 'Visualizer', icon: WaveSquare },
     { id: 'subtitles', label: 'Subtitles', icon: Captions },
   ];
 
@@ -39,11 +42,17 @@
     subtitles: 'Subtitles',
     video: 'Video',
     queue: 'Playing Queue',
+    visualizer: 'Visualizer',
   };
 
   $: title = titles[$dockMode] ?? 'Panel';
   $: showTabs = $dockMode !== 'closed' && $dockMode !== 'queue';
   $: queueCount = `${$player.queue.length} ${$player.queue.length === 1 ? 'item' : 'items'}`;
+
+  async function loadPanel(name: string) {
+    const mod = await import(`./dock/${name}.svelte`);
+    return mod.default;
+  }
 
   function selectTab(mode: DockMode): void {
     if (mode === 'closed' || mode === 'queue') return;
@@ -116,24 +125,44 @@
     <div class="dock-scroll min-h-0 flex-1 overflow-y-auto">
       {#if $dockMode === 'playback'}
         <div class="p-4 pb-6">
-          <PlaybackPanel />
+          {#await loadPanel('PlaybackPanel') then PlaybackPanel}
+            <svelte:component this={PlaybackPanel} />
+          {:else}
+            <div class="animate-spin h-5 w-5 rounded-full border-2 border-vlc-border border-t-vlc-orange mx-auto"></div>
+          {/await}
         </div>
       {:else if $dockMode === 'audio'}
         <div class="p-4 pb-6 space-y-3">
           <EqPanel />
-          <AudioEffectsPanel />
+          {#await loadPanel('AudioEffectsPanel') then AudioEffectsPanel}
+            <svelte:component this={AudioEffectsPanel} />
+          {:else}
+            <div class="animate-spin h-5 w-5 rounded-full border-2 border-vlc-border border-t-vlc-orange mx-auto"></div>
+          {/await}
         </div>
       {:else if $dockMode === 'subtitles'}
         <div class="p-4 pb-6">
-          <SubtitleDockPanel {onAdvancedSettings} />
+          {#await loadPanel('SubtitleDockPanel') then SubtitleDockPanel}
+            <svelte:component this={SubtitleDockPanel} {onAdvancedSettings} />
+          {:else}
+            <div class="animate-spin h-5 w-5 rounded-full border-2 border-vlc-border border-t-vlc-orange mx-auto"></div>
+          {/await}
         </div>
       {:else if $dockMode === 'video'}
         <div class="p-4 pb-6">
-          <VideoEffectsPanel />
+          {#await loadPanel('VideoEffectsPanel') then VideoEffectsPanel}
+            <svelte:component this={VideoEffectsPanel} />
+          {:else}
+            <div class="animate-spin h-5 w-5 rounded-full border-2 border-vlc-border border-t-vlc-orange mx-auto"></div>
+          {/await}
         </div>
       {:else if $dockMode === 'queue'}
         <div class="p-4 pb-6">
-          <QueuePanel />
+          {#await loadPanel('QueuePanel') then QueuePanel}
+            <svelte:component this={QueuePanel} />
+          {:else}
+            <div class="animate-spin h-5 w-5 rounded-full border-2 border-vlc-border border-t-vlc-orange mx-auto"></div>
+          {/await}
         </div>
       {/if}
     </div>
