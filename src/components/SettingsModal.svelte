@@ -17,9 +17,19 @@
     X,
   } from 'lucide-svelte';
   import AudioPanel from './settings/AudioPanel.svelte';
+  import ControlsPanel from './settings/ControlsPanel.svelte';
+  import ExtensionsPanel from './settings/ExtensionsPanel.svelte';
   import GeneralPanel from './settings/GeneralPanel.svelte';
+  import InterfacePanel from './settings/InterfacePanel.svelte';
+  import LibraryPanel from './settings/LibraryPanel.svelte';
+  import NetworkPanel from './settings/NetworkPanel.svelte';
+  import PerformancePanel from './settings/PerformancePanel.svelte';
   import PlaceholderPanel from './settings/PlaceholderPanel.svelte';
+  import PlaybackPanel from './settings/PlaybackPanel.svelte';
+  import PrivacyPanel from './settings/PrivacyPanel.svelte';
+  import RecordingPanel from './settings/RecordingPanel.svelte';
   import SubtitlesPanel from './settings/SubtitlesPanel.svelte';
+  import VideoPanel from './settings/VideoPanel.svelte';
 
   export let open = false;
   export let onClose: () => void = () => {};
@@ -206,10 +216,30 @@
         >
           {#if category === 'general'}
             <GeneralPanel />
+          {:else if category === 'interface'}
+            <InterfacePanel />
+          {:else if category === 'privacy'}
+            <PrivacyPanel />
+          {:else if category === 'controls'}
+            <ControlsPanel />
+          {:else if category === 'playback'}
+            <PlaybackPanel />
+          {:else if category === 'video'}
+            <VideoPanel />
           {:else if category === 'audio'}
             <AudioPanel />
           {:else if category === 'subtitles'}
             <SubtitlesPanel on:navigate={(event) => selectCategory(event.detail)} />
+          {:else if category === 'library'}
+            <LibraryPanel />
+          {:else if category === 'network'}
+            <NetworkPanel />
+          {:else if category === 'performance'}
+            <PerformancePanel />
+          {:else if category === 'recording'}
+            <RecordingPanel />
+          {:else if category === 'extensions'}
+            <ExtensionsPanel />
           {:else}
             <PlaceholderPanel title={activeItem?.label ?? 'Settings'} />
           {/if}
