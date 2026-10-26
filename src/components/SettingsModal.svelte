@@ -244,6 +244,8 @@ import { settings, defaultSettings } from '../stores/settings';
             <RecordingPanel />
           {:else if category === 'extensions'}
             <ExtensionsPanel />
+          {:else if category === 'exportimport'}
+            <ExportImportPanel />
           {:else}
             <PlaceholderPanel title={activeItem?.label ?? 'Settings'} />
           {/if}
