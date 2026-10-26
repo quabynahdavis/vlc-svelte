@@ -30,6 +30,7 @@
   import RecordingPanel from './settings/RecordingPanel.svelte';
   import SubtitlesPanel from './settings/SubtitlesPanel.svelte';
   import VideoPanel from './settings/VideoPanel.svelte';
+  import ExportImportPanel from './settings/ExportImportPanel.svelte';
 import { settings, defaultSettings } from '../stores/settings';
 
   export let open = false;
@@ -73,6 +74,7 @@ import { settings, defaultSettings } from '../stores/settings';
         { id: 'performance', label: 'Performance', icon: Gauge },
         { id: 'recording', label: 'Recording', icon: Disc },
         { id: 'extensions', label: 'Extensions', icon: Puzzle },
+        { id: 'exportimport', label: 'Export / Import', icon: SlidersHorizontal },
       ],
     },
   ];
@@ -208,8 +210,8 @@ import { settings, defaultSettings } from '../stores/settings';
               No settings found for “{query}”.
             </p>
           {/if}
+          <button type="button" class="h-9 px-4 rounded-[8px] bg-vlc-danger/20 text-vlc-danger hover:bg-vlc-danger/30" aria-label="Reset all settings" on:click={() => { if (confirm('Reset all settings to defaults? This cannot be undone.')) { settings.set({ ...defaultSettings }); } }}>Reset All Settings</button>
         </aside>
-        <button type="button" class="h-9 px-4 rounded-[8px] bg-vlc-danger/20 text-vlc-danger hover:bg-vlc-danger/30" aria-label="Reset all settings" on:click={() => { if (confirm('Reset all settings to defaults? This cannot be undone.')) { settings.set({ ...defaultSettings }); } }}>Reset All Settings</button>
 
         <section
           bind:this={contentEl}
