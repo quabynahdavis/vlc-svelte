@@ -74,7 +74,7 @@
           class:text-vlc-dim={active !== item.id}
           class:group-hover:text-vlc-secondary={active !== item.id}
         >
-          <svelte:component this={iconComponents[item.icon]} size={20} strokeWidth={1.75} />
+          <svelte:component this={iconComponents[item.icon]} size={20} strokeWidth={1.75} aria-hidden="true" />
         </span>
 
         {#if expanded}

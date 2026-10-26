@@ -156,7 +156,15 @@ let AudioVisualizerPanel: any;
             <div class="animate-spin h-5 w-5 rounded-full border-2 border-vlc-border border-t-vlc-orange mx-auto"></div>
           {/await}
         </div>
-      {:else if $dockMode === 'queue'}
+              {:else if $dockMode === 'visualizer'}
+          <div class="p-4 pb-6">
+            {#await loadPanel('AudioVisualizerPanel') then AudioVisualizerPanel}
+              <svelte:component this={AudioVisualizerPanel} />
+            {:else}
+              <div class="animate-spin h-5 w-5 rounded-full border-2 border-vlc-border border-t-vlc-orange mx-auto"></div>
+            {/await}
+          </div>
+        {:else if $dockMode === 'queue'}
         <div class="p-4 pb-6">
           {#await loadPanel('QueuePanel') then QueuePanel}
             <svelte:component this={QueuePanel} />

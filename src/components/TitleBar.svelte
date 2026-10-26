@@ -65,12 +65,12 @@
 
     <button
       type="button"
-      class="flex h-7 w-8 items-center justify-center rounded-input text-vlc-dim transition-colors hover:bg-vlc-card hover:text-vlc-text"
+      class="flex h-7 w-8 items-center justify-center rounded-input text-vlc-dim transition-colors hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Menu"
       aria-label="Open menu"
       on:click={onSettings}
     >
-      <MoreHorizontal size={16} strokeWidth={2} />
+      <MoreHorizontal size={16} strokeWidth={2} aria-hidden="true" />
     </button>
   </div>
 
@@ -84,30 +84,30 @@
   <div class="flex h-full items-center">
     <button
       type="button"
-      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Minimize"
       aria-label="Minimize window"
       on:click={() => windowAction('minimize')}
     >
-      <Minus size={14} strokeWidth={1.75} />
+      <Minus size={14} strokeWidth={1.75} aria-hidden="true" />
     </button>
     <button
       type="button"
-      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Maximize"
       aria-label="Maximize window"
       on:click={() => windowAction('maximize')}
     >
-      <Square size={12} strokeWidth={1.75} />
+      <Square size={12} strokeWidth={1.75} aria-hidden="true" />
     </button>
     <button
       type="button"
-      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-danger hover:text-white"
+      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Close"
       aria-label="Close window"
       on:click={() => windowAction('close')}
     >
-      <X size={15} strokeWidth={1.75} />
+      <X size={15} strokeWidth={1.75} aria-hidden="true" />
     </button>
   </div>
 </header>
