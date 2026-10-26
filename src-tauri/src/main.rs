@@ -1,15 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::Manager;
-
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            let window = app.get_window("main").expect("main window not found");
             #[cfg(debug_assertions)]
             {
+                use tauri::Manager;
+
+                let window = app
+                    .get_webview_window("main")
+                    .expect("main window not found");
                 window.open_devtools();
             }
+            #[cfg(not(debug_assertions))]
+            let _ = app;
             Ok(())
         })
         .run(tauri::generate_context!())
