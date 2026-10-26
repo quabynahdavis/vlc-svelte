@@ -9,14 +9,15 @@
     ListMusic,
     Plus,
     Search,
-  } from 'lucide-svelte';
+  X,
+} from 'lucide-svelte';
 
   type Playlist = {
     id: string;
     name: string;
   };
 
-  const dispatch = createEventDispatcher<{ back: void }>();
+  const dispatch = createEventDispatcher<{ back: void; close: void }>();
 
   const playlists: Playlist[] = [
     { id: 'cool-songs', name: 'Cool Songs' },
@@ -59,6 +60,15 @@
         aria-label="Open in new window"
       >
         <ExternalLink size={16} strokeWidth={1.75} />
+      </button>
+      <button
+        type="button"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-card hover:text-white"
+        title="Close playlist"
+        aria-label="Close playlist"
+        on:click={() => dispatch('close')}
+      >
+        <X size={16} strokeWidth={1.75} />
       </button>
     </div>
   </header>

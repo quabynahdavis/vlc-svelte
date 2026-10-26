@@ -115,7 +115,7 @@
     <div
       class="absolute bottom-[52px] left-0 top-0 z-20 w-[300px] lg:static lg:h-full lg:shadow-none"
     >
-      <PlaylistPanel />
+      <PlaylistPanel on:close={() => (showPlaylist = false)} />
     </div>
   {/if}
 
