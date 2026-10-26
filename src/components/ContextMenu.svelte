@@ -236,6 +236,10 @@
     handleItemClick(item, event.currentTarget as HTMLElement);
   }
 
+  function handleRowClickWrapper(item: ActionItem): (event: MouseEvent) => void {
+    return (event: MouseEvent) => handleItemClick(item, event.currentTarget as HTMLElement);
+  }
+
   function handleItemClick(item: ActionItem, row: HTMLElement | null): void {
     if (item.children?.length) {
       if (openSubmenu === item.id) {
@@ -338,10 +342,10 @@
             data-menu-item
             data-item-id={item.id}
             data-has-children={item.children ? 'true' : 'false'}
-            on:click={(event) => handleItemClick(item, event.currentTarget as HTMLElement)}
-            on:mouseenter={(event) => openSubmenuForRow(event.currentTarget as HTMLElement)}
-            on:pointerenter={(event) => openSubmenuForRow(event.currentTarget as HTMLElement)}
-            on:focus={(event) => openSubmenuForRow(event.currentTarget as HTMLElement)}
+            on:click={handleRowClickWrapper(item)}
+            on:mouseenter={handleRowEnter}
+            on:pointerenter={handleRowEnter}
+            on:focus={handleRowEnter}
           >
             <span
               class="flex h-5 w-5 shrink-0 items-center justify-center"
