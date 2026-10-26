@@ -14,7 +14,7 @@ The folder `VLC Redesign (Community)/` at the repository root contains the expor
 | `Player-3.png` | 1056 × 594 | Player layout with a **pink/magenta** accent. |
 | `Player-4.png` | 1056 × 594 | Player layout with a **blue** accent. |
 
-The player is a dark, custom-chrome window with rounded corners. A `#0B0B0B` title bar runs across the top: VLC cone mark at the left, a centred `VLC Media Player` label, and minimise/maximise/close controls at the right. Below it, a narrow `#111111` icon rail (Home, Videos, Music, Network, Playlists, Recent, Add Item) sits to the left of an optional playlist panel and the black video canvas. The bottom transport bar contains, from left to right:
+The player is a dark, custom-chrome window with rounded corners. A `#0E0E0E` title bar runs across the top: VLC cone mark at the left, a centred `VLC Media Player` label, and minimise/maximise/close controls at the right. Below it, a narrow `#181818` icon rail (Home, Videos, Music, Network, Playlists, Recent, Add Item) sits to the left of an optional playlist panel and the black video canvas. The bottom transport bar contains, from left to right:
 
 1. previous-item button;
 2. an accent-filled circular play/pause button;
@@ -27,7 +27,7 @@ The player is a dark, custom-chrome window with rounded corners. A `#0B0B0B` tit
 9. a settings gear;
 10. a fullscreen button.
 
-Use `Player.png` / `Player-1.png` for proportions and spacing; use `Player-2..4` for accent theming. The current `PlayerView.svelte` does not match this chrome yet.
+Use `Player.png` / `Player-1.png` for proportions and spacing; use `Player-2..4` for accent theming. The implemented `PlayerView.svelte` follows this chrome with a media stage, playlist panel and transport bar.
 
 ### Right-click menu — 1 file
 
@@ -80,7 +80,7 @@ All are 1440 px wide and show collapsible **Collapse Settings** panels with slid
 | `Property 1=expanded-5.png` | 1440 × 608 | Collapse padding: Top / Bottom / Left / Right, all `0 px`, with link toggles. |
 | `Property 1=expanded-6.png` | 1440 × 3020 | Colour effects: Color Extraction and Color Threshold (`#FF0000`), Saturation, Similarity, Negate Colors, Posterize, Gradient, Color, Cartoon, Sepia Intensity. |
 
-Common pattern: a collapsible header, a label + value line, a full-width slider with a rounded accent thumb. This is the basis for the planned `SliderRow` / `EffectPanel` components.
+Common pattern: a collapsible header, a label + value line, a full-width slider with a rounded accent thumb. `PropertyPanel.svelte` and `PropertySlider.svelte` implement this pattern.
 
 ### Small assets — 9 files
 
@@ -104,29 +104,33 @@ The palette is defined once in [../design/01-design-system.md](../design/01-desi
 
 | Role | Token | Value |
 | --- | --- | --- |
-| App background | `--bg-app` | `#0B0B0B` |
-| Sidebar | `--bg-sidebar` | `#111111` |
-| Card / modal / menu | `--bg-card` | `#1A1A1A` |
+| App background | `--bg-app` | `#0E0E0E` |
+| Panel | `--bg-panel` | `#181818` |
+| Panel alt | `--bg-panel-alt` | `#191919` |
+| Card | `--bg-card` | `#1B1B1B` |
 | Raised / hover | `--bg-raised` | `#232323` |
-| Accent (VLC orange) | `--accent` | `#F08A1C` |
-| Accent gradient start | `--accent-deep` | `#A85A0F` |
-| Primary text | `--text-primary` | `#FFFFFF` |
+| Accent (VLC orange) | `--accent` | `#D37918` |
+| Accent pressed / icon dark | `--accent-pressed` | `#AB6314` |
+| Fill start (deepest) | `--accent-deepest` | `#371F06` |
+| Primary text | `--text-primary` | `#EAEAEA` |
 | Secondary text | `--text-secondary` | `#B8B8B8` |
-| Muted text | `--text-muted` | `#7A7A7A` |
-| Border | `--border` | `#262626` |
+| Muted text | `--text-muted` | `#8F8F8F` |
+| Dim text | `--text-dim` | `#6B6B6B` |
+| Border | `--border` | `#373737` |
+| Border subtle | `--border-subtle` | `#262626` |
 
-Alternate accents appear in `Player-2.png` (purple), `Player-3.png` (pink) and `Player-4.png` (blue); the nine swatches in `Settings - global.png` are the full observed set. Only the orange value is canonical today; sample the others when alternate theming is implemented.
+Alternate accents appear in `Player-2.png` (purple), `Player-3.png` (pink) and `Player-4.png` (blue); the swatch row in `Settings - global.png` is the observed set. Only the orange value is canonical today; sample the others when alternate theming is implemented.
 
 ## Screen-to-code mapping
 
-| Reference | Current target | Status |
+| Reference | Implemented file(s) | Status |
 | --- | --- | --- |
-| Player frames | `src/views/PlayerView.svelte`; planned split into `components/player/*` | Scaffold exists; chrome/layout not aligned |
-| Right-click menu | Planned `components/menu/ContextMenu.svelte` | Planned |
-| Subtitles panel | Planned `components/settings/SubtitlesPanel.svelte` | Planned |
-| Global / Audio settings | `src/views/SettingsView.svelte`; planned settings modal + sidebar + `ToggleRow` / `SliderRow` / `Equalizer` | Only three static controls exist |
-| Property/effect panels | Planned `components/settings/EffectPanel.svelte`, `SliderRow.svelte` | Planned |
-| Frames, disc and UI icons | Planned theme tokens and icon slots | Planned |
+| Player frames | `src/views/PlayerView.svelte`, `components/TitleBar.svelte`, `IconRail.svelte`, `PlaylistPanel.svelte`, `TransportBar.svelte` | Shell implemented; media/library wiring pending |
+| Library grid | `src/views/LibraryView.svelte`, `LibraryToolbar.svelte`, `MediaCard.svelte` | Implemented; card selection not wired |
+| Right-click menu | `src/components/ContextMenu.svelte` | Implemented, including submenus |
+| Settings modal | `src/components/SettingsModal.svelte` + `components/settings/*` | Modal, General, Audio and Subtitles implemented; other categories placeholders |
+| Property/effect panels | `components/PropertyPanel.svelte`, `PropertySlider.svelte` | Implemented; docked from `App.svelte` |
+| Frames, disc and UI icons | Theme tokens and icon slots | Documented; not wired |
 | Accent swatches and theme variants | Tokens in [../design/01-design-system.md](../design/01-design-system.md) | Documented; not wired |
 
 ## Using the exports as an implementation spec
@@ -135,17 +139,17 @@ Alternate accents appear in `Player-2.png` (purple), `Player-3.png` (pink) and `
 2. **Fix a comparison viewport.** The app window is 1200 × 800 (`tauri.conf.json`). The player variants are 1056 × 594; compare proportionally rather than pixel-for-pixel across different sizes.
 3. **Extract layout before styling.** Note the window chrome, the control-strip height, the order and spacing of controls, the sidebar width, and the modal padding. Translate them into Tailwind spacing rather than absolute positioning.
 4. **Extract tokens.** Use the canonical palette in [../design/01-design-system.md](../design/01-design-system.md); define each value once in `tailwind.config.js` (`theme.extend`) or as a CSS custom property instead of scattering hex values.
-5. **Map to components.** Follow the table above; do not grow the two views further.
+5. **Map to components.** Follow the table above; do not grow the view files further.
 6. **Cover states.** Default, hover, focus, active, disabled; toggles on/off; slider at min/mid/max; menu submenu open; active tab; accent variants (orange, purple, pink, blue).
-7. **Recreate, do not embed.** Screenshots are raster references. The SVG source is the only vector source; do not ship a 30 MB SVG as the app UI.
-8. **Check accessibility.** Icon-only buttons need accessible names, focus rings must remain visible on dark surfaces, and text must keep sufficient contrast (the muted `#7A7A7A` on `#111111` / `#1A1A1A` is low-contrast for body text — reserve it for secondary labels, shortcuts and placeholders).
+7. **Recreate, do not embed.** Screenshots are raster references. The 25 PNGs are the source of truth; the 30 MB SVG is a collage of the same 21 screen images, not extra vector data. Do not ship it as the app UI.
+8. **Check accessibility.** Icon-only buttons need accessible names, focus rings must remain visible on dark surfaces, and text must keep sufficient contrast (`#6B6B6B` on `#181818` / `#1B1B1B` is low-contrast for body text — reserve it for secondary labels, shortcuts and placeholders).
 9. **Visual acceptance.** At 1200 × 800, compare the player window, open menu, settings modal and subtitles panel side by side with the references. Document intentional deviations.
 
 ## Current gaps
 
-- The app shell uses a light gray navigation bar; the references show a dark window with custom chrome.
-- The player still displays native browser controls alongside the custom bar and has no working seek/volume/fullscreen behavior.
-- No context menu, subtitle panel, settings categories, equalizer or effect panels exist.
-- The settings screen has only three static controls and does not apply a theme.
-- No accent-colour theming or Inter font is wired up.
-- No local-media picker or metadata display exists yet.
+- Design tokens are implemented with interim approximations in `tailwind.config.js`; several components also use literal hex values instead of tokens.
+- The library card selection is inert and no media is queued at startup.
+- Ten settings categories render `PlaceholderPanel`; only General, Audio and Subtitles are implemented.
+- Settings and playback state have no persistence layer.
+- Accent-colour theming and self-hosted Inter are not wired up.
+- No local-media picker or Tauri command integration exists yet.

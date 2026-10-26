@@ -4,16 +4,29 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-10-26
 
+### Implemented — UI phases
+
+- `feat(ui): design tokens and application shell` (`80abc9c`) — dark application shell with `TitleBar`, `IconRail`, `ContextMenu`, settings modal scaffold, context-menu actions, Tailwind `vlc.*` palette and base styles.
+- `feat(library): breadcrumb toolbar and media grid` (`ac3c088`) — `LibraryView`, `LibraryToolbar` (breadcrumb, count, search) and a responsive `MediaCard` grid backed by the library store.
+- `feat(player): playlist panel and transport controls` (`74a7159`) — `PlayerView` with `PlaylistPanel`, a synced `<video>` element, seek/volume/buffered state and the `TransportBar` controls.
+
+### Corrected — design tokens
+
+- Replaced the approximate palette with values measured from the PNG exports: accent `#D37918`, pressed/icon dark `#AB6314`, fill start `#371F06`, app `#0E0E0E`, panel `#181818`, panel alt `#191919`, card `#1B1B1B`, raised `#232323`, border `#373737`, border subtle `#262626`, and text `#EAEAEA` / `#B8B8B8` / `#8F8F8F` / `#6B6B6B`.
+- Recorded the 25 PNGs as the source of truth; the ~30 MB SVG is a collage of the same 21 screen images and adds no vector data.
+- Documented the implemented components (`TitleBar`, `IconRail`, `PlaylistPanel`, `TransportBar`, `MediaCard`, `LibraryToolbar`, `SettingsModal`, `ContextMenu`, `PropertyPanel` / `PropertySlider`) and their files.
+- Marked `tailwind.config.js` as interim; the target values and required config changes are listed in the design system document.
+
 ### Added — design system
 
-- Added [design/01-design-system.md](design/01-design-system.md): canonical colour, typography, radius, spacing and elevation tokens, plus the observed components (icon rail, transport bar, settings modal, context menu, toggle switch, sliders, tab bar, segmented control, accent swatches and property slider rows).
-- Cited the source exports in `VLC Redesign (Community)/` by filename and recorded the palette: app `#0B0B0B`, sidebar `#111111`, cards `#1A1A1A`, raised `#232323`, accent `#F08A1C`, amber gradient `#A85A0F → #F08A1C`, text `#FFFFFF` / `#B8B8B8` / `#7A7A7A`, border `#262626`, radii 12/8/6 px and Inter.
+- Added [design/01-design-system.md](design/01-design-system.md): canonical measured colour, typography, radius, spacing and elevation tokens, plus component specifications and implementation status.
+- Documented the source exports in `VLC Redesign (Community)/` by filename, including the 21 screen images and the small frame/disc/icon assets.
 
-### Added — documentation
+### Documentation cleanup
 
-- Created the English documentation tree under `/docs/en/` with `architecture/`, `design/` and `guides/` domains.
-- Added architecture documents (stack, frontend, Tauri backend), guides (setup, design reference) and the design-system reference.
-- Recorded the design-asset inventory: 25 PNGs + 1 SVG in `VLC Redesign (Community)/`.
+- docs cleanup: French removed, English-only structure. `docs/fr/` and every French mirror link are gone; `docs/en/` is the sole language root with `OVERVIEW.md` and `CHANGELOG.md`.
+- Deleted the redundant root-level `docs/OVERVIEW.md` and `docs/CHANGELOG.md`; the required pair now lives only at the language root, `docs/en/`.
+- Deleted the duplicate `OVERVIEW.md` / `CHANGELOG.md` files from `docs/en/architecture/` and `docs/en/guides/`. Domain folders contain only numbered topic documents.
 
 ### Changed — Tauri v2 migration (complete)
 
@@ -28,12 +41,6 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 - Fixed the Vite output path in commit `b6c72c0`: `build.outDir` changed from `../src-tauri/gen/dist` to `src-tauri/gen/dist`, so the bundle is written inside the project at `src-tauri/gen/dist/` and matches `build.frontendDist` (`gen/dist`, resolved relative to `src-tauri/`).
 - Resolved the frontend build issue in `src/views/SettingsView.svelte` (commit `da32cfd`, "fix: resolve build issues").
 
-### Removed — documentation
-
-- Cancelled the French documentation. Deleted the entire `docs/fr/` tree and every French mirror link.
-- Deleted the redundant root-level `docs/OVERVIEW.md` and `docs/CHANGELOG.md`; the required pair now lives only at the language root, `docs/en/`.
-- Deleted the duplicate `OVERVIEW.md` / `CHANGELOG.md` files from `docs/en/architecture/` and `docs/en/guides/`. Domain folders now contain only numbered topic documents.
-
 ### Added — scaffold
 
 - Initial Tauri + Svelte + Vite + Tailwind scaffold (commit `f06be1b`): `App.svelte`, `PlayerView.svelte`, `SettingsView.svelte`, Tauri configuration and placeholder icons.
@@ -44,3 +51,5 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 - `src-tauri/icons/` still contains the default Tauri placeholder icons.
 - `bun run dev` starts Vite twice (directly and through Tauri's `beforeDevCommand`), which conflicts with `strictPort: true`; use `bun run dev:tauri` instead.
 - `bun run build` runs `vite build` and then `tauri build`, whose `beforeBuildCommand` runs Vite again; the frontend is built twice.
+- `tailwind.config.js` still uses the interim palette; several components also contain literal hex values. The fidelity pass must align both with the measured tokens.
+- Ten settings categories render `PlaceholderPanel`; only General, Audio and Subtitles are implemented.

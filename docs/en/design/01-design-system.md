@@ -1,10 +1,14 @@
 # Design System
 
-**Status:** target specification extracted from the design exports. The tokens are **not yet implemented** in `tailwind.config.js` or the Svelte components. Last updated 2026-10-26.
+**Status:** canonical target specification measured from the design exports. The application shell and core components are implemented in `src/`; `tailwind.config.js` still carries interim approximations and will be aligned during the fidelity pass. Last updated 2026-10-26.
 
-This document is the canonical token reference for the VLC Redesign UI. The source of truth is the exported artwork in `VLC Redesign (Community)/` at the repository root. Rebuild the interface in HTML, Svelte and Tailwind; never embed the exports as application UI.
+This document is the canonical token reference for the VLC Redesign UI. The source of truth is the **25 PNG files** in `VLC Redesign (Community)/` at the repository root. Rebuild the interface in Svelte and Tailwind; never embed the exports as application UI.
 
-## Source exports
+## Source of truth
+
+- The 25 PNGs are authoritative for colour, spacing, type and component states.
+- `VLC Redesign (Community).svg` (~30 MB) is **not** a vector master with extra data. It is a collage of the same 21 screen images already exported as PNGs. Do not mine it for additional measurements; use the PNGs.
+- Earlier palette values in this document were approximations. The measured values below supersede them.
 
 | File | Size | Contribution to this document |
 | --- | --- | --- |
@@ -30,36 +34,39 @@ This document is the canonical token reference for the VLC Redesign UI. The sour
 | `name=disc, direction=default, state=default, value=default, EQ=default, two-tone=yes.png` | 24 × 24 | Two-tone disc icon. |
 | `name=ui, direction=default, state=default, value=default, EQ=default, two-tone=no.png` | 24 × 24 | UI/hide-interface icon. |
 
-`VLC Redesign (Community).svg` (~30 MB) is the vector master. Use it only to confirm measurements that are ambiguous in the PNGs; do not ship it as an asset.
-
 ## Colour tokens
 
-| Token | Value | Role | Source |
+The palette below is sampled directly from the PNGs. All component colours must resolve to these tokens.
+
+| Token | Hex | Tailwind target | Role |
 | --- | --- | --- | --- |
-| `--bg-app` | `#0B0B0B` | Application background, player surround, title bar, transport-bar base. | `Player.png`, `Player-1.png` |
-| `--bg-sidebar` | `#111111` | Icon rail, settings category sidebar, secondary navigation columns. | `Player.png`, `Settings - global.png` |
-| `--bg-card` | `#1A1A1A` | Cards, grouped settings surfaces, modal body, context-menu surface. | `Settings - global.png`, `right-click menu.png`, `Property 1=expanded-2.png` |
-| `--bg-raised` | `#232323` | Raised rows, hover/selected rows, toggle tracks, segmented-control container, inset controls. | `Settings - global.png`, `Subtitles.png` |
-| `--accent` | `#F08A1C` | VLC orange: primary actions, active tab underline, slider thumb, selected navigation, ON state. | `Player.png`, `Settings - global.png`, `Subtitles.png` |
-| `--accent-deep` | `#A85A0F` | Dark end of the amber fill gradient. | `Player.png`, `Subtitles.png`, `Property 1=expanded-2.png` |
-| `--accent-gradient` | `#A85A0F` → `#F08A1C` | Horizontal fill for seek bars, volume bars and active slider tracks. | `Player.png`, `Subtitles.png` |
-| `--text-primary` | `#FFFFFF` | Headings, active labels, numeric values, menu item labels. | `Settings - global.png`, `right-click menu.png` |
-| `--text-secondary` | `#B8B8B8` | Setting labels, inactive tabs, descriptions. | `Settings - global.png`, `Subtitles.png` |
-| `--text-muted` | `#7A7A7A` | Shortcut hints, placeholders, tertiary metadata. | `right-click menu.png`, `Settings - global.png` |
-| `--border` | `#262626` | 1 px panel outlines, dividers, input borders, menu border. | `Settings - global.png`, `right-click menu.png` |
+| `--accent` | `#D37918` | `vlc.orange` | VLC orange: primary action, active navigation icon, active tab underline, slider thumb, focus ring. |
+| `--accent-pressed` | `#AB6314` | `vlc.orange-pressed` | Pressed/active state for accent controls and darker accent line icons. |
+| `--accent-deepest` | `#371F06` | `vlc.orange-deepest` | Deep amber at the start of progress, seek, volume and slider fills. |
+| `--bg-app` | `#0E0E0E` | `vlc.app` | Application background, player canvas surround, title bar, transport-bar base. |
+| `--bg-panel` | `#181818` | `vlc.panel` | Icon rail, playlist panel, settings category column, floating menu surface. |
+| `--bg-panel-alt` | `#191919` | `vlc.panel-alt` | Adjacent/secondary panel surface; one step above `--bg-panel`. |
+| `--bg-card` | `#1B1B1B` | `vlc.card` | Cards, grouped settings surfaces, raised content blocks. |
+| `--bg-raised` | `#232323` | `vlc.raised` | Hovered/selected rows, elevated controls, toggle tracks. |
+| `--border` | `#373737` | `vlc.border` | Panel outlines, dividers, input borders, menu border. |
+| `--border-subtle` | `#262626` | `vlc.border-subtle` | Low-contrast internal dividers and card outlines. |
+| `--text-primary` | `#EAEAEA` | `vlc.text` | Headings, active labels, numeric values, menu labels on hover. |
+| `--text-secondary` | `#B8B8B8` | `vlc.secondary` | Setting labels, inactive tabs, menu labels, descriptions. |
+| `--text-muted` | `#8F8F8F` | `vlc.muted` | Inactive icons, secondary metadata, placeholders. |
+| `--text-dim` | `#6B6B6B` | `vlc.dim` | Shortcut hints, captions, disabled labels and other non-essential text. |
 
 ### Usage rules
 
-- **Use surface steps, not shadows, for hierarchy.** App → sidebar → card → raised is the elevation order; do not invert it.
-- **Accent is functional, not decorative.** Limit `#F08A1C` to the primary action, active state, progress fill and focus ring. Large orange fields are not part of the reference.
-- **Amber fills are gradients.** Progress and active slider fills run left-to-right from `#A85A0F` to `#F08A1C`; solid orange is acceptable for small elements such as the play button and toggle knob.
-- **Text on accent** should be `#0B0B0B` (near-black), not white, for contrast on the orange play button.
-- **Muted text is not body text.** `#7A7A7A` on `#111111` / `#1A1A1A` is suitable only for shortcuts, placeholders and non-essential metadata.
-- **Borders are subtle.** Use `1px solid #262626`; avoid brighter outlines except on focus.
+- **Use surface steps, not shadows, for hierarchy.** App `#0E0E0E` → panel `#181818` → panel alt `#191919` → card `#1B1B1B` → raised `#232323`. Do not invert the order.
+- **Accent is functional, not decorative.** Limit `#D37918` to the primary action, active state, progress fill and focus ring. `#AB6314` is the pressed/darker companion; `#371F06` belongs in fills, not text or icons.
+- **Amber fills are gradients.** Progress, seek, volume and active slider tracks run left-to-right from `#371F06` to `#D37918`. Solid `#D37918` is acceptable for small elements such as the play button, toggle knob and active indicator.
+- **Text on accent** uses `#0E0E0E` (near-black), not white, for contrast on the orange play button.
+- **Borders are quiet.** Use `#373737` for structural outlines and `#262626` for internal dividers. Avoid brighter outlines except on focus.
+- **Text tiers are deliberate.** `#EAEAEA` for primary content, `#B8B8B8` for labels, `#8F8F8F` for metadata, `#6B6B6B` only for non-essential hints.
 
 ### Alternate accents
 
-`Player-2.png`, `Player-3.png`, `Player-4.png` and `Settings - global.png` show accent variants (purple, pink, blue, plus the swatch row). The default remains VLC orange. Alternate accents must replace `--accent` and `--accent-deep`; the neutral surfaces and text tokens stay unchanged. Exact swatch values are not yet tokenised and should be sampled from `Settings - global.png` when theming is implemented.
+`Player-2.png`, `Player-3.png`, `Player-4.png` and `Settings - global.png` show accent variants (purple, pink, blue and a swatch row). The default remains VLC orange `#D37918`. Alternate accents replace `--accent`, `--accent-pressed` and `--accent-deepest`; neutral surfaces and text tokens stay unchanged. The current settings store carries ten swatches (orange, red, gold, green, teal, blue, indigo, purple, pink and grey); the non-orange values remain design data to sample and contrast-check before themes ship.
 
 ## Typography
 
@@ -69,18 +76,18 @@ This document is the canonical token reference for the VLC Redesign UI. The sour
 | Fallback stack | `Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` | Project convention |
 | Numeric style | Tabular figures for timers and slider readouts | `Player.png`, `Property 1=expanded-2.png` |
 
-Observed hierarchy (approximate; confirm against the master exports before hard-coding):
+Observed hierarchy (approximate; confirm against the PNGs before hard-coding):
 
 | Role | Size / weight | Colour |
 | --- | --- | --- |
-| Window or page title | 20–24 px / 600 | `#FFFFFF` |
-| Section heading | 18–20 px / 600 | `#FFFFFF` |
+| Window or page title | 20–24 px / 600 | `#EAEAEA` |
+| Section heading | 18–20 px / 600 | `#EAEAEA` |
 | Setting row label | 14–16 px / 400–500 | `#B8B8B8` |
-| Setting value | 14–16 px / 500 | `#FFFFFF` |
-| Tab label | 14–16 px / 500 | `#B8B8B8` inactive, `#FFFFFF` active |
-| Menu item | 16–18 px / 400 | `#FFFFFF` |
-| Shortcut hint | 13–14 px / 400 | `#7A7A7A` |
-| Caption / help | 12–13 px / 400 | `#7A7A7A` |
+| Setting value | 14–16 px / 500 | `#EAEAEA` |
+| Tab label | 14–16 px / 500 | `#B8B8B8` inactive, `#EAEAEA` active |
+| Menu item | 16–18 px / 400 | `#B8B8B8`, `#EAEAEA` on hover |
+| Shortcut hint | 13–14 px / 400 | `#6B6B6B` |
+| Caption / help | 12–13 px / 400 | `#8F8F8F` |
 
 Inter must be self-hosted or bundled with the app; do not add a runtime dependency on a font CDN.
 
@@ -99,77 +106,118 @@ Inter must be self-hosted or bundled with the app; do not add a runtime dependen
 
 Toggles, slider thumbs and accent swatches are fully rounded or circular even though panels and controls use the radii above.
 
-## Components observed
+## Implemented components
+
+These files exist in `src/` and compose the current shell. They are the reference implementation for the token roles above.
+
+| Component | File | Responsibility | Status |
+| --- | --- | --- | --- |
+| Application shell | `src/App.svelte` | Title bar, icon rail, view switching, property dock, settings overlay and shell-level context-menu actions. | Implemented |
+| Title bar | `src/components/TitleBar.svelte` | 40 px custom chrome: VLC cone, centred title, settings and window controls; Tauri drag region. | Implemented |
+| Icon rail | `src/components/IconRail.svelte` | 64 px primary navigation rail (Home, Videos, Music, Network, Playlists, Recent, Add) with accent active state. | Implemented |
+| Playlist panel | `src/components/PlaylistPanel.svelte` | 300 px playlist sidebar with back, search, add, list/grid toggle and track list. | Implemented |
+| Transport bar | `src/components/TransportBar.svelte` | 52 px control strip: previous/play/next, elapsed/total time, seek, buffered track, volume, audio/subtitle/settings/fullscreen/playlist. | Implemented |
+| Library toolbar | `src/components/LibraryToolbar.svelte` | Back button, breadcrumb, item count, search and sort/view controls. | Implemented |
+| Media card | `src/components/MediaCard.svelte` | 16:9 poster tile with title and thin progress hairline. | Implemented |
+| Settings modal | `src/components/SettingsModal.svelte` | Full-window modal with search, grouped category sidebar and scrollable content pane. | Implemented |
+| Settings panels | `src/components/settings/*.svelte` | General, Audio and Subtitles panes implemented; all other categories render `PlaceholderPanel`. | In progress |
+| Context menu | `src/components/ContextMenu.svelte` | Floating right-click menu with icons, shortcuts, separators and submenus. | Implemented |
+| Property panel | `src/components/PropertyPanel.svelte` | Docked 400 px effects panel with collapsible sections and slider/toggle/colour rows. | Implemented |
+| Property slider | `src/components/PropertySlider.svelte` | Label/value row with tick-marked range control. | Implemented |
+
+### Shell
+
+`App.svelte` stacks the title bar above a horizontal body: icon rail, main view and optional property dock. `home` renders `PlayerView`, `videos` renders `LibraryView`, and the remaining rail destinations show a "Coming soon" placeholder. `SettingsModal` opens as a full-window overlay. Right-clicking the main area opens `ContextMenu`; menu actions drive the player store, the property dock and window close.
+
+### Title bar
+
+40 px bar on `#0E0E0E` with the VLC cone at the left, a centred `VLC Media Player` label in `#B8B8B8`, a settings button and minimise/maximise/close controls at the right. Window buttons are wired to the Tauri window API and degrade to console warnings in the browser. Source: `Player.png`.
 
 ### Icon rail
 
-A narrow vertical rail on the far left, `#111111`, roughly 64–72 px wide, with stacked line icons (Home, Videos, Music, Network, Playlists, Recent, Add). The active item uses `#F08A1C`; inactive icons use `#B8B8B8` and brighten on hover. Labels appear as tooltips or beside the icon when the rail is expanded. Source: `Player.png`, `Player-1.png`; the settings category column in `Settings - global.png` uses the same sidebar surface and active-accent pattern.
+64 px vertical rail on `#181818` with stacked line icons and tooltips. The active item uses `#D37918` plus a 2 px left indicator; inactive icons use `#8F8F8F` and brighten to `#EAEAEA` on hover. Source: `Player.png`; the settings category column in `Settings - global.png` uses the same panel surface and active-accent pattern.
+
+### Playlist panel
+
+300 px panel on `#181818` with a 44 px header (back, title, more, open-in-new-window), a search field, list/grid toggle and playlist rows. Selected rows use `#232323`; metadata uses `#8F8F8F` and `#6B6B6B`. Source: `Player.png`.
 
 ### Transport bar
 
-The bottom control strip spans the window on `#0B0B0B` with a top border or surface step against the video canvas. Layout, left to right: previous, accent circular play/pause, next, elapsed time, seek bar, total duration, volume icon and level, audio-track, subtitle, settings and fullscreen. Timers use `#B8B8B8`; the seek fill uses the amber gradient with a circular `#F08A1C` thumb. Source: `Player.png`, `Player-1.png`; accent variants in `Player-2.png`, `Player-3.png`, `Player-4.png`.
+52 px strip on `#0E0E0E` with a top border against the video stage. Layout, left to right: previous, accent play/pause (34 × 30 px, `#D37918`), next, elapsed time, seek bar, total duration, volume icon and level, audio-track, subtitle, settings, fullscreen and playlist toggles. Timers use `#B8B8B8` tabular figures; the seek fill runs from `#371F06` to `#D37918` over a `#262626` track, and the thumb is white with an accent halo. Source: `Player.png`; accent variants in `Player-2.png`–`Player-4.png`.
+
+### Library toolbar and media grid
+
+Toolbar is 64 px high with a back button, breadcrumb (`ChevronRight` separators), live item count and a search field. The grid is responsive (2–5 columns) of 16:9 `MediaCard` tiles: `#1B1B1B` surface, `#262626` border, hover border `#3A3A3A`, title in `#B8B8B8`, progress hairline in `#D37918`. Source: `Player-1.png` and the library views.
 
 ### Settings modal
 
-A centred floating panel on a dimmed app background. The panel body is `#1A1A1A` with a `12px` radius and `1px #262626` border; the category sidebar is `#111111`; the header contains a search field and close button. Category groups are separated by muted headings. Source: `Settings - global.png`, `Settings - audio.png`.
+A full-window overlay on a dimmed app background with a `12px`-radius panel on `#0E0E0E`. The header holds a 300 px search field; the category sidebar is `#181818` with `#262626` divider; the content pane scrolls on `#0E0E0E`. Active categories use `#1B1B1B` and `#EAEAEA`; inactive labels use `#B8B8B8`; group headings and placeholders use `#6B6B6B`. General, Audio and Subtitles are implemented; Interface, Privacy, Controls, Playback, Video, Library, Network, Performance, Recording and Extensions are planned and currently render a placeholder. Source: `Settings - global.png`, `Settings - audio.png`, `Subtitles.png`.
 
 ### Context menu
 
-A floating `#1A1A1A` card with `12px` radius and `1px #262626` border. Rows combine an accent line icon, a white label and a right-aligned `#7A7A7A` shortcut; hover uses `#232323`. Submenu rows end in a chevron. Source: `right-click menu.png`.
+A floating card on `#181818` with `12px` radius, `1px #262626` border and a soft shadow. Rows combine an accent line icon, a `#B8B8B8` label and a right-aligned `#6B6B6B` shortcut; hover/focus uses `#232323`. Separators are `#262626`; submenu rows end in a chevron. Source: `right-click menu.png`.
 
-### Toggle switch
+### Property panel and slider
 
-A pill track with a circular knob. OFF uses a `#232323` track with `#7A7A7A` label; ON uses `#F08A1C` with a near-black or white knob and a white `ON` label. The reference places the state word (`OFF` / `ON`) beside the switch. Source: `Settings - global.png`, `Settings - audio.png`, `Subtitles.png`.
-
-### Sliders
-
-Full-width horizontal track with a `#232323` or near-black groove, an amber gradient fill and a circular `#F08A1C` thumb. The label sits above-left and the numeric value above-right; property panels add tick marks along the track. Source: `Subtitles.png`, `Property 1=expanded-2.png`, `Property 1=expanded-1.png`.
-
-### Tab bar with orange underline
-
-A horizontal tab row (Playback, Video, Audio, Subtitles) on a dark surface. The active tab uses white text and a 2 px `#F08A1C` underline; inactive tabs use `#B8B8B8`. Source: `Subtitles.png`.
-
-### Segmented control
-
-A three-part control (Dark / Light / System) inside a `#232323` container with an `8px` radius. The selected segment uses an amber-tinted fill and `#F08A1C` border; unselected segments use `#B8B8B8` text. Source: `Settings - global.png`.
-
-### Accent colour swatches
-
-A row of nine rounded-square swatches. The default orange (`#F08A1C`) is first; the selected swatch carries a visible ring or border. Observed variants include orange, coral/red, olive/yellow, green, cyan/blue, blue, purple, pink and grey. Treat the non-orange values as design data to sample, not as final tokens. Source: `Settings - global.png`.
-
-### Property slider rows
-
-A card-based panel with a collapsible `Collapse Settings` header, then repeated rows of label + numeric value + full-width slider. Panels use `#1A1A1A`, `12px` radius and `#262626` borders; rows are separated by spacing rather than heavy dividers. Source: `Property 1=expanded.png` through `Property 1=expanded-6.png`.
+Docked 400 px panel on `#0E0E0E` with a collapsible header, section labels and repeated rows of label + numeric value + full-width slider. Rows use `#B8B8B8`/`#EAEAEA` text, `#262626` tracks and `#D37918` fill; the thumb is white with an accent halo. Panels are separated by spacing rather than heavy dividers. Source: `Property 1=expanded.png` through `Property 1=expanded-6.png`.
 
 ### Supporting elements
 
-- **Inputs and selects:** near-black `#0B0B0B` field on a `#1A1A1A` surface, `6px` radius, `1px #262626` border, `#FFFFFF` value and `#7A7A7A` placeholder. Source: `Settings - global.png`, `Subtitles.png`.
-- **Window chrome:** `#0B0B0B` title bar with the VLC cone at the left, centred `VLC Media Player` label in `#B8B8B8`, and minimise/maximise/close controls at the right in `#B8B8B8`. Source: `Player.png`, `Player-1.png`.
-- **Cards/media tiles:** `#1A1A1A` tiles with `12px` radius and a filename caption in `#B8B8B8`; hover raises the surface to `#232323`. Source: `Player-1.png`.
+- **Inputs and selects:** `#1B1B1B` field on a `#0E0E0E`/`#181818` surface, `6px` radius, `1px #262626` border, `#EAEAEA` value and `#6B6B6B` placeholder.
+- **Window chrome:** `#0E0E0E` title bar with the VLC cone at the left, centred `VLC Media Player` label in `#B8B8B8`, and window controls at the right in `#B8B8B8`.
+- **Cards/media tiles:** `#1B1B1B` tiles with a filename caption in `#B8B8B8`; hover raises the surface to `#232323`.
+- **Toggle switch:** `#232323` track OFF, `#D37918` track ON, white knob, visible `ON`/`OFF` state word.
 
 ## Tailwind mapping
 
-The current `tailwind.config.js` has an empty `theme.extend`. When implementing the tokens, add them once and reference the semantic names from components:
+**Interim state:** `tailwind.config.js` currently defines the `vlc.*` palette with first-pass approximations (`#0B0B0B`, `#F08A1C`, `#FFFFFF`, `#262626`, …). Components also contain literal hex values sampled directly from the PNGs. Until the fidelity pass updates `tailwind.config.js` and replaces those literals, the config values are **not** the measured palette. The table lists the targets.
+
+| Config key | Current (interim) | Target | Action |
+| --- | --- | --- | --- |
+| `vlc.app` | `#0B0B0B` | `#0E0E0E` | Update |
+| `vlc.panel` | `#111111` | `#181818` | Update |
+| `vlc.panel-alt` | — | `#191919` | Add |
+| `vlc.card` | `#1A1A1A` | `#1B1B1B` | Update |
+| `vlc.raised` | `#232323` | `#232323` | Match |
+| `vlc.border` | `#262626` | `#373737` | Update |
+| `vlc.border-subtle` | — | `#262626` | Add |
+| `vlc.orange` | `#F08A1C` | `#D37918` | Update |
+| `vlc.orange-pressed` | — | `#AB6314` | Add |
+| `vlc.orange-dark` | `#A85A0F` | `#371F06` | Replace with `orange-deepest` |
+| `vlc.text` | `#FFFFFF` | `#EAEAEA` | Update |
+| `vlc.secondary` | `#B8B8B8` | `#B8B8B8` | Match |
+| `vlc.muted` | `#7A7A7A` | `#8F8F8F` | Update |
+| `vlc.dim` | — | `#6B6B6B` | Add |
+| `backgroundImage.vlc-accent` | `135deg, #A85A0F → #F08A1C` | `90deg, #371F06 → #D37918` | Update |
+| `vlc.danger` | `#E81123` | `#E81123` | Keep (semantic, not from the PNGs) |
+
+Target configuration (not yet applied):
 
 ```js
-// tailwind.config.js — target tokens, not yet applied
+// tailwind.config.js — target tokens
 theme: {
   extend: {
     colors: {
-      app: '#0B0B0B',
-      sidebar: '#111111',
-      card: '#1A1A1A',
-      raised: '#232323',
-      accent: {
-        DEFAULT: '#F08A1C',
-        deep: '#A85A0F',
-      },
-      content: {
-        primary: '#FFFFFF',
+      vlc: {
+        app: '#0E0E0E',
+        panel: '#181818',
+        'panel-alt': '#191919',
+        card: '#1B1B1B',
+        raised: '#232323',
+        border: '#373737',
+        'border-subtle': '#262626',
+        orange: '#D37918',
+        'orange-pressed': '#AB6314',
+        'orange-deepest': '#371F06',
+        text: '#EAEAEA',
         secondary: '#B8B8B8',
-        muted: '#7A7A7A',
+        muted: '#8F8F8F',
+        dim: '#6B6B6B',
+        danger: '#E81123',
       },
-      line: '#262626',
+    },
+    backgroundImage: {
+      'vlc-accent': 'linear-gradient(90deg, #371F06 0%, #D37918 100%)',
     },
     borderRadius: {
       panel: '12px',
@@ -188,19 +236,23 @@ For runtime theming (alternate accents, light mode), expose the same values as C
 ```css
 /* src/app.css — target tokens, not yet applied */
 :root {
-  --bg-app: #0B0B0B;
-  --bg-sidebar: #111111;
-  --bg-card: #1A1A1A;
+  --bg-app: #0E0E0E;
+  --bg-panel: #181818;
+  --bg-panel-alt: #191919;
+  --bg-card: #1B1B1B;
   --bg-raised: #232323;
 
-  --accent: #F08A1C;
-  --accent-deep: #A85A0F;
-  --accent-gradient: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  --accent: #D37918;
+  --accent-pressed: #AB6314;
+  --accent-deepest: #371F06;
+  --accent-gradient: linear-gradient(90deg, var(--accent-deepest), var(--accent));
 
-  --text-primary: #FFFFFF;
+  --text-primary: #EAEAEA;
   --text-secondary: #B8B8B8;
-  --text-muted: #7A7A7A;
-  --border: #262626;
+  --text-muted: #8F8F8F;
+  --text-dim: #6B6B6B;
+  --border: #373737;
+  --border-subtle: #262626;
 
   --radius-panel: 12px;
   --radius-control: 8px;
@@ -212,41 +264,46 @@ For runtime theming (alternate accents, light mode), expose the same values as C
 
 | Element | Surface | Text | Border | Radius |
 | --- | --- | --- | --- | --- |
-| App shell / transport bar | `--bg-app` | `--text-secondary` | — | — |
-| Icon rail / settings sidebar | `--bg-sidebar` | `--text-secondary`, `--text-primary` when active | — | — |
-| Card / modal / context menu | `--bg-card` | `--text-primary` | `--border` | `--radius-panel` |
+| App shell / transport bar | `--bg-app` | `--text-secondary` | `--border-subtle` | — |
+| Icon rail / playlist / settings sidebar | `--bg-panel` (or `--bg-panel-alt` for an adjacent column) | `--text-muted`, `--text-primary` when active | `--border-subtle` | — |
+| Card / grouped settings surface | `--bg-card` | `--text-primary` | `--border-subtle` | `--radius-panel` |
+| Floating menu / modal | `--bg-panel` or `--bg-app` for the content pane | `--text-primary` | `--border` | `--radius-panel` |
 | Hovered or selected row | `--bg-raised` | `--text-primary` | — | `--radius-control` |
 | Primary action / play button | `--accent` or `--accent-gradient` | `--bg-app` | — | full |
-| Input / select | `--bg-app` | `--text-primary` | `--border` | `--radius-input` |
+| Input / select | `--bg-card` | `--text-primary`, `--text-dim` placeholder | `--border-subtle` | `--radius-input` |
 | Toggle track OFF / ON | `--bg-raised` / `--accent` | `--text-secondary` / `--text-primary` | — | full |
-| Slider track / fill | `--bg-raised` or near-black / `--accent-gradient` | `--text-secondary` | — | full |
+| Slider track / fill | `--border-subtle` / `--accent-gradient` | `--text-secondary` | — | full |
 
 ## Accessibility and states
 
-- **Focus:** 2 px `#F08A1C` ring with a 2 px offset; never remove focus outlines on dark surfaces.
-- **Hover:** move one surface step up (`#1A1A1A` → `#232323`); do not change text colour alone.
-- **Disabled:** keep the shape, reduce opacity, and use `#7A7A7A`; do not rely on colour alone.
+- **Focus:** 2 px `#D37918` ring with a 2 px offset; never remove focus outlines on dark surfaces.
+- **Hover:** move one surface step up (`#1B1B1B` → `#232323`) and brighten text to `#EAEAEA`; do not change text colour alone.
+- **Pressed:** use `#AB6314` for accent controls; do not darken neutral panels below `--bg-app`.
+- **Disabled:** keep the shape, reduce opacity, and use `#6B6B6B`; do not rely on colour alone.
 - **Toggles:** expose `role="switch"` / `aria-checked` and keep the visible `ON` / `OFF` label.
 - **Tabs:** use `role="tab"` / `aria-selected`; the orange underline must not be the only active signal (also change text colour/weight).
 - **Sliders:** implement as `<input type="range">` or an ARIA slider with keyboard support; show the numeric value in text.
-- **Contrast:** `#FFFFFF` and `#B8B8B8` pass on the neutral surfaces; reserve `#7A7A7A` for non-essential text. Verify `#F08A1C` on `#0B0B0B` for small icons.
+- **Contrast:** `#EAEAEA` and `#B8B8B8` pass on the neutral surfaces; reserve `#8F8F8F` for metadata and `#6B6B6B` for non-essential text. Verify `#D37918` on `#0E0E0E` for small icons and accents.
 - **Motion:** keep transitions short (120–160 ms) and respect `prefers-reduced-motion`.
 
 ## Implementation checklist
 
-- [ ] Add Inter locally and set it as the default sans font.
-- [ ] Define the colour, radius and font tokens in `tailwind.config.js` (or as CSS variables).
-- [ ] Replace the light navigation bar and `blue-600` accents with the dark shell and `#F08A1C`.
-- [ ] Build the primitives first: `IconButton`, `Toggle`, `Slider`, `TabBar`, `SegmentedControl`, `Card`, `ContextMenu`.
-- [ ] Compose the player chrome (icon rail, playlist panel, transport bar) from `Player.png`.
-- [ ] Compose the settings modal, subtitles panel and property panels from their respective exports.
+- [x] Build the application shell: title bar, icon rail, playlist panel, transport bar and settings overlay.
+- [x] Build the library toolbar, media grid and media cards.
+- [x] Build the context menu, property panel and property slider.
+- [x] Implement the General, Audio and Subtitles settings panes.
+- [ ] Update `tailwind.config.js` from the interim values to the measured palette above.
+- [ ] Replace literal hex values in components with semantic tokens.
+- [ ] Add Inter locally and confirm it is the default sans font.
+- [ ] Implement the remaining settings categories (Interface, Privacy, Controls, Playback, Video, Library, Network, Performance, Recording, Extensions).
+- [ ] Wire library card selection to the player and load real media.
 - [ ] Cover off/on, hover, focus, active, disabled, min/mid/max slider and submenu-open states.
-- [ ] Verify at the app window size of 1200 × 800 against `Player.png` and `Settings - global.png`.
-- [ ] Confirm the amber gradient angle and volume-meter green against the master exports before release.
+- [ ] Verify at 1200 × 800 against `Player.png` and `Settings - global.png`.
+- [ ] Confirm the fill-gradient angle and volume-meter colour against the PNGs before release.
 
 ## Open questions
 
 - The exact gradient angle for seek/volume fills is not encoded in the PNGs; a left-to-right (`90deg`) gradient matches the observed appearance.
-- The volume level in `Player.png` uses a green fill that is outside the core palette; decide whether it becomes a semantic `--success` token.
-- The nine accent swatches need exact sampled values and a contrast check before alternate themes ship.
-- Window chrome is drawn in the exports; on Linux/macOS/Windows the native decorations may differ. Decide between custom decorations and native chrome during implementation.
+- The volume level in `Player.png` shows a green segment outside the core palette; decide whether it becomes a semantic `--success` token or stays a player-only accent.
+- The alternate accent swatches need exact sampled values and a contrast check before themes ship.
+- Window chrome is drawn in the exports; on Linux/macOS/Windows the native decorations may differ. The current implementation uses a custom Tauri title bar.
