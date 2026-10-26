@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, ArrowUpDown, ChevronRight, LayoutGrid, LayoutList } from 'lucide-svelte';
+  import { ArrowLeft, ArrowUpDown, ChevronRight, LayoutGrid, LayoutList, Search } from 'lucide-svelte';
   import { artists } from '../lib/mock';
   import { musicBreadcrumb, selectedArtistId, selectedAlbumId, musicViewMode, musicSort } from '../stores/music';
   import FuzzySearch from '../components/FuzzySearch.svelte';

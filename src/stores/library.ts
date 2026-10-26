@@ -10,6 +10,9 @@ export const libraryItems: Writable<MediaItem[]> = writable([...showsItems]);
 /** Raw search box contents, shared so later phases can layer on other filters. */
 export const searchQuery: Writable<string> = writable('');
 
+/** Import log placeholder for UI debugging. */
+export const libraryImportLog: Writable<string> = writable('');
+
 /** Case-insensitive title filter used by the library grid and toolbar count. */
 export const filteredItems: Readable<MediaItem[]> = derived(
   [libraryItems, searchQuery],
@@ -20,3 +23,4 @@ export const filteredItems: Readable<MediaItem[]> = derived(
     return $libraryItems.filter((item) => item.title.toLowerCase().includes(query));
   },
 );
+

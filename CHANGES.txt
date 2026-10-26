@@ -1,0 +1,1 @@
+fix(ui): resolve DropZone CSS and RightDock i18n syntax errors

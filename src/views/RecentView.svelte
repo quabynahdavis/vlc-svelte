@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Trash2 } from 'lucide-svelte';
+  import { Trash2, Search } from 'lucide-svelte';
   import { recentItems } from '../lib/mock';
   import { recentActiveTab, recentSearch, recentFilterType } from '../stores/recent';
   import FuzzySearch from '../components/FuzzySearch.svelte';

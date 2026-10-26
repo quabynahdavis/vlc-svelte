@@ -3,7 +3,7 @@
   import LibraryToolbar from '../components/LibraryToolbar.svelte';
   import MediaCard from '../components/MediaCard.svelte';
   import type { MediaItem } from '../lib/mock';
-  import { breadcrumb, filteredItems, searchQuery } from '../stores/library';
+  import { breadcrumb, filteredItems, libraryImportLog, searchQuery } from '../stores/library';
 
   $: activeQuery = $searchQuery.trim();
 

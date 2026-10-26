@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, ChevronRight } from 'lucide-svelte';
+  import { ArrowLeft, ChevronRight, Search } from 'lucide-svelte';
   import { networkCategories, radioStations, podcastShows, podcastEpisodes } from '../lib/mock';
   import { networkSelectedCategory, networkPath } from '../stores/network';
   import FuzzySearch from '../components/FuzzySearch.svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, Plus, MoreHorizontal, GripVertical } from 'lucide-svelte';
+  import { ArrowLeft, Plus, MoreHorizontal, GripVertical, Search } from 'lucide-svelte';
   import { playlists } from '../lib/mock';
   import { playlistsSelectedId, playlistsSort } from '../stores/playlists';
   import FuzzySearch from '../components/FuzzySearch.svelte';

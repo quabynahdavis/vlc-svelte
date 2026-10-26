@@ -52,6 +52,10 @@
       <div class="w-[426px]">
         <Select bind:value={$settings.outputModule} options={outputModules} ariaLabel="Output module" />
       </div>
+    <SettingRow label="Output module" info hint="Select the video output module.">
+      <div class="w-[426px]">
+        <Select bind:value={$settings.outputModule} options={outputModules} ariaLabel="Output module" />
+      </div>
     </SettingRow>
 
     <SettingRow label="Deinterlace mode" info hint="Choose the deinterlacing algorithm.">

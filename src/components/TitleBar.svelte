@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Minus, MoreHorizontal, Square, X } from 'lucide-svelte';
+  import { t } from '../lib/t';
 
   export let onSettings: () => void = () => {};
 
@@ -66,8 +67,8 @@
     <button
       type="button"
       class="flex h-7 w-8 items-center justify-center rounded-input text-vlc-dim transition-colors hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
-      title="Menu"
-      aria-label="Open menu"
+      title={t('app.menu')}
+      aria-label={t('app.menu')}
       on:click={onSettings}
     >
       <MoreHorizontal size={16} strokeWidth={2} aria-hidden="true" />
@@ -78,15 +79,15 @@
     class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[12px] font-normal tracking-[0.01em] text-vlc-secondary"
     data-tauri-drag-region
   >
-    VLC Media Player
+    {t('app.title')}
   </span>
 
   <div class="flex h-full items-center">
     <button
       type="button"
       class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
-      title="Minimize"
-      aria-label="Minimize window"
+      title={t('app.minimize')}
+      aria-label={t('app.minimize')}
       on:click={() => windowAction('minimize')}
     >
       <Minus size={14} strokeWidth={1.75} aria-hidden="true" />
@@ -94,8 +95,8 @@
     <button
       type="button"
       class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
-      title="Maximize"
-      aria-label="Maximize window"
+      title={t('app.maximize')}
+      aria-label={t('app.maximize')}
       on:click={() => windowAction('maximize')}
     >
       <Square size={12} strokeWidth={1.75} aria-hidden="true" />
@@ -103,8 +104,8 @@
     <button
       type="button"
       class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
-      title="Close"
-      aria-label="Close window"
+      title={t('app.close')}
+      aria-label={t('app.close')}
       on:click={() => windowAction('close')}
     >
       <X size={15} strokeWidth={1.75} aria-hidden="true" />
