@@ -325,6 +325,7 @@
       event.stopPropagation();
     }}
     on:mouseover={handleRowMouseOver}
+    on:focus={handleRowMouseOver}
     on:mouseleave={handleMenuLeave}
     on:scroll={() => (openSubmenu = null)}
   >
