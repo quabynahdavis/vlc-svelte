@@ -27,6 +27,10 @@
   } from './stores/ui';
   import LibraryView from './views/LibraryView.svelte';
   import PlayerView from './views/PlayerView.svelte';
+  import MusicView from './views/MusicView.svelte';
+  import NetworkView from './views/NetworkView.svelte';
+  import RecentView from './views/RecentView.svelte';
+  import PlaylistsView from './views/PlaylistsView.svelte';
 
   let activeNav: NavId = 'home';
   let sidebarExpanded = false;
@@ -159,6 +163,14 @@
         />
       {:else if activeNav === 'videos'}
         <LibraryView />
+      {:else if activeNav === 'music'}
+        <MusicView />
+      {:else if activeNav === 'network'}
+        <NetworkView />
+      {:else if activeNav === 'recent'}
+        <RecentView />
+      {:else if activeNav === 'playlists'}
+        <PlaylistsView />
       {:else}
         <div class="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
           <p class="text-lg font-medium text-vlc-secondary">{NAV_LABELS[activeNav]}</p>
