@@ -142,12 +142,21 @@
   let viewportWidth = 1280;
   let viewportHeight = 800;
   let openSubmenu: string | null = null;
+  let submenuLeft = 0;
+  let submenuTop = 0;
 
   const MENU_WIDTH = 300;
+  const SUBMENU_WIDTH = 208;
+  const SUBMENU_ITEM_HEIGHT = 44;
+  const SUBMENU_PADDING = 12;
+  /** Keep this much room on the right before flipping the flyout to the left. */
+  const SUBMENU_FLIP_THRESHOLD = 340;
   const VIEWPORT_MARGIN = 8;
 
-  $: flipSubmenu =
-    openSubmenu !== null && menuLeft + MENU_WIDTH + 214 > viewportWidth - VIEWPORT_MARGIN;
+  const submenuItems = new Map<string, ActionItem>();
+  for (const item of menuItems) {
+    if ('id' in item && item.children?.length) submenuItems.set(item.id, item);
+  }
 
   $: if (open) {
     // Track these values so the menu repositions when it is reopened elsewhere.
@@ -172,6 +181,8 @@
 
     menuLeft = Math.min(Math.max(VIEWPORT_MARGIN, x), maxLeft);
     menuTop = Math.min(Math.max(VIEWPORT_MARGIN, y), maxTop);
+    // Flyouts are anchored to viewport coordinates, so drop them when the menu moves.
+    openSubmenu = null;
   }
 
   function updateViewport(): void {
@@ -180,13 +191,59 @@
     viewportHeight = window.innerHeight;
   }
 
-  function handleHover(item: ActionItem): void {
-    openSubmenu = item.children ? item.id : null;
+  /**
+   * Open the flyout for a row, anchored to the row's viewport rectangle.
+   * Fixed positioning keeps the flyout out of the menu's scroll/clip box, and
+   * the horizontal side flips when the row sits close to the right edge.
+   */
+  function openSubmenuForRow(row: HTMLElement | null): void {
+    const id = row?.dataset.itemId;
+    const item = id ? submenuItems.get(id) : undefined;
+
+    if (!row || !item) {
+      openSubmenu = null;
+      return;
+    }
+
+    const rect = row.getBoundingClientRect();
+    const estimatedHeight = item.children!.length * SUBMENU_ITEM_HEIGHT + SUBMENU_PADDING;
+    const flip = viewportWidth - rect.right < SUBMENU_FLIP_THRESHOLD;
+    const lowestTop = viewportHeight - estimatedHeight - VIEWPORT_MARGIN;
+
+    submenuTop = Math.max(VIEWPORT_MARGIN, Math.min(rect.top, lowestTop));
+    submenuLeft = flip
+      ? Math.max(VIEWPORT_MARGIN, rect.left - SUBMENU_WIDTH + 2)
+      : rect.right - 2;
+    openSubmenu = item.id;
   }
 
-  function handleItemClick(item: ActionItem): void {
+  /** Delegated fallback so the flyout also opens for plain mouseover events. */
+  function handleRowMouseOver(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    const row = target?.closest?.('[data-menu-item]') as HTMLElement | null;
+
+    if (!row || !menuEl?.contains(row)) return;
+    if (row.dataset.itemId === openSubmenu) return;
+
+    openSubmenuForRow(row);
+  }
+
+  function handleRowEnter(event: Event): void {
+    openSubmenuForRow(event.currentTarget as HTMLElement);
+  }
+
+  function handleRowClick(item: ActionItem, event: MouseEvent): void {
+    handleItemClick(item, event.currentTarget as HTMLElement);
+  }
+
+  function handleItemClick(item: ActionItem, row: HTMLElement | null): void {
     if (item.children?.length) {
-      openSubmenu = openSubmenu === item.id ? null : item.id;
+      if (openSubmenu === item.id) {
+        openSubmenu = null;
+        return;
+      }
+
+      openSubmenuForRow(row);
       return;
     }
 
@@ -196,6 +253,20 @@
   function select(id: string): void {
     onAction(id);
     onClose();
+  }
+
+  function handleMenuLeave(e: MouseEvent): void {
+    const submenu = document.querySelector('[data-context-submenu]');
+    const related = e.relatedTarget as Node | null;
+    if (!submenu || !related || submenu.contains(related)) return;
+    openSubmenu = null;
+  }
+
+  function handleSubmenuLeave(e: MouseEvent): void {
+    const menu = document.querySelector('[data-context-menu]');
+    const related = e.relatedTarget as Node | null;
+    if (!menu || !related || menu.contains(related)) return;
+    openSubmenu = null;
   }
 
   onMount(() => {
@@ -249,7 +320,9 @@
       event.preventDefault();
       event.stopPropagation();
     }}
-    on:mouseleave={() => (openSubmenu = null)}
+    on:mouseover={handleRowMouseOver}
+    on:mouseleave={handleMenuLeave}
+    on:scroll={() => (openSubmenu = null)}
   >
     {#each menuItems as item, index (item.type === 'divider' ? `divider-${index}` : item.id)}
       {#if item.type === 'divider'}
@@ -263,9 +336,12 @@
             aria-haspopup={item.children ? 'menu' : undefined}
             aria-expanded={item.children ? openSubmenu === item.id : undefined}
             data-menu-item
-            on:click={() => handleItemClick(item)}
-            on:mouseenter={() => handleHover(item)}
-            on:focus={() => handleHover(item)}
+            data-item-id={item.id}
+            data-has-children={item.children ? 'true' : 'false'}
+            on:click={(event) => handleItemClick(item, event.currentTarget as HTMLElement)}
+            on:mouseenter={(event) => openSubmenuForRow(event.currentTarget as HTMLElement)}
+            on:pointerenter={(event) => openSubmenuForRow(event.currentTarget as HTMLElement)}
+            on:focus={(event) => openSubmenuForRow(event.currentTarget as HTMLElement)}
           >
             <span
               class="flex h-5 w-5 shrink-0 items-center justify-center"
@@ -288,19 +364,20 @@
 
           {#if item.children && openSubmenu === item.id}
             <div
-              class="absolute top-0 z-10 w-[208px] rounded-panel border border-vlc-border bg-vlc-panel p-1.5 shadow-xl"
-              style={flipSubmenu
-                ? 'right: calc(100% - 1px);'
-                : 'left: calc(100% - 1px);'}
+              class="fixed z-10 overflow-y-auto overscroll-contain rounded-panel border border-vlc-border bg-vlc-panel p-1.5 shadow-xl"
+              style={`top: ${submenuTop}px; left: ${submenuLeft}px; width: ${SUBMENU_WIDTH}px; max-height: ${
+                viewportHeight - submenuTop - VIEWPORT_MARGIN
+              }px;`}
               role="menu"
               tabindex="-1"
               aria-label={`${item.label} submenu`}
               data-context-submenu
+              on:mouseleave={handleSubmenuLeave}
             >
               {#each item.children as child (child.id)}
                 <button
                   type="button"
-                  class="flex h-9 w-full items-center justify-between gap-3 rounded-md px-2.5 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
+                  class="flex h-11 w-full items-center justify-between gap-3 rounded-lg px-2.5 text-left text-[14px] text-vlc-secondary transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
                   role="menuitem"
                   data-submenu-item
                   on:click={() => select(child.id)}
