@@ -115,20 +115,26 @@
 
     <div class="dock-scroll min-h-0 flex-1 overflow-y-auto">
       {#if $dockMode === 'playback'}
-        <PlaybackPanel />
+        <div class="p-4 pb-6">
+          <PlaybackPanel />
+        </div>
       {:else if $dockMode === 'audio'}
-        <div class="space-y-3 p-3">
+        <div class="p-4 pb-6 space-y-3">
           <EqPanel />
           <AudioEffectsPanel />
         </div>
       {:else if $dockMode === 'subtitles'}
-        <SubtitleDockPanel {onAdvancedSettings} />
+        <div class="p-4 pb-6">
+          <SubtitleDockPanel {onAdvancedSettings} />
+        </div>
       {:else if $dockMode === 'video'}
-        <div class="p-3">
+        <div class="p-4 pb-6">
           <VideoEffectsPanel />
         </div>
       {:else if $dockMode === 'queue'}
-        <QueuePanel />
+        <div class="p-4 pb-6">
+          <QueuePanel />
+        </div>
       {/if}
     </div>
   </aside>
