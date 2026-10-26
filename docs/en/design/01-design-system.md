@@ -185,6 +185,42 @@ theme: {
 
 For runtime theming (alternate accents, light mode), expose the same values as CSS custom properties on `:root` and have Tailwind reference `var(--...)`. Do not duplicate raw hex values across components.
 
+```css
+/* src/app.css — target tokens, not yet applied */
+:root {
+  --bg-app: #0B0B0B;
+  --bg-sidebar: #111111;
+  --bg-card: #1A1A1A;
+  --bg-raised: #232323;
+
+  --accent: #F08A1C;
+  --accent-deep: #A85A0F;
+  --accent-gradient: linear-gradient(90deg, var(--accent-deep), var(--accent));
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #B8B8B8;
+  --text-muted: #7A7A7A;
+  --border: #262626;
+
+  --radius-panel: 12px;
+  --radius-control: 8px;
+  --radius-input: 6px;
+}
+```
+
+### Token application matrix
+
+| Element | Surface | Text | Border | Radius |
+| --- | --- | --- | --- | --- |
+| App shell / transport bar | `--bg-app` | `--text-secondary` | — | — |
+| Icon rail / settings sidebar | `--bg-sidebar` | `--text-secondary`, `--text-primary` when active | — | — |
+| Card / modal / context menu | `--bg-card` | `--text-primary` | `--border` | `--radius-panel` |
+| Hovered or selected row | `--bg-raised` | `--text-primary` | — | `--radius-control` |
+| Primary action / play button | `--accent` or `--accent-gradient` | `--bg-app` | — | full |
+| Input / select | `--bg-app` | `--text-primary` | `--border` | `--radius-input` |
+| Toggle track OFF / ON | `--bg-raised` / `--accent` | `--text-secondary` / `--text-primary` | — | full |
+| Slider track / fill | `--bg-raised` or near-black / `--accent-gradient` | `--text-secondary` | — | full |
+
 ## Accessibility and states
 
 - **Focus:** 2 px `#F08A1C` ring with a 2 px offset; never remove focus outlines on dark surfaces.
