@@ -31,7 +31,7 @@
   import SubtitlesPanel from './settings/SubtitlesPanel.svelte';
   import VideoPanel from './settings/VideoPanel.svelte';
   import ExportImportPanel from './settings/ExportImportPanel.svelte';
-import { settings } from '../stores/settings';
+import { settings, defaultSettings } from '../stores/settings';
 
   export let open = false;
   export let onClose: () => void = () => {};

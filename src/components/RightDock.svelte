@@ -12,7 +12,6 @@
   import { dockMode, openDock } from '../stores/ui';
   import type { DockMode } from '../stores/ui';
   import EqPanel from './dock/EqPanel.svelte';
-  import { t } from '../../lib/t';
 
   export let onAdvancedSettings: (category?: string) => void = () => {};
 
