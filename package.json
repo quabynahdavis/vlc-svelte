@@ -1,0 +1,31 @@
+{
+  "name": "vlc-redesign",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run dev:frontend & bun run dev:tauri",
+    "dev:frontend": "vite",
+    "dev:tauri": "tauri dev",
+    "build": "vite build && tauri build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@tauri-apps/cli": "^2.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "svelte": "^4.2.19",
+    "svelte-preprocess": "^6.0.5",
+    "tailwindcss": "^3.4.17",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "lucide-svelte": "^0.460.0",
+    "svelte-routing": "^2.6.0"
+  }
+}
