@@ -7,10 +7,9 @@
     ExternalLink,
     LayoutGrid,
     ListMusic,
-    Plus,
     Search,
-  X,
-} from 'lucide-svelte';
+    X,
+  } from 'lucide-svelte';
 
   type Playlist = {
     id: string;
@@ -105,16 +104,6 @@
   </div>
 
   <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-    <button
-      type="button"
-      class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
-    >
-      <Plus size={16} strokeWidth={1.75} class="shrink-0 text-vlc-muted" />
-      <span class="truncate">Create playlist</span>
-    </button>
-
-    <div class="mx-1 my-2 h-px bg-vlc-border" aria-hidden="true"></div>
-
     <div class="space-y-0.5">
       {#each playlists as playlist (playlist.id)}
         <button
