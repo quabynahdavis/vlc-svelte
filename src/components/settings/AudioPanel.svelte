@@ -123,12 +123,12 @@
     border-radius: 9999px;
     background: linear-gradient(
       to right,
-      #D37918 0%,
-      #D37918 var(--eq-pct),
-      #0e0e0e var(--eq-pct),
-      #0e0e0e 100%
+      var(--accent) 0%,
+      var(--accent) var(--eq-pct),
+      var(--border-subtle) var(--eq-pct),
+      var(--border-subtle) 100%
     );
-    box-shadow: inset 0 0 0 1px #232323;
+    box-shadow: inset 0 0 0 1px var(--border);
   }
 
   .eq-slider::-webkit-slider-thumb {
@@ -139,7 +139,7 @@
     margin-top: -5px;
     border: 0;
     border-radius: 3px;
-    background: #D37918;
+    background: var(--accent);
   }
 
   .eq-slider:focus-visible {
@@ -147,19 +147,19 @@
   }
 
   .eq-slider:focus-visible::-webkit-slider-thumb {
-    box-shadow: 0 0 0 3px rgba(211, 121, 24, 0.3);
+    box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.3);
   }
 
   .eq-slider::-moz-range-track {
     height: 6px;
     border-radius: 9999px;
-    background: #0e0e0e;
+    background: var(--border-subtle);
   }
 
   .eq-slider::-moz-range-progress {
     height: 6px;
     border-radius: 9999px;
-    background: #D37918;
+    background: var(--accent);
   }
 
   .eq-slider::-moz-range-thumb {
@@ -167,6 +167,6 @@
     height: 16px;
     border: 0;
     border-radius: 3px;
-    background: #D37918;
+    background: var(--accent);
   }
 </style>

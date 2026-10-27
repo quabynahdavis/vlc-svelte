@@ -128,7 +128,7 @@
             on:keydown={(event) => handleKeydown(event, index)}
           >
             <div
-              class="absolute left-1/2 top-0 h-full w-[6px] -translate-x-1/2 rounded-full bg-[#0A0A0A]"
+              class="absolute left-1/2 top-0 h-full w-[6px] -translate-x-1/2 rounded-full bg-vlc-border"
               aria-hidden="true"
             ></div>
             <div
@@ -147,7 +147,7 @@
             {band.label}
           </span>
           <div
-            class="mt-2 flex h-[26px] w-11 items-center justify-center rounded-[6px] bg-[#0A0A0A] text-[11px] tabular-nums text-vlc-secondary"
+            class="mt-2 flex h-[26px] w-11 items-center justify-center rounded-[6px] bg-vlc-app text-[11px] tabular-nums text-vlc-secondary"
           >
             {gain.toFixed(1)} dB
           </div>

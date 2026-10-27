@@ -81,7 +81,7 @@
             type="text"
             value={$settings.subtitleTrack}
             aria-label="Subtitle track"
-            class="h-[38px] w-[148px] shrink-0 rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] px-3 text-[13px] tabular-nums text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60"
+            class="h-[38px] w-[148px] shrink-0 rounded-[6px] border border-vlc-border/70 bg-vlc-app px-3 text-[13px] tabular-nums text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60"
             on:input={handleTrackInput}
           />
         </div>
@@ -92,7 +92,7 @@
             <select
               value={$settings.subtitleLanguage}
               aria-label="Subtitle language"
-              class="h-[38px] w-full appearance-none rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] pl-3 pr-8 text-[13px] text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60"
+              class="h-[38px] w-full appearance-none rounded-[6px] border border-vlc-border/70 bg-vlc-app pl-3 pr-8 text-[13px] text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60"
               on:change={handleLanguageChange}
             >
               <option>English</option>
@@ -118,7 +118,7 @@
         <div class="flex items-center justify-between gap-3">
           <span class="min-w-0 truncate text-[13px] text-vlc-dim">Subtitle Track Delay</span>
           <div
-            class="flex h-[38px] w-[148px] shrink-0 items-center rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] px-3 text-[13px] tabular-nums text-vlc-secondary"
+            class="flex h-[38px] w-[148px] shrink-0 items-center rounded-[6px] border border-vlc-border/70 bg-vlc-app px-3 text-[13px] tabular-nums text-vlc-secondary"
           >
             {delayValue.toFixed(3)} s
           </div>
@@ -141,7 +141,7 @@
         <div class="flex items-center justify-between gap-3">
           <span class="min-w-0 truncate text-[13px] text-vlc-dim">Subtitle Speed</span>
           <div
-            class="flex h-[38px] w-[148px] shrink-0 items-center rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] px-3 text-[13px] tabular-nums text-vlc-secondary"
+            class="flex h-[38px] w-[148px] shrink-0 items-center rounded-[6px] border border-vlc-border/70 bg-vlc-app px-3 text-[13px] tabular-nums text-vlc-secondary"
           >
             {speedValue.toFixed(3)} fps
           </div>
@@ -161,7 +161,7 @@
         <div class="flex items-center justify-between gap-3">
           <span class="min-w-0 truncate text-[13px] text-vlc-dim">Subtitle Duration Factor</span>
           <div
-            class="flex h-[38px] w-[148px] shrink-0 items-center rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] px-3 text-[13px] tabular-nums text-vlc-secondary"
+            class="flex h-[38px] w-[148px] shrink-0 items-center rounded-[6px] border border-vlc-border/70 bg-vlc-app px-3 text-[13px] tabular-nums text-vlc-secondary"
           >
             {durationValue.toFixed(3)}
           </div>
@@ -199,7 +199,7 @@
             <select
               value={$settings.subtitleFont}
               aria-label="Subtitle font"
-              class="h-[38px] w-full appearance-none rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] pl-3 pr-8 text-[13px] text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60"
+              class="h-[38px] w-full appearance-none rounded-[6px] border border-vlc-border/70 bg-vlc-app pl-3 pr-8 text-[13px] text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60"
               on:change={handleFontChange}
             >
               <option>Inter</option>
@@ -219,13 +219,13 @@
         <div class="flex items-center justify-between gap-3">
           <span class="min-w-0 truncate text-[13px] text-vlc-dim">Text Color</span>
           <label
-            class="relative flex h-[38px] w-[148px] shrink-0 cursor-pointer items-center justify-between gap-2 rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] px-3"
+            class="relative flex h-[38px] w-[148px] shrink-0 cursor-pointer items-center justify-between gap-2 rounded-[6px] border border-vlc-border/70 bg-vlc-app px-3"
           >
             <span class="truncate text-[12px] tabular-nums text-vlc-secondary">
               {textColor.toUpperCase()}
             </span>
             <span
-              class="h-[22px] w-[22px] shrink-0 rounded-[3px] border border-white/15"
+              class="h-[22px] w-[22px] shrink-0 rounded-[3px] border border-vlc-borderStrong"
               style={`background: ${textColor}`}
               aria-hidden="true"
             ></span>
@@ -242,13 +242,13 @@
         <div class="flex items-center justify-between gap-3">
           <span class="min-w-0 truncate text-[13px] text-vlc-dim">Outline Color</span>
           <label
-            class="relative flex h-[38px] w-[148px] shrink-0 cursor-pointer items-center justify-between gap-2 rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] px-3"
+            class="relative flex h-[38px] w-[148px] shrink-0 cursor-pointer items-center justify-between gap-2 rounded-[6px] border border-vlc-border/70 bg-vlc-app px-3"
           >
             <span class="truncate text-[12px] tabular-nums text-vlc-secondary">
               {outlineColor.toUpperCase()}
             </span>
             <span
-              class="h-[22px] w-[22px] shrink-0 rounded-[3px] border border-white/15"
+              class="h-[22px] w-[22px] shrink-0 rounded-[3px] border border-vlc-borderStrong"
               style={`background: ${outlineColor}`}
               aria-hidden="true"
             ></span>

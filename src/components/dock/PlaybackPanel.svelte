@@ -47,7 +47,7 @@
         <span class="text-[13px] text-vlc-dim">Repeat</span>
         <span class="text-[11px] capitalize text-vlc-muted">{$player.repeat}</span>
       </div>
-      <div class="grid grid-cols-3 gap-1 rounded-[8px] bg-[#0A0A0A] p-1" role="group" aria-label="Repeat mode">
+      <div class="grid grid-cols-3 gap-1 rounded-[8px] bg-vlc-app p-1" role="group" aria-label="Repeat mode">
         {#each repeatModes as mode (mode.id)}
           {@const active = $player.repeat === mode.id}
           <button
@@ -85,7 +85,7 @@
         <select
           bind:value={aspectRatio}
           aria-label="Aspect ratio"
-          class="h-[38px] w-full appearance-none rounded-[6px] border border-vlc-border/70 bg-[#0A0A0A] pl-3 pr-8 text-[13px] text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60"
+          class="h-[38px] w-full appearance-none rounded-[6px] border border-vlc-border/70 bg-vlc-app pl-3 pr-8 text-[13px] text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60"
         >
           {#each aspectRatios as ratio (ratio)}
             <option>{ratio}</option>

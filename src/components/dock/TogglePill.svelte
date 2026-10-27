@@ -19,7 +19,7 @@
   aria-label={ariaLabel}
   class="relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
   class:bg-vlc-orange={value}
-  class:bg-[#3A3A3A]={!value}
+  class:bg-vlc-borderStrong={!value}
   data-toggle-pill
   on:click={toggle}
 >
@@ -27,8 +27,8 @@
     class="absolute top-1/2 h-[18px] w-[16px] -translate-y-1/2 rounded-[5px] transition-all duration-150"
     class:left-[3px]={!value}
     class:left-[25px]={value}
-    class:bg-[#6B6B6B]={!value}
-    class:bg-[#0E0E0E]={value}
+    class:bg-vlc-muted={!value}
+    class:bg-vlc-orangeDeep={value}
     aria-hidden="true"
   ></span>
 
@@ -39,7 +39,7 @@
     class:pr-[5px]={!value}
     class:pl-[5px]={value}
     class:text-vlc-secondary={!value}
-    class:text-[#0E0E0E]={value}
+    class:text-vlc-orangeDeep={value}
     aria-hidden="true"
   >
     {value ? 'ON' : 'OFF'}

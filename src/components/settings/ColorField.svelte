@@ -17,7 +17,7 @@
     class="min-w-0 flex-1 bg-transparent text-[13px] uppercase text-vlc-text outline-none placeholder:text-vlc-muted"
   />
   <span
-    class="relative block h-[22px] w-[22px] shrink-0 overflow-hidden rounded-[4px] border border-white/15"
+    class="relative block h-[22px] w-[22px] shrink-0 overflow-hidden rounded-[4px] border border-vlc-borderStrong"
     style={`background-color: ${preview};`}
   >
     <input

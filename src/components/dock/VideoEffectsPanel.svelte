@@ -69,7 +69,7 @@
   <Accordion title="Crop">
     <div class="space-y-2">
       <div class="grid grid-cols-[1fr_1fr_28px] items-center gap-2">
-        <label class="flex h-[46px] min-w-0 items-center justify-between gap-2 rounded-[8px] bg-[#0A0A0A] px-3">
+        <label class="flex h-[46px] min-w-0 items-center justify-between gap-2 rounded-[8px] bg-vlc-app px-3">
           <span class="text-[13px] text-vlc-dim">Top</span>
           <span class="flex min-w-0 items-baseline gap-1">
             <input
@@ -82,7 +82,7 @@
           </span>
         </label>
 
-        <label class="flex h-[46px] min-w-0 items-center justify-between gap-2 rounded-[8px] bg-[#0A0A0A] px-3">
+        <label class="flex h-[46px] min-w-0 items-center justify-between gap-2 rounded-[8px] bg-vlc-app px-3">
           <span class="text-[13px] text-vlc-dim">Bottom</span>
           <span class="flex min-w-0 items-baseline gap-1">
             <input
@@ -106,7 +106,7 @@
       </div>
 
       <div class="grid grid-cols-[1fr_1fr_28px] items-center gap-2">
-        <label class="flex h-[46px] min-w-0 items-center justify-between gap-2 rounded-[8px] bg-[#0A0A0A] px-3">
+        <label class="flex h-[46px] min-w-0 items-center justify-between gap-2 rounded-[8px] bg-vlc-app px-3">
           <span class="text-[13px] text-vlc-dim">Left</span>
           <span class="flex min-w-0 items-baseline gap-1">
             <input
@@ -119,7 +119,7 @@
           </span>
         </label>
 
-        <label class="flex h-[46px] min-w-0 items-center justify-between gap-2 rounded-[8px] bg-[#0A0A0A] px-3">
+        <label class="flex h-[46px] min-w-0 items-center justify-between gap-2 rounded-[8px] bg-vlc-app px-3">
           <span class="text-[13px] text-vlc-dim">Right</span>
           <span class="flex min-w-0 items-baseline gap-1">
             <input
@@ -149,7 +149,7 @@
       <div class="flex items-center justify-between gap-2">
         <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-dim">Color Extraction</span>
         <div class="flex shrink-0 items-center gap-2">
-          <label class="relative flex h-8 w-[92px] items-center gap-1 rounded-[6px] bg-[#0A0A0A] px-2">
+          <label class="relative flex h-8 w-[92px] items-center gap-1 rounded-[6px] bg-vlc-app px-2">
             <span class="min-w-0 flex-1 truncate text-[11px] uppercase text-vlc-secondary">
               {extractionColor}
             </span>
@@ -172,7 +172,7 @@
       <div class="flex items-center justify-between gap-2">
         <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-dim">Color Threshold</span>
         <div class="flex shrink-0 items-center gap-2">
-          <label class="relative flex h-8 w-[92px] items-center gap-1 rounded-[6px] bg-[#0A0A0A] px-2">
+          <label class="relative flex h-8 w-[92px] items-center gap-1 rounded-[6px] bg-vlc-app px-2">
             <span class="min-w-0 flex-1 truncate text-[11px] uppercase text-vlc-secondary">
               {thresholdColor}
             </span>

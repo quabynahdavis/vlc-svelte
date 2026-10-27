@@ -138,7 +138,7 @@
     on:keydown={handleKeydown}
   >
     <div
-      class="absolute inset-x-0 top-1/2 h-[18px] -translate-y-1/2 overflow-hidden rounded-full border border-vlc-border bg-[#0A0A0A]"
+      class="absolute inset-x-0 top-1/2 h-[18px] -translate-y-1/2 overflow-hidden rounded-full border border-vlc-border bg-vlc-app"
       aria-hidden="true"
     >
       <div
@@ -148,7 +148,7 @@
 
       {#each Array(8) as _, index}
         <span
-          class="absolute top-1/2 h-2 w-px -translate-x-1/2 -translate-y-1/2 bg-[#2A2A2A]"
+          class="absolute top-1/2 h-2 w-px -translate-x-1/2 -translate-y-1/2 bg-vlc-borderStrong"
           style={`left: ${((index + 1) / 9) * 100}%`}
         ></span>
       {/each}

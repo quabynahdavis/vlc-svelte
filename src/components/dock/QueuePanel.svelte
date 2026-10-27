@@ -32,8 +32,8 @@
           <button
             type="button"
             class="relative flex h-12 w-full items-center gap-3 px-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
-            class:bg-vlc-card={active}
-            class:hover:bg-[#151515]={!active}
+            class:bg-vlc-raised={active}
+            class:hover:bg-vlc-panelAlt={!active}
             aria-current={active ? 'true' : undefined}
             data-queue-item
             on:click={() => playAt(index)}
@@ -47,7 +47,7 @@
 
             <span
               class="w-5 shrink-0 text-[11px] tabular-nums"
-              class:text-vlc-orange={active}
+              class:text-vlc-orangeText={active}
               class:text-vlc-muted={!active}
             >
               {pad(index + 1)}
@@ -55,7 +55,7 @@
 
             <span
               class="min-w-0 flex-1 truncate text-[13px] leading-5"
-              class:text-vlc-orange={active}
+              class:text-vlc-orangeText={active}
               class:text-vlc-secondary={!active}
             >
               {track.title}
