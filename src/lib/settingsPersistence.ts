@@ -28,7 +28,7 @@ function clone<T>(value: T): T {
 }
 
 function sanitizeString(key: string, fallback: string, value: unknown): string {
-  if (key === 'accentColor') return isHexColor(value) ? value : fallback;
+  if (key === 'accentColor') return isHexColor(value) ? value.toUpperCase() : fallback;
   if (key === 'theme') {
     return typeof value === 'string' && THEMES.has(value) ? value : fallback;
   }
