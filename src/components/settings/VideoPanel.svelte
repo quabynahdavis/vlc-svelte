@@ -92,7 +92,7 @@
         on:click={() => (filtersOpen = !filtersOpen)}
         aria-expanded={filtersOpen}
       >
-        <ChevronDown size={16} strokeWidth={1.8} class="transition-transform duration-150" class:-rotate-90={!filtersOpen} />
+        <span class="flex shrink-0 items-center justify-center transition-transform duration-150" class:-rotate-90={!filtersOpen} aria-hidden="true"><ChevronDown size={16} strokeWidth={1.8} /></span>
         Video filters
       </button>
       <button
@@ -154,7 +154,7 @@
         on:click={() => (snapshotsOpen = !snapshotsOpen)}
         aria-expanded={snapshotsOpen}
       >
-        <ChevronDown size={16} strokeWidth={1.8} class="transition-transform duration-150" class:-rotate-90={!snapshotsOpen} />
+        <span class="flex shrink-0 items-center justify-center transition-transform duration-150" class:-rotate-90={!snapshotsOpen} aria-hidden="true"><ChevronDown size={16} strokeWidth={1.8} /></span>
         Snapshot settings
       </button>
     </div>

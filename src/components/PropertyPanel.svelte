@@ -206,13 +206,13 @@
       {title}
     </span>
 
-    <ChevronDown
-      size={20}
-      strokeWidth={1.8}
-      class="shrink-0 text-vlc-dim transition-transform duration-200"
+    <span
+      class="flex shrink-0 items-center justify-center text-vlc-dim transition-transform duration-200"
       class:-rotate-90={!open}
       aria-hidden="true"
-    />
+    >
+      <ChevronDown size={20} strokeWidth={1.8} />
+    </span>
   </button>
 
   {#if open}

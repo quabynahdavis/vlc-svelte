@@ -115,7 +115,7 @@
         on:click={() => (fileTypesOpen = !fileTypesOpen)}
         aria-expanded={fileTypesOpen}
       >
-        <ChevronDown size={16} strokeWidth={1.8} class="transition-transform duration-150" class:-rotate-90={!fileTypesOpen} />
+        <span class="flex shrink-0 items-center justify-center transition-transform duration-150" class:-rotate-90={!fileTypesOpen} aria-hidden="true"><ChevronDown size={16} strokeWidth={1.8} /></span>
         Supported file extensions
       </button>
     </div>

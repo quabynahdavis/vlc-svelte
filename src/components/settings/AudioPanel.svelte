@@ -41,11 +41,13 @@
         on:click={() => toggleSetting('equalizerOpen')}
       >
         Close Equalizer
-        <ChevronDown
-          size={15}
-          strokeWidth={1.8}
-          class:transition-transform class:duration-150 class:-rotate-180={!$settings.equalizerOpen}
-        />
+        <span
+          class="flex shrink-0 items-center justify-center transition-transform duration-150"
+          class:-rotate-180={!$settings.equalizerOpen}
+          aria-hidden="true"
+        >
+          <ChevronDown size={15} strokeWidth={1.8} />
+        </span>
       </button>
     </div>
 

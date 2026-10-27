@@ -17,13 +17,13 @@
     on:click={() => (open = !open)}
   >
     <span class="min-w-0 truncate text-[15px] leading-5">{title}</span>
-    <ChevronDown
-      size={18}
-      strokeWidth={1.8}
-      class="shrink-0 text-vlc-dim transition-transform duration-150"
+    <span
+      class="flex shrink-0 items-center justify-center text-vlc-dim transition-transform duration-150"
       class:-rotate-90={!open}
       aria-hidden="true"
-    />
+    >
+      <ChevronDown size={18} strokeWidth={1.8} />
+    </span>
   </button>
 
   <div

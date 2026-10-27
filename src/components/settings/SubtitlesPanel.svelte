@@ -200,12 +200,13 @@
         on:click={() => toggleSetting('subtitlePresetOpen')}
       >
         Default Preset
-        <ChevronUp
-          size={16}
-          strokeWidth={1.8}
-          class="text-vlc-secondary transition-transform duration-150"
+        <span
+          class="flex shrink-0 items-center justify-center text-vlc-secondary transition-transform duration-150"
           class:rotate-180={!$settings.subtitlePresetOpen}
-        />
+          aria-hidden="true"
+        >
+          <ChevronUp size={16} strokeWidth={1.8} />
+        </span>
       </button>
       {#if $settings.subtitlePresetOpen}
         <p class="px-5 pt-3 text-[12px] leading-5 text-vlc-muted">

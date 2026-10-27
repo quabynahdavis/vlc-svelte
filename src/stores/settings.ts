@@ -178,7 +178,7 @@ export const ACCENT_COLORS = [
   { color: '#8F8F8F', label: 'Gray' },
 ];
 
-const DEFAULT_HOTKEYS: HotkeyAction[] = [
+export const DEFAULT_HOTKEYS: HotkeyAction[] = [
   { action: 'Play / Pause', shortcut: 'Space' },
   { action: 'Stop', shortcut: 'S' },
   { action: 'Previous', shortcut: 'P' },
