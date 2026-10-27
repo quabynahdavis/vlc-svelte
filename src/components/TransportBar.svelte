@@ -24,6 +24,7 @@
     toggle,
     toggleMute,
   } from '../stores/player';
+  import { toggleFullscreen } from '../lib/gestures';
   import { dockMode, openDock } from '../stores/ui';
 
   export let videoEl: HTMLVideoElement | null = null;
@@ -193,21 +194,8 @@
     nudgeTime(event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -5 : 5);
   }
 
-  function toggleFullscreen(): void {
-    const target = fullscreenTarget ?? videoEl?.parentElement ?? null;
-
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => {
-        // Browsers can refuse to leave fullscreen if the document is not focused.
-      });
-      return;
-    }
-
-    if (target) {
-      void target.requestFullscreen().catch((error) => {
-        console.warn('Fullscreen is unavailable.', error);
-      });
-    }
+  function toggleStageFullscreen(): void {
+    toggleFullscreen(fullscreenTarget ?? videoEl?.parentElement ?? null);
   }
 
   function syncFullscreen(): void {
@@ -263,7 +251,7 @@
       case 'f':
       case 'F':
         event.preventDefault();
-        toggleFullscreen();
+        toggleStageFullscreen();
         break;
       default:
         break;
@@ -447,7 +435,7 @@
       class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
       aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-      on:click={toggleFullscreen}
+      on:click={toggleStageFullscreen}
     >
       {#if isFullscreen}
         <Minimize size={18} strokeWidth={1.6} aria-hidden="true" />

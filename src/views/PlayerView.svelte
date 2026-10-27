@@ -1,9 +1,19 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
+  import { Volume2, VolumeX } from 'lucide-svelte';
   import PlaylistPanel from '../components/PlaylistPanel.svelte';
   import RightDock from '../components/RightDock.svelte';
   import TransportBar from '../components/TransportBar.svelte';
-  import { currentTrack, next, player } from '../stores/player';
+  import {
+    DOUBLE_CLICK_DELAY_MS,
+    VOLUME_HUD_DURATION_MS,
+    WHEEL_VOLUME_FINE_STEP,
+    WHEEL_VOLUME_STEP,
+    toggleFullscreen,
+    wheelNotches,
+  } from '../lib/gestures';
+  import { currentTrack, next, player, setVolume, toggle } from '../stores/player';
   import { navigate } from '../stores/navigation';
 
   const dispatch = createEventDispatcher<{ settings: void; advancedSettings: string }>();
@@ -15,6 +25,15 @@
   let videoEl: HTMLVideoElement | null = null;
   let stageEl: HTMLDivElement | null = null;
   let buffered = 0;
+
+  /** Pending single-click timer; cancelled by a double-click or on destroy. */
+  let clickTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Pending volume-HUD hide timer. */
+  let volumeHudTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Fractional wheel notches carried across trackpad events. */
+  let wheelRemainder = 0;
+  let volumeHudVisible = false;
+  let volumeHudVolume = 0;
 
   /** Key of the source currently applied to the element. */
   let syncedMediaKey = '';
@@ -238,6 +257,80 @@
   function handleBack(): void {
     navigate('videos');
   }
+
+  function clearClickTimer(): void {
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+    }
+  }
+
+  function handleStageClick(event: MouseEvent): void {
+    // Gestures are media-only: without a loaded source there is nothing to toggle.
+    if (!hasMedia || event.defaultPrevented) return;
+
+    // The second click of a double-click must not schedule playback.
+    if (event.detail > 1) {
+      clearClickTimer();
+      return;
+    }
+
+    clearClickTimer();
+    clickTimer = setTimeout(() => {
+      clickTimer = null;
+      if (hasMedia) toggle();
+    }, DOUBLE_CLICK_DELAY_MS);
+  }
+
+  function handleStageDoubleClick(event: MouseEvent): void {
+    if (!hasMedia) return;
+
+    event.preventDefault();
+    clearClickTimer();
+    toggleFullscreen(stageEl);
+  }
+
+  function showVolumeHud(): void {
+    volumeHudVolume = get(player).volume;
+    volumeHudVisible = true;
+
+    if (volumeHudTimer) clearTimeout(volumeHudTimer);
+    volumeHudTimer = setTimeout(() => {
+      volumeHudTimer = null;
+      volumeHudVisible = false;
+    }, VOLUME_HUD_DURATION_MS);
+  }
+
+  function handleStageWheel(event: WheelEvent): void {
+    // Let the right dock scroll normally instead of hijacking its wheel.
+    if (event.target instanceof Element && event.target.closest('[data-right-dock]')) return;
+
+    // Keep the page from scrolling while the pointer is over the stage.
+    event.preventDefault();
+
+    wheelRemainder += wheelNotches(event);
+
+    const steps = Math.trunc(wheelRemainder);
+    if (steps === 0) return;
+
+    wheelRemainder -= steps;
+
+    const stepSize = event.shiftKey ? WHEEL_VOLUME_FINE_STEP : WHEEL_VOLUME_STEP;
+    const nextVolume = clamp(get(player).volume - steps * stepSize, 0, 100);
+
+    // The store stays the source of truth; the reactive sync updates the element.
+    setVolume(nextVolume);
+    showVolumeHud();
+  }
+
+  onDestroy(() => {
+    clearClickTimer();
+
+    if (volumeHudTimer) {
+      clearTimeout(volumeHudTimer);
+      volumeHudTimer = null;
+    }
+  });
 </script>
 
 <div class="relative flex h-full min-h-0 overflow-hidden bg-vlc-app">
@@ -258,14 +351,17 @@
       bind:this={stageEl}
       class="player-stage relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-vlc-app lg:pl-0"
       class:pl-[300px]={showPlaylist}
+      on:wheel|nonpassive={handleStageWheel}
     >
       {#if hasMedia}
-        <!-- svelte-ignore a11y-media-has-caption -->
+        <!-- svelte-ignore a11y-media-has-caption a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
         <video
           bind:this={videoEl}
-          class="h-full w-full bg-black object-contain"
+          class="h-full w-full cursor-pointer bg-black object-contain"
           preload="metadata"
           playsinline
+          on:click={handleStageClick}
+          on:dblclick={handleStageDoubleClick}
           on:loadedmetadata={handleLoadedMetadata}
           on:durationchange={handleDurationChange}
           on:timeupdate={handleTimeUpdate}
@@ -325,6 +421,30 @@
         </div>
       {/if}
 
+      <div
+        class="volume-hud pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/10 bg-black/80 px-3.5 py-2 shadow-lg backdrop-blur-sm transition-opacity duration-200"
+        style:opacity={volumeHudVisible ? 1 : 0}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-hidden={!volumeHudVisible}
+      >
+        {#if volumeHudVolume === 0}
+          <VolumeX size={16} strokeWidth={1.75} class="text-vlc-orange" aria-hidden="true" />
+        {:else}
+          <Volume2 size={16} strokeWidth={1.75} class="text-vlc-orange" aria-hidden="true" />
+        {/if}
+        <span class="w-9 text-right font-mono text-xs tabular-nums text-white">
+          {volumeHudVolume}%
+        </span>
+        <span class="h-1 w-16 overflow-hidden rounded-full bg-white/20" aria-hidden="true">
+          <span
+            class="block h-full rounded-full bg-vlc-orange transition-[width] duration-150"
+            style={`width: ${volumeHudVolume}%`}
+          ></span>
+        </span>
+      </div>
+
       <RightDock
         onAdvancedSettings={(category) => dispatch('advancedSettings', category ?? 'Subtitles')}
       />
@@ -345,5 +465,12 @@
     width: 100vw;
     height: 100vh;
     background-color: #000000;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .volume-hud,
+    .volume-hud * {
+      transition: none !important;
+    }
   }
 </style>
