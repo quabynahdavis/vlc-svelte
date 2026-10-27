@@ -63,21 +63,8 @@
     return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
   }
 
-  async function togglePlay(): Promise<void> {
-    const el = videoEl;
-
-    if (el && mediaAvailable) {
-      try {
-        if (el.paused) await el.play();
-        else el.pause();
-      } catch (error) {
-        console.warn('Playback could not start.', error);
-        player.update((state) => ({ ...state, isPlaying: false }));
-      }
-      return;
-    }
-
-    // Keep the transport responsive when no media is loaded yet.
+  function togglePlay(): void {
+    // The player store is the single source of truth; PlayerView syncs the element.
     toggle();
   }
 

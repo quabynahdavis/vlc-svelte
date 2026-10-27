@@ -33,6 +33,8 @@
   $: syncPlayback(videoEl, $player.isPlaying, hasMedia);
   // Store -> element: honour store-initiated rewinds (stop, re-clicking the current queue row).
   $: syncStoreSeek(videoEl, $player.currentTime, $player.isPlaying);
+  // Store -> element: keep volume and mute in step with context-menu and transport actions.
+  $: syncVolume(videoEl, $player.volume, $player.muted);
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -115,12 +117,11 @@
     }
   }
 
-  function applyVolumeAndMute(): void {
-    const el = videoEl;
+  function syncVolume(el: HTMLVideoElement | null, volume: number, muted: boolean): void {
     if (!el) return;
 
-    el.volume = clamp($player.volume / 100, 0, 1);
-    el.muted = $player.muted;
+    el.volume = clamp(volume / 100, 0, 1);
+    el.muted = muted;
   }
 
   function handleLoadedMetadata(): void {
@@ -135,8 +136,6 @@
       duration: mediaDuration || state.duration,
       currentTime: 0,
     }));
-
-    applyVolumeAndMute();
 
     try {
       el.currentTime = 0;
