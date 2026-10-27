@@ -33,12 +33,14 @@
     <SettingRow label="Media library folders" info hint="Folders to scan for media files.">
       <div class="flex flex-col gap-3 w-[500px]">
         <div class="flex gap-3">
-          <TextInput
-            bind:value={newFolder}
-            placeholder="Add folder path"
-            ariaLabel="New library folder"
-            on:keydown={handleKeydown}
-          />
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div class="min-w-0 flex-1" on:keydown={handleKeydown}>
+            <TextInput
+              bind:value={newFolder}
+              placeholder="Add folder path"
+              ariaLabel="New library folder"
+            />
+          </div>
           <button
             type="button"
             class="h-9 shrink-0 rounded-[8px] px-4 bg-vlc-orange/20 border border-vlc-orange/50 text-vlc-orange text-[13px] transition-colors hover:bg-vlc-orange/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"

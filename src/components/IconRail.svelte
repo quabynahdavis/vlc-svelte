@@ -10,6 +10,7 @@
     Radio,
     Video,
   } from 'lucide-svelte';
+  import type { ComponentType } from 'svelte';
   import {
     ADD_ITEM,
     NAV_ITEMS,
@@ -22,7 +23,7 @@
   export let onSelect: (id: RailItemId) => void = () => {};
   export let onExpandedChange: (value: boolean) => void = () => {};
 
-  const iconComponents = {
+  const iconComponents: Record<string, ComponentType> = {
     Home,
     Video,
     Music,

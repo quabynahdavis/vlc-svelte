@@ -217,8 +217,8 @@
     openSubmenu = item.id;
   }
 
-  /** Delegated fallback so the flyout also opens for plain mouseover events. */
-  function handleRowMouseOver(event: MouseEvent): void {
+  /** Delegated fallback so the flyout also opens for plain mouseover/focus events. */
+  function handleRowMouseOver(event: MouseEvent | FocusEvent): void {
     const target = event.target as HTMLElement | null;
     const row = target?.closest?.('[data-menu-item]') as HTMLElement | null;
 
