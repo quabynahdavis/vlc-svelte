@@ -7,6 +7,7 @@
     ArrowUpDown,
     Check,
     GripVertical,
+    ListMusic,
     MoreHorizontal,
     Plus,
     Search,
@@ -19,9 +20,11 @@
     type PlaylistsSortKey,
     type SortDirection,
   } from '../stores/playlists';
+  import { playlistsViewMode } from '../stores/viewModes';
   import { navigate } from '../stores/navigation';
   import { setQueue, type Track } from '../stores/player';
   import FuzzySearch from '../components/FuzzySearch.svelte';
+  import ViewModeToggle from '../components/ViewModeToggle.svelte';
 
   interface SortOption {
     key: PlaylistsSortKey;
@@ -286,14 +289,57 @@
     </header>
 
     <div class="flex-1 overflow-y-auto px-2 py-2">
-      <div class="space-y-0.5">
-        {#each sortedPlaylists as pl (pl.id)}
-          <button class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] {selected === pl.id ? 'bg-vlc-raised text-vlc-text' : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text' }" on:click={() => openPlaylist(pl.id)}>
-            <span class="shrink-0">📋</span>
-            <span class="truncate">{pl.name}</span>
-          </button>
-        {/each}
-      </div>
+      {#if $playlistsViewMode === 'grid'}
+        <div class="grid grid-cols-2 gap-1.5">
+          {#each sortedPlaylists as pl (pl.id)}
+            <button
+              type="button"
+              class="flex min-w-0 flex-col items-center gap-1 rounded-control border px-1.5 py-2 text-center text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 {selected === pl.id
+                ? 'border-vlc-borderStrong bg-vlc-raised text-vlc-text'
+                : 'border-transparent text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
+              title={pl.name}
+              aria-current={selected === pl.id ? 'true' : undefined}
+              on:click={() => openPlaylist(pl.id)}
+            >
+              <span class="flex h-8 w-8 items-center justify-center rounded-md bg-vlc-card text-sm">📋</span>
+              <span class="w-full truncate">{pl.name}</span>
+            </button>
+          {/each}
+        </div>
+      {:else if $playlistsViewMode === 'list'}
+        <div class="space-y-0.5">
+          {#each sortedPlaylists as pl (pl.id)}
+            <button
+              type="button"
+              class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 {selected === pl.id
+                ? 'bg-vlc-raised text-vlc-text'
+                : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
+              aria-current={selected === pl.id ? 'true' : undefined}
+              on:click={() => openPlaylist(pl.id)}
+            >
+              <span class="shrink-0">📋</span>
+              <span class="truncate">{pl.name}</span>
+            </button>
+          {/each}
+        </div>
+      {:else}
+        <div class="space-y-px">
+          {#each sortedPlaylists as pl (pl.id)}
+            <button
+              type="button"
+              class="flex h-7 w-full items-center gap-2 rounded-input px-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 {selected === pl.id
+                ? 'bg-vlc-raised text-vlc-text'
+                : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
+              title={pl.name}
+              aria-current={selected === pl.id ? 'true' : undefined}
+              on:click={() => openPlaylist(pl.id)}
+            >
+              <span class="shrink-0 text-[11px]">📋</span>
+              <span class="truncate">{pl.name}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
   </aside>
 
@@ -314,36 +360,77 @@
           <div class="w-56">
             <FuzzySearch placeholder="Search…" on:search={handleSearch} />
           </div>
+          <ViewModeToggle
+            value={$playlistsViewMode}
+            onChange={(mode) => playlistsViewMode.set(mode)}
+            label="Playlist view mode"
+          />
         </div>
       </header>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <div class="border-t border-vlc-border">
-          <div class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 px-6 py-2 text-[11px] uppercase text-vlc-muted">#<span>Title</span><span class="text-right">Artist</span><span class="text-right">Duration</span><span></span></div>
-          {#each activePlaylist?.tracks ?? [] as track, i (track.id)}
-            <div
-              class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-6 py-2 text-[13px] text-vlc-secondary hover:bg-vlc-card"
-              role="button"
-              tabindex="0"
-              aria-label={`Play ${track.title}`}
-              on:click={() => playPlaylistTrack(i)}
-              on:keydown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  playPlaylistTrack(i);
-                }
-              }}
-            >
-              <span class="text-vlc-muted">{i + 1}</span>
-              <span class="truncate text-vlc-text">{track.title}</span>
-              <span class="truncate">{track.artist}</span>
-              <span class="text-right text-vlc-muted">{formatDuration(track.durationSeconds)}</span>
-              <button class="flex h-6 w-6 items-center justify-center text-vlc-muted hover:text-vlc-text" on:click|stopPropagation={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)} on:contextmenu={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)}>
-                <GripVertical size={14} strokeWidth={1.75} />
+        {#if $playlistsViewMode === 'grid'}
+          <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {#each activePlaylist?.tracks ?? [] as track, i (track.id)}
+              <button
+                type="button"
+                class="group block w-full rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app"
+                title={`Play ${track.title}`}
+                on:click={() => playPlaylistTrack(i)}
+              >
+                <div class="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border border-vlc-border bg-vlc-card text-vlc-muted transition group-hover:border-vlc-borderStrong group-hover:bg-vlc-raised">
+                  <ListMusic size={30} strokeWidth={1.5} aria-hidden="true" />
+                  <span class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] text-vlc-secondary">{formatDuration(track.durationSeconds)}</span>
+                </div>
+                <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">{track.title}</div>
+                <div class="truncate text-[11px] text-vlc-muted">{track.artist}</div>
               </button>
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
+        {:else if $playlistsViewMode === 'list'}
+          <div class="border-t border-vlc-border">
+            <div class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 px-6 py-2 text-[11px] uppercase text-vlc-muted">#<span>Title</span><span class="text-right">Artist</span><span class="text-right">Duration</span><span></span></div>
+            {#each activePlaylist?.tracks ?? [] as track, i (track.id)}
+              <div
+                class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-6 py-2 text-[13px] text-vlc-secondary hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+                role="button"
+                tabindex="0"
+                aria-label={`Play ${track.title}`}
+                on:click={() => playPlaylistTrack(i)}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    playPlaylistTrack(i);
+                  }
+                }}
+              >
+                <span class="text-vlc-muted">{i + 1}</span>
+                <span class="truncate text-vlc-text">{track.title}</span>
+                <span class="truncate">{track.artist}</span>
+                <span class="text-right text-vlc-muted">{formatDuration(track.durationSeconds)}</span>
+                <button class="flex h-6 w-6 items-center justify-center rounded-input text-vlc-muted hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70" aria-label={`More options for ${track.title}`} on:click|stopPropagation={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)} on:contextmenu={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)}>
+                  <GripVertical size={14} strokeWidth={1.75} />
+                </button>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="border-t border-vlc-border px-4 py-2 sm:px-6">
+            {#each activePlaylist?.tracks ?? [] as track, i (track.id)}
+              <button
+                type="button"
+                class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+                title={`Play ${track.title}`}
+                on:click={() => playPlaylistTrack(i)}
+              >
+                <span class="w-6 shrink-0 text-right text-[11px] text-vlc-muted">{i + 1}</span>
+                <span class="min-w-0 flex-1 truncate text-vlc-text">{track.title}</span>
+                <span class="hidden w-40 shrink-0 truncate text-right text-[11px] text-vlc-muted sm:block">{track.artist}</span>
+                <span class="w-12 shrink-0 text-right text-[11px] text-vlc-muted">{formatDuration(track.durationSeconds)}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
     {/if}
   </div>

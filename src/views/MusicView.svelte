@@ -1,20 +1,21 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Check, ChevronRight, LayoutGrid, LayoutList } from 'lucide-svelte';
+  import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Check, ChevronRight, Music2 } from 'lucide-svelte';
   import { artists, DEMO_MEDIA_SRC, type Album, type Artist } from '../lib/mock';
   import {
     musicBreadcrumb,
     selectedArtistId,
     selectedAlbumId,
-    musicViewMode,
     musicSort,
     musicSortDirection,
     type MusicSortKey,
     type SortDirection,
   } from '../stores/music';
+  import { musicViewMode } from '../stores/viewModes';
   import { navigate } from '../stores/navigation';
   import { setQueue, type Track } from '../stores/player';
   import FuzzySearch from '../components/FuzzySearch.svelte';
+  import ViewModeToggle from '../components/ViewModeToggle.svelte';
 
   interface SortOption {
     key: MusicSortKey;
@@ -232,10 +233,6 @@
     return `${m}:${String(sec).padStart(2, '0')}`;
   }
 
-  function toggleView() {
-    musicViewMode.set($musicViewMode === 'grid' ? 'list' : 'grid');
-  }
-
   /** Play the visible album tracks through the shared demo clip. */
   function playTrack(index: number) {
     if (!album) return;
@@ -366,69 +363,201 @@
           </div>
         {/if}
       </div>
-      <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card hover:text-vlc-text" title="Toggle view" on:click={toggleView}>
-        {#if $musicViewMode === 'grid'}
-          <LayoutList size={16} strokeWidth={1.75} />
-        {:else}
-          <LayoutGrid size={16} strokeWidth={1.75} />
-        {/if}
-      </button>
+      <ViewModeToggle
+        value={$musicViewMode}
+        onChange={(mode) => musicViewMode.set(mode)}
+        label="Music view mode"
+      />
     </div>
   </header>
 
   <div class="min-h-0 flex-1 overflow-y-auto">
     {#if !isArtistView && !isAlbumView}
-      <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {#each sortedArtists as a (a.id)}
-          <button class="group block w-full text-left focus:outline-none" on:click={() => selectArtist(a)}>
-            <div class="relative aspect-square w-full overflow-hidden rounded-lg border border-vlc-border bg-vlc-card transition group-hover:border-vlc-borderStrong">
-              <div class="flex h-full w-full items-center justify-center text-vlc-muted">🎤</div>
-            </div>
-            <div class="mt-2.5 truncate text-[11px] leading-4 text-vlc-secondary">{a.name}</div>
-            <div class="text-[11px] text-vlc-muted">{a.albumCount} albums</div>
-          </button>
-        {/each}
-      </div>
+      {#if $musicViewMode === 'grid'}
+        <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {#each sortedArtists as a (a.id)}
+            <button
+              type="button"
+              class="group block w-full rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app"
+              title={`Open ${a.name}`}
+              on:click={() => selectArtist(a)}
+            >
+              <div class="relative aspect-square w-full overflow-hidden rounded-lg border border-vlc-border bg-vlc-card transition group-hover:border-vlc-borderStrong group-hover:bg-vlc-raised">
+                <div class="flex h-full w-full items-center justify-center text-vlc-muted">🎤</div>
+              </div>
+              <div class="mt-2.5 truncate text-[11px] leading-4 text-vlc-text">{a.name}</div>
+              <div class="text-[11px] text-vlc-muted">{a.albumCount} albums • {formatDuration(artistDuration(a))}</div>
+            </button>
+          {/each}
+        </div>
+      {:else if $musicViewMode === 'list'}
+        <div class="px-4 py-4 sm:px-6">
+          <div class="grid grid-cols-[minmax(0,1fr)_100px_100px] items-center gap-3 border-b border-vlc-border px-3 pb-2 text-[11px] uppercase tracking-wide text-vlc-muted">
+            <span>Name</span>
+            <span class="text-right">Albums</span>
+            <span class="text-right">Duration</span>
+          </div>
+          <div class="mt-1">
+            {#each sortedArtists as a (a.id)}
+              <button
+                type="button"
+                class="grid w-full grid-cols-[minmax(0,1fr)_100px_100px] items-center gap-3 rounded-control px-3 py-2 text-left transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+                title={`Open ${a.name}`}
+                on:click={() => selectArtist(a)}
+              >
+                <span class="flex min-w-0 items-center gap-3">
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-vlc-border bg-vlc-card text-sm">🎤</span>
+                  <span class="truncate text-[13px] text-vlc-text">{a.name}</span>
+                </span>
+                <span class="text-right text-xs text-vlc-secondary">{a.albumCount} albums</span>
+                <span class="text-right text-xs text-vlc-muted">{formatDuration(artistDuration(a))}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {:else}
+        <div class="px-4 py-2 sm:px-6">
+          {#each sortedArtists as a (a.id)}
+            <button
+              type="button"
+              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+              title={`Open ${a.name}`}
+              on:click={() => selectArtist(a)}
+            >
+              <span class="min-w-0 flex-1 truncate text-vlc-text">{a.name}</span>
+              <span class="shrink-0 text-[11px] text-vlc-muted">{a.albumCount} albums</span>
+              <span class="w-14 shrink-0 text-right text-[11px] text-vlc-muted">{formatDuration(artistDuration(a))}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
     {:else if isArtistView && artist}
-      <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {#each sortedAlbums as al (al.id)}
-          <button class="group block w-full text-left focus:outline-none" on:click={() => selectAlbum(al)}>
-            <div class="relative aspect-square w-full overflow-hidden rounded-lg border border-vlc-border bg-vlc-card transition group-hover:border-vlc-borderStrong">
-              <div class="flex h-full w-full items-center justify-center text-vlc-muted">💿</div>
-            </div>
-            <div class="mt-2.5 truncate text-[11px] leading-4 text-vlc-secondary">{al.title}</div>
-            <div class="text-[11px] text-vlc-muted">{al.year} • {al.trackCount} tracks</div>
-          </button>
-        {/each}
-      </div>
+      {#if $musicViewMode === 'grid'}
+        <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {#each sortedAlbums as al (al.id)}
+            <button
+              type="button"
+              class="group block w-full rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app"
+              title={`Open ${al.title}`}
+              on:click={() => selectAlbum(al)}
+            >
+              <div class="relative aspect-square w-full overflow-hidden rounded-lg border border-vlc-border bg-vlc-card transition group-hover:border-vlc-borderStrong group-hover:bg-vlc-raised">
+                <div class="flex h-full w-full items-center justify-center text-vlc-muted">💿</div>
+              </div>
+              <div class="mt-2.5 truncate text-[11px] leading-4 text-vlc-text">{al.title}</div>
+              <div class="text-[11px] text-vlc-muted">{al.year} • {al.trackCount} tracks</div>
+            </button>
+          {/each}
+        </div>
+      {:else if $musicViewMode === 'list'}
+        <div class="px-4 py-4 sm:px-6">
+          <div class="grid grid-cols-[minmax(0,1fr)_150px_70px_90px] items-center gap-3 border-b border-vlc-border px-3 pb-2 text-[11px] uppercase tracking-wide text-vlc-muted">
+            <span>Title</span>
+            <span>Artist</span>
+            <span class="text-right">Year</span>
+            <span class="text-right">Tracks</span>
+          </div>
+          <div class="mt-1">
+            {#each sortedAlbums as al (al.id)}
+              <button
+                type="button"
+                class="grid w-full grid-cols-[minmax(0,1fr)_150px_70px_90px] items-center gap-3 rounded-control px-3 py-2 text-left transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+                title={`Open ${al.title}`}
+                on:click={() => selectAlbum(al)}
+              >
+                <span class="flex min-w-0 items-center gap-3">
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-vlc-border bg-vlc-card text-sm">💿</span>
+                  <span class="truncate text-[13px] text-vlc-text">{al.title}</span>
+                </span>
+                <span class="truncate text-xs text-vlc-secondary">{artist?.name}</span>
+                <span class="text-right text-xs text-vlc-muted">{al.year}</span>
+                <span class="text-right text-xs text-vlc-muted">{al.trackCount} tracks</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {:else}
+        <div class="px-4 py-2 sm:px-6">
+          {#each sortedAlbums as al (al.id)}
+            <button
+              type="button"
+              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+              title={`Open ${al.title}`}
+              on:click={() => selectAlbum(al)}
+            >
+              <span class="min-w-0 flex-1 truncate text-vlc-text">{al.title}</span>
+              <span class="hidden w-36 shrink-0 truncate text-right text-[11px] text-vlc-muted sm:block">{artist?.name}</span>
+              <span class="w-10 shrink-0 text-right text-[11px] text-vlc-muted">{al.year}</span>
+              <span class="w-16 shrink-0 text-right text-[11px] text-vlc-muted">{al.trackCount} tracks</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
     {:else if isAlbumView && album}
       <div class="px-6 py-4">
         <div class="flex items-center gap-4">
-          <div class="h-24 w-24 shrink-0 rounded-lg border border-vlc-border bg-vlc-card flex items-center justify-center text-3xl">💿</div>
+          <div class="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border border-vlc-border bg-vlc-card text-3xl">💿</div>
           <div>
             <div class="text-[17px] font-medium text-vlc-text">{album.title}</div>
-            <div class="text-[13px] text-vlc-secondary">{artist?.name} • {album.year}</div>
+            <div class="text-[13px] text-vlc-secondary">{artist?.name} • {album.year} • {album.trackCount} tracks</div>
           </div>
         </div>
       </div>
-      <div class="border-t border-vlc-border">
-        <div class="grid grid-cols-[36px_1fr_120px_90px] items-center gap-3 px-6 py-2 text-[11px] uppercase tracking-wide text-vlc-muted">
-          <span>#</span><span>Title</span><span>Artist</span><span>Duration</span>
+
+      {#if $musicViewMode === 'grid'}
+        <div class="grid grid-cols-2 gap-x-5 gap-y-7 border-t border-vlc-border p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {#each sortedTracks as t, i (t.id)}
+            <button
+              type="button"
+              class="group block w-full rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app"
+              title={`Play ${t.title}`}
+              on:click={() => playTrack(i)}
+            >
+              <div class="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border border-vlc-border bg-vlc-card text-vlc-muted transition group-hover:border-vlc-borderStrong group-hover:bg-vlc-raised">
+                <Music2 size={30} strokeWidth={1.5} aria-hidden="true" />
+                <span class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] text-vlc-secondary">{formatDuration(t.durationSeconds)}</span>
+              </div>
+              <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">{t.title}</div>
+              <div class="truncate text-[11px] text-vlc-muted">{artist?.name}</div>
+            </button>
+          {/each}
         </div>
-        {#each sortedTracks as t, i (t.id)}
-          <button
-            type="button"
-            class="grid w-full grid-cols-[36px_1fr_120px_90px] items-center gap-3 rounded-control px-6 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-            title={`Play ${t.title}`}
-            on:click={() => playTrack(i)}
-          >
-            <span class="text-vlc-muted">{t.trackNumber}</span>
-            <span class="truncate text-vlc-text">{t.title}</span>
-            <span class="truncate">{artist?.name}</span>
-            <span class="text-vlc-muted">{formatDuration(t.durationSeconds)}</span>
-          </button>
-        {/each}
-      </div>
+      {:else if $musicViewMode === 'list'}
+        <div class="border-t border-vlc-border">
+          <div class="grid grid-cols-[36px_1fr_120px_90px] items-center gap-3 px-6 py-2 text-[11px] uppercase tracking-wide text-vlc-muted">
+            <span>#</span><span>Title</span><span>Artist</span><span>Duration</span>
+          </div>
+          {#each sortedTracks as t, i (t.id)}
+            <button
+              type="button"
+              class="grid w-full grid-cols-[36px_1fr_120px_90px] items-center gap-3 rounded-control px-6 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+              title={`Play ${t.title}`}
+              on:click={() => playTrack(i)}
+            >
+              <span class="text-vlc-muted">{t.trackNumber}</span>
+              <span class="truncate text-vlc-text">{t.title}</span>
+              <span class="truncate">{artist?.name}</span>
+              <span class="text-vlc-muted">{formatDuration(t.durationSeconds)}</span>
+            </button>
+          {/each}
+        </div>
+      {:else}
+        <div class="border-t border-vlc-border px-4 py-2 sm:px-6">
+          {#each sortedTracks as t, i (t.id)}
+            <button
+              type="button"
+              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+              title={`Play ${t.title}`}
+              on:click={() => playTrack(i)}
+            >
+              <span class="w-6 shrink-0 text-right text-[11px] text-vlc-muted">{t.trackNumber}</span>
+              <span class="min-w-0 flex-1 truncate text-vlc-text">{t.title}</span>
+              <span class="hidden w-40 shrink-0 truncate text-right text-[11px] text-vlc-muted sm:block">{artist?.name}</span>
+              <span class="w-12 shrink-0 text-right text-[11px] text-vlc-muted">{formatDuration(t.durationSeconds)}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
     {/if}
   </div>
 </div>

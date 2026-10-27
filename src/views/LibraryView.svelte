@@ -3,6 +3,7 @@
   import { Film, SearchX } from 'lucide-svelte';
   import LibraryToolbar from '../components/LibraryToolbar.svelte';
   import MediaCard from '../components/MediaCard.svelte';
+  import MediaListRow from '../components/MediaListRow.svelte';
   import type { MediaItem } from '../lib/mock';
   import {
     breadcrumb,
@@ -14,7 +15,8 @@
     sortedItems,
   } from '../stores/library';
   import { navigate } from '../stores/navigation';
-  import { setQueue, type Track } from '../stores/player';
+  import { currentTrack, setQueue, type Track } from '../stores/player';
+  import { libraryViewMode } from '../stores/viewModes';
 
   $: activeQuery = $searchQuery.trim();
 
@@ -48,13 +50,43 @@
 
   <div class="min-h-0 flex-1 overflow-y-auto">
     {#if $sortedItems.length > 0}
-      <div
-        class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-      >
-        {#each $sortedItems as item (item.id)}
-          <MediaCard {item} onSelect={handleSelect} />
-        {/each}
-      </div>
+      {#if $libraryViewMode === 'grid'}
+        <div
+          class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        >
+          {#each $sortedItems as item (item.id)}
+            <MediaCard {item} onSelect={handleSelect} />
+          {/each}
+        </div>
+      {:else if $libraryViewMode === 'list'}
+        <div class="p-6">
+          <div
+            class="overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel"
+            role="group"
+            aria-label="Library items, list view"
+          >
+            {#each $sortedItems as item (item.id)}
+              <MediaListRow
+                {item}
+                mode="list"
+                onSelect={handleSelect}
+                selected={$currentTrack?.id === item.id}
+              />
+            {/each}
+          </div>
+        </div>
+      {:else}
+        <div class="py-1" role="group" aria-label="Library items, compact view">
+          {#each $sortedItems as item (item.id)}
+            <MediaListRow
+              {item}
+              mode="compact"
+              onSelect={handleSelect}
+              selected={$currentTrack?.id === item.id}
+            />
+          {/each}
+        </div>
+      {/if}
     {:else}
       <div class="flex h-full min-h-[360px] flex-col items-center justify-center px-6 text-center">
         <div

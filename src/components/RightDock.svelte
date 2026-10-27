@@ -2,12 +2,14 @@
   import {
     AudioLines,
     Captions,
+    ChevronLeft,
+    ChevronRight,
     Clapperboard,
     Play,
     X,
     Activity,
   } from 'lucide-svelte';
-  import type { ComponentType } from 'svelte';
+  import { tick, type ComponentType } from 'svelte';
   import { player } from '../stores/player';
   import { dockMode, openDock } from '../stores/ui';
   import type { DockMode } from '../stores/ui';
@@ -51,6 +53,104 @@
   function selectTab(mode: DockMode): void {
     if (mode === 'closed' || mode === 'queue') return;
     dockMode.set(mode);
+  }
+
+  // Horizontal tab strip overflow state.
+  const TAB_SCROLL_STEP = 80;
+  const EDGE_EPSILON = 1;
+
+  let tabsEl: HTMLDivElement | null = null;
+  let hasOverflow = false;
+  let canScrollLeft = false;
+  let canScrollRight = false;
+
+  function measureTabs(el: HTMLElement): void {
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    // The scroller shares its row with the chevrons, so compare against the
+    // full row width: the chevrons should disappear as soon as the tabs would
+    // fit without them.
+    const availableWidth = el.parentElement?.clientWidth ?? el.clientWidth;
+    const overflows = el.scrollWidth > availableWidth + EDGE_EPSILON;
+    const wasOverflowing = hasOverflow;
+
+    hasOverflow = overflows;
+    canScrollLeft = overflows && el.scrollLeft > EDGE_EPSILON;
+    canScrollRight = overflows && el.scrollLeft < maxScroll - EDGE_EPSILON;
+
+    // Chevrons steal width from the strip, so re-reveal once they appear.
+    if (!wasOverflowing && overflows) {
+      void revealActiveTab();
+    }
+  }
+
+  function updateScrollState(): void {
+    if (tabsEl) measureTabs(tabsEl);
+  }
+
+  function scrollTabs(direction: -1 | 1): void {
+    tabsEl?.scrollBy({ left: direction * TAB_SCROLL_STEP, behavior: 'smooth' });
+  }
+
+  async function revealActiveTab(): Promise<void> {
+    await tick();
+    const el = tabsEl;
+    if (!el) return;
+
+    const activeTab = el.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    activeTab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    measureTabs(el);
+  }
+
+  function trackTabOverflow(node: HTMLDivElement): { destroy: () => void } {
+    measureTabs(node);
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => measureTabs(node));
+      observer.observe(node);
+      // Active tabs grow when their label appears, so watch each tab too.
+      for (const child of Array.from(node.children)) observer.observe(child);
+    }
+
+    return {
+      destroy() {
+        observer?.disconnect();
+      },
+    };
+  }
+
+  function onTabKeydown(event: KeyboardEvent, index: number): void {
+    let nextIndex: number;
+    switch (event.key) {
+      case 'ArrowLeft':
+        nextIndex = (index - 1 + tabs.length) % tabs.length;
+        break;
+      case 'ArrowRight':
+        nextIndex = (index + 1) % tabs.length;
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = tabs.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    const next = tabs[nextIndex];
+    if (!next) return;
+
+    selectTab(next.id);
+    void tick().then(() => {
+      tabsEl?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus();
+    });
+  }
+
+  // Keep the selected tab visible when it changes (and on first paint).
+  $: if (showTabs && $dockMode) {
+    void revealActiveTab();
   }
 
   // Lazy-loaded panel components
@@ -109,38 +209,77 @@
     </header>
 
     {#if showTabs}
-      <div
-        class="grid h-14 shrink-0 grid-cols-5 items-stretch border-b border-vlc-border"
-        role="tablist"
-        aria-label="Dock tabs"
-      >
-        {#each tabs as tab (tab.id)}
-          {@const active = $dockMode === tab.id}
+      <div class="flex h-14 shrink-0 items-stretch border-b border-vlc-border">
+        {#if hasOverflow}
           <button
             type="button"
-            role="tab"
-            aria-selected={active}
-            class="relative flex h-full min-w-0 items-center justify-center gap-1.5 px-0.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
-            class:text-vlc-text={active}
-            class:text-vlc-dim={!active}
-            class:hover:text-vlc-text={!active}
-            on:click={() => selectTab(tab.id)}
+            class="flex w-7 shrink-0 items-center justify-center text-vlc-dim transition-colors hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40 disabled:pointer-events-none disabled:opacity-30"
+            title="Scroll tabs left"
+            aria-label="Scroll tabs left"
+            disabled={!canScrollLeft}
+            on:click={() => scrollTabs(-1)}
           >
-            <svelte:component
-              this={tab.icon}
-              size={18}
-              strokeWidth={1.7}
-              class={active ? 'shrink-0 text-vlc-orangeText' : 'shrink-0'}
-            />
-            <span class="truncate">{tab.label}</span>
-            {#if active}
-              <span
-                class="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-vlc-orange"
-                aria-hidden="true"
-              ></span>
-            {/if}
+            <ChevronLeft size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>
-        {/each}
+        {/if}
+
+        <div
+          bind:this={tabsEl}
+          class="dock-tabs-scroll flex min-w-0 flex-1 items-stretch overflow-x-auto overscroll-x-contain"
+          role="tablist"
+          aria-label="Dock tabs"
+          aria-orientation="horizontal"
+          use:trackTabOverflow
+          on:scroll={updateScrollState}
+        >
+          {#each tabs as tab, index (tab.id)}
+            {@const active = $dockMode === tab.id}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={active}
+              tabindex={active ? 0 : -1}
+              title={active ? null : tab.label}
+              aria-label={active ? null : tab.label}
+              class="relative flex h-full flex-none items-center justify-center gap-1.5 whitespace-nowrap text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
+              class:px-3={active}
+              class:w-10={!active}
+              class:text-vlc-text={active}
+              class:text-vlc-dim={!active}
+              class:hover:text-vlc-text={!active}
+              on:click={() => selectTab(tab.id)}
+              on:keydown={(event) => onTabKeydown(event, index)}
+            >
+              <svelte:component
+                this={tab.icon}
+                size={18}
+                strokeWidth={1.7}
+                aria-hidden="true"
+                class={active ? 'shrink-0 text-vlc-orangeText' : 'shrink-0'}
+              />
+              {#if active}
+                <span class="whitespace-nowrap">{tab.label}</span>
+                <span
+                  class="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-vlc-orange"
+                  aria-hidden="true"
+                ></span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+
+        {#if hasOverflow}
+          <button
+            type="button"
+            class="flex w-7 shrink-0 items-center justify-center text-vlc-dim transition-colors hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40 disabled:pointer-events-none disabled:opacity-30"
+            title="Scroll tabs right"
+            aria-label="Scroll tabs right"
+            disabled={!canScrollRight}
+            on:click={() => scrollTabs(1)}
+          >
+            <ChevronRight size={16} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        {/if}
       </div>
     {/if}
 
@@ -210,5 +349,17 @@
     border-radius: 9999px;
     background-clip: padding-box;
     background-color: var(--scrollbar-thumb);
+  }
+
+  /* The tab strip scrolls horizontally but keeps its chrome clean. */
+  .dock-tabs-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .dock-tabs-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 </style>

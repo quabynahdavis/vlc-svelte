@@ -7,11 +7,12 @@
     ArrowUpDown,
     Check,
     ChevronRight,
-    LayoutGrid,
     MoreHorizontal,
     Search,
   } from 'lucide-svelte';
   import type { LibrarySortKey, SortDirection } from '../stores/library';
+  import { libraryViewMode } from '../stores/viewModes';
+  import ViewModeToggle from './ViewModeToggle.svelte';
 
   export let breadcrumb: string[] = [];
   export let itemCount = 0;
@@ -231,14 +232,11 @@
       {/if}
     </div>
 
-    <button
-      type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-      title="Grid view"
-      aria-label="Grid view"
-    >
-      <LayoutGrid size={16} strokeWidth={1.75} />
-    </button>
+    <ViewModeToggle
+      value={$libraryViewMode}
+      onChange={(mode) => libraryViewMode.set(mode)}
+      label="Library view mode"
+    />
 
     <label class="relative ml-2 block w-60">
       <Search
