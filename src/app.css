@@ -3,8 +3,21 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /*
+   * Semantic theme tokens.
+   *
+   * `:root` carries the dark palette so the app is correct before any script
+   * runs (and remains correct if storage/JS is unavailable). The light block
+   * overrides every surface/border/text token; the accent variables are shared
+   * and are overridden inline by src/lib/theme.ts at runtime.
+   *
+   * Each color token has an `-rgb` companion ("R G B") so Tailwind opacity
+   * modifiers such as `bg-vlc-app/95` and `border-vlc-border/30` keep working.
+   */
+  :root,
+  :root[data-theme='dark'] {
     color-scheme: dark;
+
     /* Accent defaults; src/lib/theme.ts overrides these at runtime. */
     --accent: #d37918;
     --accent-rgb: 211 121 24;
@@ -13,10 +26,85 @@
     --accent-deepest: #371f06;
     --accent-deepest-rgb: 55 31 6;
     --accent-gradient: linear-gradient(135deg, #ab6314 0%, #d37918 100%);
+
+    /* Surfaces */
+    --bg-app: #0e0e0e;
+    --bg-app-rgb: 14 14 14;
+    --bg-panel: #181818;
+    --bg-panel-rgb: 24 24 24;
+    --bg-panel-alt: #191919;
+    --bg-panel-alt-rgb: 25 25 25;
+    --bg-card: #1b1b1b;
+    --bg-card-rgb: 27 27 27;
+    --bg-raised: #232323;
+    --bg-raised-rgb: 35 35 35;
+
+    /* Borders: `--border` is the visible edge, `--border-subtle` the hairline. */
+    --border: #373737;
+    --border-rgb: 55 55 55;
+    --border-subtle: #262626;
+    --border-subtle-rgb: 38 38 38;
+
+    /* Text */
+    --text-primary: #eaeaea;
+    --text-primary-rgb: 234 234 234;
+    --text-secondary: #b8b8b8;
+    --text-secondary-rgb: 184 184 184;
+    --text-muted: #8f8f8f;
+    --text-muted-rgb: 143 143 143;
+    --text-dim: #6b6b6b;
+    --text-dim-rgb: 107 107 107;
+
+    /* Semantic */
+    --danger: #e81123;
+    --danger-rgb: 232 17 35;
+    /* The accent itself is already readable on dark surfaces. */
+    --accent-ink: var(--accent);
+    --selection-ink: #0e0e0e;
+    --scrollbar-thumb: #373737;
+    --scrollbar-thumb-hover: #6b6b6b;
+    --shadow-color: rgb(0 0 0 / 0.55);
   }
 
   :root[data-theme='light'] {
     color-scheme: light;
+
+    /* Warm-neutral paper rather than a cold pure gray. */
+    --bg-app: #f4f4f1;
+    --bg-app-rgb: 244 244 241;
+    --bg-panel: #ffffff;
+    --bg-panel-rgb: 255 255 255;
+    --bg-panel-alt: #fafaf8;
+    --bg-panel-alt-rgb: 250 250 248;
+    --bg-card: #ffffff;
+    --bg-card-rgb: 255 255 255;
+    --bg-raised: #ecece8;
+    --bg-raised-rgb: 236 236 232;
+
+    --border: #d6d6d0;
+    --border-rgb: 214 214 208;
+    --border-subtle: #e6e6e1;
+    --border-subtle-rgb: 230 230 225;
+
+    --text-primary: #1b1b19;
+    --text-primary-rgb: 27 27 25;
+    --text-secondary: #4b4b47;
+    --text-secondary-rgb: 75 75 71;
+    --text-muted: #6f6f69;
+    --text-muted-rgb: 111 111 105;
+    --text-dim: #8c8c86;
+    --text-dim-rgb: 140 140 134;
+
+    /* Darker red keeps destructive text at ~5.5:1 on the light app surface. */
+    --danger: #c4141f;
+    --danger-rgb: 196 20 31;
+    /* Darkened accent so orange text/icons stay legible on light surfaces
+       (>= 4.78:1 on every light surface, including raised controls). */
+    --accent-ink: #a0520b;
+    --selection-ink: #1b1b19;
+    --scrollbar-thumb: #c7c7c1;
+    --scrollbar-thumb-hover: #9e9e97;
+    --shadow-color: rgb(27 27 25 / 0.14);
   }
 
   html,
@@ -26,11 +114,15 @@
     width: 100%;
   }
 
+  html {
+    background-color: var(--bg-app);
+  }
+
   body {
     margin: 0;
     overflow: hidden;
-    background-color: theme('colors.vlc.app');
-    color: theme('colors.vlc.text');
+    background-color: var(--bg-app);
+    color: var(--text-primary);
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
       Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -59,14 +151,14 @@
 
   ::selection {
     background-color: var(--accent);
-    color: theme('colors.vlc.app');
+    color: var(--selection-ink);
   }
 }
 
 /* Thin, unobtrusive scrollbars. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: theme('colors.vlc.borderStrong') transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -79,12 +171,12 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: theme('colors.vlc.borderStrong');
+  background-color: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: theme('colors.vlc.muted');
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 *::-webkit-scrollbar-corner {

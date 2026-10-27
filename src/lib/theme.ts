@@ -3,8 +3,9 @@
  *
  * The accent is exposed as CSS custom properties on the document root so
  * Tailwind tokens (`vlc-orange`, `vlc-orangeDark`, ...) and plain CSS can
- * follow the user's choice without rebuilding styles. `data-theme` and
- * `color-scheme` are hints only: the app still ships a dark palette.
+ * follow the user's choice without rebuilding styles. The active palette is
+ * selected with `data-theme` + `color-scheme`; both token sets live in
+ * src/app.css, and index.html applies the same decision before first paint.
  */
 
 export const DEFAULT_ACCENT_COLOR = '#D37918';
@@ -111,7 +112,14 @@ export function languageTag(interfaceLanguage: string): string {
   return 'en';
 }
 
-function resolveTheme(theme: string): 'dark' | 'light' {
+export type ResolvedTheme = 'dark' | 'light';
+
+/**
+ * Resolve a stored preference (`dark` | `light` | `system`) to the concrete
+ * theme that should be painted. Unknown values fall back to dark, matching
+ * `defaultSettings.theme`.
+ */
+export function resolveTheme(theme: string): ResolvedTheme {
   if (theme === 'light') return 'light';
   if (theme === 'system') {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'dark';
@@ -127,8 +135,8 @@ function resolveTheme(theme: string): 'dark' | 'light' {
 let lastAppearance: AppearanceSettings | null = null;
 
 /**
- * Apply accent/language/theme hints to the document. Safe to call repeatedly;
- * every settings mutation (including reset and import) should end up here.
+ * Apply accent/language/theme to the document. Safe to call repeatedly; every
+ * settings mutation (including reset and import) should end up here.
  */
 export function applyAppearance(settings: AppearanceSettings): void {
   if (typeof document === 'undefined') return;

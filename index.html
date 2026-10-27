@@ -4,6 +4,31 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vlc.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Pre-paint theme: read only the persisted `theme` field so the first
+      // frame already uses the right palette (no dark->light flash). Keep the
+      // key in sync with SETTINGS_STORAGE_KEY in src/lib/settingsPersistence.ts.
+      // Any storage/JSON/matchMedia failure silently keeps the dark default.
+      (function () {
+        var theme = 'dark';
+        try {
+          var raw = window.localStorage.getItem('vlc.settings.v1');
+          var saved = raw ? JSON.parse(raw) : null;
+          if (saved && saved.theme === 'light') {
+            theme = 'light';
+          } else if (saved && saved.theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+          }
+        } catch (error) {
+          // Storage blocked or malformed payload: keep the dark default.
+        }
+        var root = document.documentElement;
+        root.setAttribute('data-theme', theme);
+        root.style.colorScheme = theme;
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
