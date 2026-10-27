@@ -262,7 +262,7 @@
     aria-label={title}
   >
     <div
-      class="flex h-full w-full flex-col overflow-hidden rounded-[12px] border border-vlc-border bg-vlc-app shadow-[0_24px_80px_rgba(0,0,0,0.65)]"
+      class="flex h-full w-full flex-col overflow-hidden rounded-[12px] border border-vlc-border bg-vlc-app shadow-[0_24px_80px_var(--shadow-color)]"
     >
       <header class="flex h-16 shrink-0 items-center px-3.5">
         <label class="relative block w-[300px] shrink-0">
@@ -318,12 +318,12 @@
                   class:bg-vlc-card={active}
                   class:text-vlc-text={active}
                   class:text-vlc-secondary={!active}
-                  class:hover:bg-[#151515]={!active}
+                  class:hover:bg-vlc-raised={!active}
                   class:hover:text-vlc-text={!active}
                   aria-current={active ? 'page' : undefined}
                   on:click={() => selectCategory(item.id)}
                 >
-                  <span class={active ? 'shrink-0 text-vlc-orange' : 'shrink-0 text-vlc-secondary'}>
+                  <span class={active ? 'shrink-0 text-vlc-orangeText' : 'shrink-0 text-vlc-secondary'}>
                     <svelte:component this={item.icon} size={20} strokeWidth={1.6} />
                   </span>
                   <span class="truncate">{item.label}</span>

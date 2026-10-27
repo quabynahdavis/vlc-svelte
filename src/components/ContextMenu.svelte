@@ -349,8 +349,7 @@
             on:focus={handleRowEnter}
           >
             <span
-              class="flex h-5 w-5 shrink-0 items-center justify-center"
-              style={`color: ${item.tone === 'accent' ? '#AB6314' : '#8F8F8F'}`}
+              class={`flex h-5 w-5 shrink-0 items-center justify-center ${item.tone === 'accent' ? 'text-vlc-orangeText' : 'text-vlc-muted'}`}
               aria-hidden="true"
             >
               <svelte:component this={item.icon} size={20} strokeWidth={1.6} />

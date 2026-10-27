@@ -46,7 +46,7 @@
   $: progressPct = duration > 0 ? clamp((elapsed / duration) * 100, 0, 100) : 0;
   $: bufferedPct = duration > 0 ? clamp(bufferedRatio * 100, 0, 100) : 0;
   $: volumeMuted = $player.muted || $player.volume === 0;
-  $: volumeBackground = `linear-gradient(to right, #D37918 0%, #D37918 ${$player.volume}%, #262626 ${$player.volume}%, #262626 100%)`;
+  $: volumeBackground = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${$player.volume}%, var(--border-subtle) ${$player.volume}%, var(--border-subtle) 100%)`;
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -276,7 +276,7 @@
   <div class="flex shrink-0 items-center gap-1">
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Previous"
       aria-label="Previous"
       on:click={goPrevious}
@@ -300,7 +300,7 @@
 
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Next"
       aria-label="Next"
       on:click={goNext}
@@ -350,9 +350,9 @@
     </div>
 
     <span
-      class="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow-[0_0_0_3px_rgba(211,121,24,0.18)] transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+      class="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-vlc-text opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
       class:opacity-100={scrubbing}
-      style={`left: ${progressPct}%`}
+      style={`left: ${progressPct}%; box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.18);`}
       aria-hidden="true"
     ></span>
   </div>
@@ -367,7 +367,7 @@
   <div class="ml-1 flex shrink-0 items-center gap-1">
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={volumeMuted ? 'Unmute' : 'Mute'}
       aria-label={volumeMuted ? 'Unmute' : 'Mute'}
       on:click={handleMute}
@@ -397,8 +397,8 @@
   <div class="flex shrink-0 items-center gap-0.5">
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card hover:text-white"
-      class:text-vlc-orange={$dockMode === 'audio'}
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-raised hover:text-vlc-text"
+      class:text-vlc-orangeText={$dockMode === 'audio'}
       class:text-vlc-secondary={$dockMode !== 'audio'}
       class:bg-vlc-card={$dockMode === 'audio'}
       title="Audio"
@@ -410,8 +410,8 @@
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
-      class:text-vlc-orange={$dockMode === 'subtitles'}
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class:text-vlc-orangeText={$dockMode === 'subtitles'}
       class:text-vlc-secondary={$dockMode !== 'subtitles'}
       class:bg-vlc-card={$dockMode === 'subtitles'}
       title="Subtitles"
@@ -423,7 +423,7 @@
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title="Settings"
       aria-label="Open settings"
       on:click={onSettings}
@@ -432,7 +432,7 @@
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
       aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
       on:click={toggleStageFullscreen}
@@ -445,8 +445,8 @@
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-card hover:text-white"
-      class:text-vlc-orange={$dockMode === 'queue'}
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-raised hover:text-vlc-text"
+      class:text-vlc-orangeText={$dockMode === 'queue'}
       class:text-vlc-secondary={$dockMode !== 'queue'}
       class:bg-vlc-card={$dockMode === 'queue'}
       title="Playing queue"
@@ -471,8 +471,8 @@
     width: 10px;
     height: 10px;
     border-radius: 9999px;
-    background: #FFFFFF;
-    box-shadow: 0 0 0 3px rgba(211, 121, 24, 0.18);
+    background: var(--text-primary);
+    box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.18);
     opacity: 0;
     transition: opacity 120ms ease;
   }
@@ -487,8 +487,8 @@
     height: 10px;
     border: 0;
     border-radius: 9999px;
-    background: #FFFFFF;
-    box-shadow: 0 0 0 3px rgba(211, 121, 24, 0.18);
+    background: var(--text-primary);
+    box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.18);
     opacity: 0;
     transition: opacity 120ms ease;
   }

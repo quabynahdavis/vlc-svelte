@@ -64,22 +64,22 @@
 
 <style>
   .drop-zone {
-    background-color: rgba(26, 26, 26, 0.8); /* #1A1A1A 80% */
-    border: 2px dashed #555;
+    background-color: rgb(var(--bg-card-rgb) / 0.8);
+    border: 2px dashed var(--border);
     height: 200px;
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #8f8f8f;
+    color: var(--text-muted);
     cursor: pointer;
     transition: all 0.2s ease;
   }
 
   .drop-zone:hover,
   .drop-zone.drag-over {
-    border-color: #ab6314;
-    background-color: rgba(171, 99, 20, 0.8);
-    color: #ab6314;
+    border-color: var(--accent);
+    background-color: rgb(var(--accent-rgb) / 0.12);
+    color: var(--accent-ink);
   }
 </style>

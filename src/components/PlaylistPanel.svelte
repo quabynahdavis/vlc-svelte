@@ -29,7 +29,7 @@
   <header class="flex h-11 shrink-0 items-center gap-2 border-b border-vlc-border px-3">
     <button
       type="button"
-      class="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white"
+      class="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text"
       title="Back"
       aria-label="Back"
       on:click={() => dispatch('back')}
@@ -42,7 +42,7 @@
     <div class="flex shrink-0 items-center gap-0.5">
       <button
         type="button"
-        class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-card hover:text-white"
+        class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text"
         title="More options"
         aria-label="More options"
       >
@@ -50,7 +50,7 @@
       </button>
       <button
         type="button"
-        class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-card hover:text-white"
+        class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text"
         title="Open in new window"
         aria-label="Open in new window"
       >
@@ -58,7 +58,7 @@
       </button>
       <button
         type="button"
-        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-card hover:text-white"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text"
         title="Close playlist"
         aria-label="Close playlist"
         on:click={() => dispatch('close')}
@@ -74,7 +74,7 @@
     <div class="flex items-center gap-3">
       <button
         type="button"
-        class="flex h-6 w-6 items-center justify-center rounded-control text-vlc-muted transition-colors hover:text-white"
+        class="flex h-6 w-6 items-center justify-center rounded-control text-vlc-muted transition-colors hover:text-vlc-text"
         title="Sort"
         aria-label="Sort playlists"
       >
@@ -82,7 +82,7 @@
       </button>
       <button
         type="button"
-        class="flex h-6 w-6 items-center justify-center rounded-control text-vlc-muted transition-colors hover:text-white"
+        class="flex h-6 w-6 items-center justify-center rounded-control text-vlc-muted transition-colors hover:text-vlc-text"
         title="Grid view"
         aria-label="Grid view"
       >
@@ -90,7 +90,7 @@
       </button>
       <button
         type="button"
-        class="flex h-6 w-6 items-center justify-center rounded-control text-vlc-muted transition-colors hover:text-white"
+        class="flex h-6 w-6 items-center justify-center rounded-control text-vlc-muted transition-colors hover:text-vlc-text"
         title="Search playlists"
         aria-label="Search playlists"
       >
@@ -110,11 +110,11 @@
           <button
             type="button"
             class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] transition-colors"
-            class:bg-vlc-card={$player.currentIndex === index}
-            class:text-white={$player.currentIndex === index}
+            class:bg-vlc-raised={$player.currentIndex === index}
+            class:text-vlc-text={$player.currentIndex === index}
             class:text-vlc-secondary={$player.currentIndex !== index}
-            class:hover:bg-vlc-card={$player.currentIndex !== index}
-            class:hover:text-white={$player.currentIndex !== index}
+            class:hover:bg-vlc-raised={$player.currentIndex !== index}
+            class:hover:text-vlc-text={$player.currentIndex !== index}
             aria-current={$player.currentIndex === index ? 'true' : undefined}
             title={track.title}
             on:click={() => playAt(index)}
@@ -122,7 +122,7 @@
             <ListMusic
               size={16}
               strokeWidth={1.75}
-              class={`shrink-0 ${$player.currentIndex === index ? 'text-vlc-orange' : ''}`}
+              class={`shrink-0 ${$player.currentIndex === index ? 'text-vlc-orangeText' : ''}`}
             />
             <span class="min-w-0 flex-1 truncate">{track.title}</span>
             <span class="shrink-0 text-[11px] tabular-nums text-vlc-muted">

@@ -56,7 +56,7 @@
 
       <button
         type="button"
-        class="group relative flex h-10 shrink-0 items-center rounded-control transition-colors duration-150 hover:bg-[#151515]"
+        class="group relative flex h-10 shrink-0 items-center rounded-control transition-colors duration-150 hover:bg-vlc-raised"
         class:w-10={!expanded}
         class:justify-center={!expanded}
         class:w-full={expanded}
@@ -71,7 +71,7 @@
       >
         <span
           class="flex shrink-0 items-center justify-center transition-colors duration-150"
-          class:text-vlc-orange={active === item.id}
+          class:text-vlc-orangeText={active === item.id}
           class:text-vlc-dim={active !== item.id}
           class:group-hover:text-vlc-secondary={active !== item.id}
         >
@@ -95,7 +95,7 @@
   <div class="flex shrink-0 p-2" class:justify-center={!expanded}>
     <button
       type="button"
-      class="flex h-9 w-9 items-center justify-center rounded-control text-vlc-muted transition-colors duration-150 hover:bg-[#151515] hover:text-vlc-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+      class="flex h-9 w-9 items-center justify-center rounded-control text-vlc-muted transition-colors duration-150 hover:bg-vlc-raised hover:text-vlc-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
       title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
       aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
       aria-pressed={expanded}

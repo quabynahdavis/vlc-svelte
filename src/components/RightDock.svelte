@@ -84,7 +84,7 @@
 
 {#if $dockMode !== 'closed'}
   <aside
-    class="dock-shadow absolute inset-y-0 right-0 z-20 flex w-[340px] flex-col border-l border-vlc-border bg-[#141414]"
+    class="dock-shadow absolute inset-y-0 right-0 z-20 flex w-[340px] flex-col border-l border-vlc-border bg-vlc-panel"
     aria-label={`${title} dock`}
     data-right-dock
     data-dock-mode={$dockMode}
@@ -99,7 +99,7 @@
 
       <button
         type="button"
-        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
         title="Close panel"
         aria-label="Close panel"
         on:click={() => openDock('closed')}
@@ -130,7 +130,7 @@
               this={tab.icon}
               size={18}
               strokeWidth={1.7}
-              class={active ? 'shrink-0 text-vlc-orange' : 'shrink-0'}
+              class={active ? 'shrink-0 text-vlc-orangeText' : 'shrink-0'}
             />
             <span class="truncate">{tab.label}</span>
             {#if active}
@@ -189,12 +189,12 @@
 
 <style>
   .dock-shadow {
-    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+    box-shadow: -18px 0 40px var(--shadow-color);
   }
 
   .dock-scroll {
     scrollbar-width: thin;
-    scrollbar-color: #2a2a2a transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   .dock-scroll::-webkit-scrollbar {
@@ -209,6 +209,6 @@
     border: 2px solid transparent;
     border-radius: 9999px;
     background-clip: padding-box;
-    background-color: #2a2a2a;
+    background-color: var(--scrollbar-thumb);
   }
 </style>

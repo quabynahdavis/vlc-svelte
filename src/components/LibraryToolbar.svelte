@@ -111,7 +111,7 @@
 <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-6">
   <button
     type="button"
-    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
     title="Back"
     aria-label="Go back"
     on:click={onBack}
@@ -134,7 +134,7 @@
       {/if}
       <span
         class="min-w-0 truncate whitespace-nowrap"
-        class:text-white={index === breadcrumb.length - 1}
+        class:text-vlc-text={index === breadcrumb.length - 1}
         class:text-vlc-secondary={index !== breadcrumb.length - 1}
       >
         {crumb}
@@ -151,7 +151,7 @@
       <button
         type="button"
         data-sort-trigger
-        class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+        class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
         title={`Sort: ${activeSortLabel} (${directionLabel.toLowerCase()})`}
         aria-label={`Sort items, currently ${activeSortLabel}, ${directionLabel.toLowerCase()}`}
         aria-haspopup="menu"
@@ -189,14 +189,14 @@
               aria-checked={sortKey === option.key}
               tabindex="-1"
               class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {sortKey === option.key
-                ? 'bg-vlc-card text-white'
-                : 'text-vlc-secondary hover:bg-vlc-card hover:text-white'}"
+                ? 'bg-vlc-raised text-vlc-text'
+                : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
               on:click={() => selectSortKey(option.key)}
             >
               <Check
                 size={13}
                 strokeWidth={2}
-                class={sortKey === option.key ? 'text-vlc-orange' : 'text-transparent'}
+                class={sortKey === option.key ? 'text-vlc-orangeText' : 'text-transparent'}
                 aria-hidden="true"
               />
               <span class="flex-1">{option.label}</span>
@@ -210,14 +210,14 @@
             role="menuitemcheckbox"
             aria-checked={sortDirection === 'desc'}
             tabindex="-1"
-            class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+            class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
             title="Toggle sort direction"
             on:click={toggleSortDirection}
           >
             <Check
               size={13}
               strokeWidth={2}
-              class={sortDirection === 'desc' ? 'text-vlc-orange' : 'text-transparent'}
+              class={sortDirection === 'desc' ? 'text-vlc-orangeText' : 'text-transparent'}
               aria-hidden="true"
             />
             <span class="flex-1">Descending</span>
@@ -233,7 +233,7 @@
 
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
       title="Grid view"
       aria-label="Grid view"
     >
@@ -253,7 +253,7 @@
         aria-label="Search library"
         value={searchValue}
         on:input={handleSearchInput}
-        class="h-8 w-full rounded-input border border-vlc-border bg-vlc-card pl-8 pr-3 text-xs text-white outline-none transition-colors placeholder:text-vlc-muted focus:border-vlc-orange/40 focus:ring-1 focus:ring-vlc-orange/40"
+        class="h-8 w-full rounded-input border border-vlc-border bg-vlc-card pl-8 pr-3 text-xs text-vlc-text outline-none transition-colors placeholder:text-vlc-muted focus:border-vlc-orange/40 focus:ring-1 focus:ring-vlc-orange/40"
       />
     </label>
 
@@ -261,7 +261,7 @@
 
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
       title="More"
       aria-label="More options"
     >

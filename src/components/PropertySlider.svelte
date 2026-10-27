@@ -14,7 +14,7 @@
 
   $: percent = max > min ? clamp(((value - min) / (max - min)) * 100, 0, 100) : 0;
   $: display = format ? format(value) : `${value.toFixed(decimals)}${unit ? ` ${unit}` : ''}`;
-  $: background = `linear-gradient(to right, #D37918 0%, #D37918 ${percent}%, #0E0E0E ${percent}%, #0E0E0E 100%)`;
+  $: background = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${percent}%, var(--bg-app) ${percent}%, var(--bg-app) 100%)`;
 </script>
 
 <div class="w-full">
@@ -54,7 +54,7 @@
     height: 10px;
     border: 0;
     border-radius: 9999px;
-    background: #D37918;
+    background: var(--accent);
     cursor: pointer;
     transition: transform 120ms ease;
   }
@@ -64,7 +64,7 @@
     height: 10px;
     border: 0;
     border-radius: 9999px;
-    background: #D37918;
+    background: var(--accent);
     cursor: pointer;
     transition: transform 120ms ease;
   }
@@ -84,6 +84,6 @@
   }
 
   .slider:focus-visible {
-    box-shadow: 0 0 0 2px rgba(211, 121, 24, 0.35);
+    box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 0.35);
   }
 </style>

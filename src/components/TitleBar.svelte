@@ -106,7 +106,7 @@
 
     <button
       type="button"
-      class="flex h-7 w-8 items-center justify-center rounded-input text-vlc-dim transition-colors hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class="flex h-7 w-8 items-center justify-center rounded-input text-vlc-dim transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={t('app.menu')}
       aria-label={t('app.menu')}
       on:click={onSettings}
@@ -125,7 +125,7 @@
   <div class="flex h-full items-center">
     <button
       type="button"
-      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={t('app.minimize')}
       aria-label={t('app.minimize')}
       on:click={() => windowAction('minimize')}
@@ -134,7 +134,7 @@
     </button>
     <button
       type="button"
-      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      class="flex h-10 w-[46px] items-center justify-center text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={t('app.maximize')}
       aria-label={t('app.maximize')}
       on:click={() => windowAction('maximize')}

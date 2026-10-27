@@ -327,7 +327,7 @@
   .color-swatch {
     -webkit-appearance: none;
     appearance: none;
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 1px solid var(--border);
     background: transparent;
     padding: 0;
   }
