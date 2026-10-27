@@ -44,7 +44,7 @@
         <ChevronDown
           size={15}
           strokeWidth={1.8}
-          class={`transition-transform duration-150 ${$settings.equalizerOpen ? '' : '-rotate-180'}`}
+          class:transition-transform class:duration-150 class:-rotate-180={!$settings.equalizerOpen}
         />
       </button>
     </div>

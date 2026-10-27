@@ -209,7 +209,8 @@
     <ChevronDown
       size={20}
       strokeWidth={1.8}
-      class={`shrink-0 text-vlc-dim transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+      class="shrink-0 text-vlc-dim transition-transform duration-200"
+      class:-rotate-90={!open}
       aria-hidden="true"
     />
   </button>
@@ -249,15 +250,15 @@
                   on:click={() => (row.value = !row.value)}
                 >
                   <span
-                    class={`h-7 w-7 rounded-md transition-colors ${
-                      row.value ? 'bg-vlc-orange' : 'bg-vlc-borderStrong'
-                    }`}
+                    class="h-7 w-7 rounded-md transition-colors"
+                    class:bg-vlc-orange={row.value}
+                    class:bg-vlc-borderStrong={!row.value}
                     aria-hidden="true"
                   ></span>
                   <span
-                    class={`w-[22px] text-center text-[12px] leading-4 ${
-                      row.value ? 'text-vlc-text' : 'text-vlc-dim'
-                    }`}
+                    class="w-[22px] text-center text-[12px] leading-4"
+                    class:text-vlc-text={row.value}
+                    class:text-vlc-dim={!row.value}
                   >
                     {row.value ? 'ON' : 'OFF'}
                   </span>
@@ -299,15 +300,15 @@
                     on:click={() => (row.enabled = !row.enabled)}
                   >
                     <span
-                      class={`h-7 w-7 rounded-md transition-colors ${
-                        row.enabled ? 'bg-vlc-orange' : 'bg-vlc-borderStrong'
-                      }`}
+                      class="h-7 w-7 rounded-md transition-colors"
+                      class:bg-vlc-orange={row.enabled}
+                      class:bg-vlc-borderStrong={!row.enabled}
                       aria-hidden="true"
                     ></span>
                     <span
-                      class={`w-[22px] text-center text-[12px] leading-4 ${
-                        row.enabled ? 'text-vlc-text' : 'text-vlc-dim'
-                      }`}
+                      class="w-[22px] text-center text-[12px] leading-4"
+                      class:text-vlc-text={row.enabled}
+                      class:text-vlc-dim={!row.enabled}
                     >
                       {row.enabled ? 'ON' : 'OFF'}
                     </span>

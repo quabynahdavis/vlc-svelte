@@ -4,11 +4,12 @@
   export let ariaLabel = '';
   export let readonly = false;
   export let mono = false;
+  export let type = 'text';
 </script>
 
 <input
   bind:value
-  type="text"
+  {type}
   {placeholder}
   {readonly}
   aria-label={ariaLabel}

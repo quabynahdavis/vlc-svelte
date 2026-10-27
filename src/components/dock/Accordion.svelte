@@ -20,7 +20,8 @@
     <ChevronDown
       size={18}
       strokeWidth={1.8}
-      class={`shrink-0 text-vlc-dim transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
+      class="shrink-0 text-vlc-dim transition-transform duration-150"
+      class:-rotate-90={!open}
       aria-hidden="true"
     />
   </button>

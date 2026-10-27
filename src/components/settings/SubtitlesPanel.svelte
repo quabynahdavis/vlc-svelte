@@ -203,7 +203,8 @@
         <ChevronUp
           size={16}
           strokeWidth={1.8}
-          class={`text-vlc-secondary transition-transform duration-150 ${$settings.subtitlePresetOpen ? '' : 'rotate-180'}`}
+          class="text-vlc-secondary transition-transform duration-150"
+          class:rotate-180={!$settings.subtitlePresetOpen}
         />
       </button>
       {#if $settings.subtitlePresetOpen}
