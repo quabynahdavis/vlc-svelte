@@ -18,7 +18,14 @@ export const contextMenu = writable<ContextMenuState>(initialContextMenu);
 /** Whether the docked property/effects panel is visible. */
 export const propertiesPanel = writable(false);
 
-export type DockMode = 'closed' | 'playback' | 'audio' | 'subtitles' | 'video' | 'queue';
+export type DockMode =
+  | 'closed'
+  | 'playback'
+  | 'audio'
+  | 'subtitles'
+  | 'video'
+  | 'visualizer'
+  | 'queue';
 
 /** Which panel the right-hand dock is showing. */
 export const dockMode = writable<DockMode>('closed');

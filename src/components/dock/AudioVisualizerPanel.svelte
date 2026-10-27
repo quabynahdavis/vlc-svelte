@@ -1,53 +1,121 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { X } from 'lucide-svelte';
+  import { onDestroy, onMount } from 'svelte';
 
-  const dispatch = createEventDispatcher();
+  const BAR_COUNT = 40;
+  const BAR_GAP = 3;
+  const MIN_BAR_HEIGHT = 2;
 
+  let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
-  let req: number;
-  let position = 0;
 
-  function draw(): void {
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+  let frameId = 0;
+  let resizeObserver: ResizeObserver | null = null;
+  let accent = '';
+  let elapsed = 0;
+  let lastTimestamp = 0;
+
+  /**
+   * The accent is resolved from CSS: an optional `--vlc-accent` custom property
+   * wins, otherwise the canvas' `text-vlc-orange` colour is used.
+   */
+  function readAccent(): string {
+    if (!canvas) return accent;
+
+    const styles = getComputedStyle(canvas);
+    return styles.getPropertyValue('--vlc-accent').trim() || styles.color;
+  }
+
+  function resizeCanvas(): void {
+    if (!canvas || !container) return;
+
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+
+    if (canvas.width === width && canvas.height === height) return;
+
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  function handleWindowResize(): void {
+    resizeCanvas();
+    accent = readAccent();
+  }
+
+  function draw(timestamp: number): void {
+    const ctx = canvas?.getContext('2d');
     if (!ctx) return;
-    const { width, height } = canvas;
-    // Clear
-    ctx.fillStyle = 'linear-gradient(45deg, #0a0a0a, #1a1a1a)';
-    // approximate gradient fill by drawing rect with gradient
-    const grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, '#0a0a0a');
-    grad.addColorStop(1, '#1a1a1a');
-    ctx.fillStyle = grad;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.width / dpr;
+    const height = canvas.height / dpr;
+
+    if (lastTimestamp === 0) lastTimestamp = timestamp;
+    elapsed += Math.min((timestamp - lastTimestamp) / 1000, 0.1);
+    lastTimestamp = timestamp;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    const background = ctx.createLinearGradient(0, 0, 0, height);
+    background.addColorStop(0, '#121212');
+    background.addColorStop(1, '#0a0a0a');
+    ctx.fillStyle = background;
     ctx.fillRect(0, 0, width, height);
-    // Moving bar pattern
-    ctx.fillStyle = '#ff0000';
-    const barWidth = 20;
-    const barHeight = height / 2;
-    const x = (position % (width + barWidth)) - barWidth;
-    ctx.fillRect(x, (height - barHeight) / 2, barWidth, barHeight);
-    position += 3;
-    req = requestAnimationFrame(draw);
+
+    const slot = width / BAR_COUNT;
+    const barWidth = Math.max(1, slot - BAR_GAP);
+    const center = height / 2;
+
+    ctx.fillStyle = accent;
+    for (let index = 0; index < BAR_COUNT; index += 1) {
+      const phase = elapsed * 3.2 + index * 0.35;
+      const wave =
+        Math.abs(Math.sin(phase)) * 0.6 + Math.abs(Math.sin(phase * 0.53 + index)) * 0.4;
+      const barHeight = Math.max(MIN_BAR_HEIGHT, wave * height * 0.72);
+      const x = index * slot + BAR_GAP / 2;
+
+      ctx.globalAlpha = 0.35 + wave * 0.65;
+      ctx.fillRect(x, center - barHeight / 2, barWidth, barHeight);
+    }
+    ctx.globalAlpha = 1;
+
+    frameId = requestAnimationFrame(draw);
   }
 
   onMount(() => {
-    req = requestAnimationFrame(draw);
+    accent = readAccent();
+    resizeCanvas();
+
+    resizeObserver = new ResizeObserver(() => resizeCanvas());
+    resizeObserver.observe(container);
+    window.addEventListener('resize', handleWindowResize);
+
+    frameId = requestAnimationFrame(draw);
   });
 
   onDestroy(() => {
-    cancelAnimationFrame(req);
-  });
+    if (frameId) {
+      cancelAnimationFrame(frameId);
+      frameId = 0;
+    }
 
-  function close() {
-    dispatch('onClose');
-  }
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+    window.removeEventListener('resize', handleWindowResize);
+  });
 </script>
 
-<div class="border-b border-vlc-border px-4 py-2 flex h-[52px] items-center justify-between gap-3">
-  <h2 class="text-[14px] font-medium leading-5 text-vlc-text">Audio Visualizer</h2>
-  <button type="button" class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50" title="Close panel" aria-label="Close panel" on:click={close}>
-    <X size={18} strokeWidth={1.7} />
-  </button>
+<div
+  class="visualizer relative h-64 w-full overflow-hidden rounded-[12px] border border-vlc-border bg-[#0A0A0A]"
+  bind:this={container}
+  data-audio-visualizer
+>
+  <canvas
+    bind:this={canvas}
+    class="block h-full w-full text-vlc-orange"
+    aria-hidden="true"
+  ></canvas>
 </div>
-<canvas bind:this={canvas} class="w-full h-64" />

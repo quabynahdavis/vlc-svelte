@@ -65,9 +65,6 @@
   $: if ($dockMode === 'playback' && !PlaybackPanel) {
     void loadPanel('PlaybackPanel').then((mod) => (PlaybackPanel = mod));
   }
-  $: if (($dockMode === 'audio' || $dockMode === 'visualizer') && !AudioEffectsPanel) {
-    void loadPanel('AudioEffectsPanel').then((mod) => (AudioEffectsPanel = mod));
-  }
   $: if ($dockMode === 'audio' && !AudioEffectsPanel) {
     void loadPanel('AudioEffectsPanel').then((mod) => (AudioEffectsPanel = mod));
   }
@@ -113,7 +110,7 @@
 
     {#if showTabs}
       <div
-        class="grid h-14 shrink-0 grid-cols-4 items-stretch border-b border-vlc-border"
+        class="grid h-14 shrink-0 grid-cols-5 items-stretch border-b border-vlc-border"
         role="tablist"
         aria-label="Dock tabs"
       >
