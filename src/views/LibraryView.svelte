@@ -1,15 +1,27 @@
 <script lang="ts">
+  import { get } from 'svelte/store';
   import { Film, SearchX } from 'lucide-svelte';
   import LibraryToolbar from '../components/LibraryToolbar.svelte';
   import MediaCard from '../components/MediaCard.svelte';
   import type { MediaItem } from '../lib/mock';
   import { breadcrumb, filteredItems, libraryImportLog, searchQuery } from '../stores/library';
+  import { navigate } from '../stores/navigation';
+  import { setQueue, type Track } from '../stores/player';
 
   $: activeQuery = $searchQuery.trim();
 
   function handleSelect(item: MediaItem) {
-    // Navigation into the player arrives in a later phase.
-    void item;
+    const items = get(filteredItems);
+    const tracks: Track[] = items.map((entry) => ({
+      id: entry.id,
+      title: entry.title,
+      duration: entry.durationSeconds,
+      src: entry.src,
+    }));
+    const startIndex = items.findIndex((entry) => entry.id === item.id);
+
+    setQueue(tracks, startIndex >= 0 ? startIndex : 0);
+    navigate('home');
   }
 </script>
 

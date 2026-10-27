@@ -73,6 +73,43 @@ export function playAt(index: number): void {
   });
 }
 
+/**
+ * Replace the queue and start at the requested item.
+ * Resets elapsed time and derives the duration from the selected track.
+ */
+export function setQueue(tracks: Track[], startIndex = 0): void {
+  player.update((state) => {
+    if (tracks.length === 0) {
+      return {
+        ...state,
+        queue: [],
+        currentIndex: -1,
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+      };
+    }
+
+    const requested = Number.isFinite(startIndex) ? Math.trunc(startIndex) : 0;
+    const index = clamp(requested, 0, tracks.length - 1);
+    const track = tracks[index];
+
+    return {
+      ...state,
+      queue: tracks,
+      currentIndex: index,
+      currentTime: 0,
+      duration: Number.isFinite(track.duration) && track.duration > 0 ? track.duration : 0,
+      isPlaying: true,
+    };
+  });
+}
+
+/** Stop playback and rewind, keeping the queue and loaded track intact. */
+export function stop(): void {
+  player.update((state) => ({ ...state, isPlaying: false, currentTime: 0 }));
+}
+
 /** Advance to the next queue item, respecting repeat and shuffle. */
 export function next(): void {
   player.update((state) => {

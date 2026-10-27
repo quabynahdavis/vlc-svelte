@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { settings } from '../../stores/settings';
+  import { resetSettings, settings } from '../../stores/settings';
   import Section from './Section.svelte';
   import SettingRow from './SettingRow.svelte';
   import Toggle from './Toggle.svelte';
 
   function resetPreferences(): void {
     if (confirm('Reset all preferences to defaults? This cannot be undone.')) {
-      settings.set({ ...settings });
+      resetSettings();
     }
   }
 </script>

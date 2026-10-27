@@ -4,6 +4,7 @@
   import RightDock from '../components/RightDock.svelte';
   import TransportBar from '../components/TransportBar.svelte';
   import { currentTrack, next, player } from '../stores/player';
+  import { navigate } from '../stores/navigation';
 
   const dispatch = createEventDispatcher<{ settings: void; advancedSettings: string }>();
 
@@ -15,8 +16,112 @@
   let stageEl: HTMLDivElement | null = null;
   let buffered = 0;
 
+  /** Key of the source currently applied to the element. */
+  let syncedMediaKey = '';
+  /** True while a source swap is in flight, so transient media events are ignored. */
+  let pendingLoad = false;
+  /** Previous store time, used to detect store-initiated rewinds. */
+  let previousStoreTime = 0;
+
   $: videoSrc = $currentTrack?.src ?? src;
   $: hasMedia = Boolean(videoSrc);
+  $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}`;
+
+  // Store -> element: load a new source and rewind when the current track changes.
+  $: syncSource(videoEl, mediaKey, videoSrc, $currentTrack?.duration ?? 0);
+  // Store -> element: follow play/pause intent (including stop and context-menu actions).
+  $: syncPlayback(videoEl, $player.isPlaying, hasMedia);
+  // Store -> element: honour store-initiated rewinds (stop, re-clicking the current queue row).
+  $: syncStoreSeek(videoEl, $player.currentTime, $player.isPlaying);
+
+  function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function syncSource(
+    el: HTMLVideoElement | null,
+    key: string,
+    source: string,
+    fallbackDuration: number,
+  ): void {
+    if (!el) {
+      syncedMediaKey = '';
+      return;
+    }
+
+    if (key === syncedMediaKey) return;
+
+    syncedMediaKey = key;
+    pendingLoad = true;
+
+    el.pause();
+
+    if (source) {
+      el.src = source;
+      el.load();
+    }
+
+    try {
+      el.currentTime = 0;
+    } catch {
+      // Seeking before metadata exists is harmless; loadedmetadata rewinds again.
+    }
+
+    player.update((state) => ({
+      ...state,
+      currentTime: 0,
+      duration:
+        Number.isFinite(fallbackDuration) && fallbackDuration > 0
+          ? fallbackDuration
+          : state.duration,
+    }));
+  }
+
+  function syncPlayback(el: HTMLVideoElement | null, shouldPlay: boolean, available: boolean): void {
+    if (!el || !available) return;
+
+    if (shouldPlay) {
+      if (el.paused) {
+        void el.play().catch((error) => {
+          console.warn('Playback could not start.', error);
+          pendingLoad = false;
+          player.update((state) => ({ ...state, isPlaying: false }));
+        });
+      }
+      return;
+    }
+
+    if (!el.paused) el.pause();
+  }
+
+  function syncStoreSeek(el: HTMLVideoElement | null, time: number, playing: boolean): void {
+    if (!Number.isFinite(time)) return;
+
+    const jumpedBackwards = time + 0.5 < previousStoreTime;
+    previousStoreTime = time;
+
+    if (!el || pendingLoad) return;
+
+    // While playing, timeupdate keeps the element and store close; a large drift
+    // while paused means the store was reset (for example by stop()).
+    const drift = !playing && Math.abs(el.currentTime - time) > 0.75;
+
+    if (jumpedBackwards || drift) {
+      try {
+        el.currentTime = time;
+      } catch {
+        // The element may not have metadata yet; loadedmetadata handles the reset.
+      }
+    }
+  }
+
+  function applyVolumeAndMute(): void {
+    const el = videoEl;
+    if (!el) return;
+
+    el.volume = clamp($player.volume / 100, 0, 1);
+    el.muted = $player.muted;
+  }
 
   function handleLoadedMetadata(): void {
     const el = videoEl;
@@ -28,17 +133,25 @@
     player.update((state) => ({
       ...state,
       duration: mediaDuration || state.duration,
-      currentTime: Number.isFinite(el.currentTime) ? el.currentTime : 0,
+      currentTime: 0,
     }));
 
-    el.volume = Math.min(1, Math.max(0, $player.volume / 100));
-    el.muted = $player.muted;
+    applyVolumeAndMute();
+
+    try {
+      el.currentTime = 0;
+    } catch {
+      // Ignore: some platforms reject a seek until the first frame is decoded.
+    }
 
     if ($player.isPlaying) {
       void el.play().catch((error) => {
         console.warn('Autoplay was blocked.', error);
+        pendingLoad = false;
         player.update((state) => ({ ...state, isPlaying: false }));
       });
+    } else {
+      pendingLoad = false;
     }
   }
 
@@ -53,7 +166,7 @@
 
   function handleTimeUpdate(): void {
     const el = videoEl;
-    if (!el) return;
+    if (!el || pendingLoad) return;
 
     player.update((state) => ({
       ...state,
@@ -62,10 +175,24 @@
   }
 
   function handlePlay(): void {
+    if (pendingLoad) return;
+    player.update((state) => (state.isPlaying ? state : { ...state, isPlaying: true }));
+  }
+
+  function handlePlaying(): void {
+    pendingLoad = false;
+
+    if (!$player.isPlaying) {
+      videoEl?.pause();
+      return;
+    }
+
     player.update((state) => (state.isPlaying ? state : { ...state, isPlaying: true }));
   }
 
   function handlePause(): void {
+    // A pause fired by a source swap must not cancel the queued autoplay intent.
+    if (pendingLoad) return;
     player.update((state) => (state.isPlaying ? { ...state, isPlaying: false } : state));
   }
 
@@ -105,7 +232,12 @@
 
   function handleError(): void {
     console.warn('The media source could not be loaded.');
+    pendingLoad = false;
     player.update((state) => ({ ...state, isPlaying: false }));
+  }
+
+  function handleBack(): void {
+    navigate('videos');
   }
 </script>
 
@@ -115,7 +247,10 @@
     <div
       class="absolute bottom-[52px] left-0 top-0 z-20 w-[300px] lg:static lg:h-full lg:shadow-none"
     >
-      <PlaylistPanel on:close={() => (showPlaylist = false)} />
+      <PlaylistPanel
+        on:close={() => (showPlaylist = false)}
+        on:back={handleBack}
+      />
     </div>
   {/if}
 
@@ -126,24 +261,22 @@
       class:pl-[300px]={showPlaylist}
     >
       {#if hasMedia}
-        {#key `${$currentTrack?.id ?? 'external'}:${videoSrc}`}
-          <!-- svelte-ignore a11y-media-has-caption -->
-          <video
-            bind:this={videoEl}
-            src={videoSrc}
-            class="h-full w-full bg-black object-contain"
-            preload="metadata"
-            playsinline
-            on:loadedmetadata={handleLoadedMetadata}
-            on:durationchange={handleDurationChange}
-            on:timeupdate={handleTimeUpdate}
-            on:play={handlePlay}
-            on:pause={handlePause}
-            on:ended={handleEnded}
-            on:progress={updateBuffered}
-            on:error={handleError}
-          ></video>
-        {/key}
+        <!-- svelte-ignore a11y-media-has-caption -->
+        <video
+          bind:this={videoEl}
+          class="h-full w-full bg-black object-contain"
+          preload="metadata"
+          playsinline
+          on:loadedmetadata={handleLoadedMetadata}
+          on:durationchange={handleDurationChange}
+          on:timeupdate={handleTimeUpdate}
+          on:play={handlePlay}
+          on:playing={handlePlaying}
+          on:pause={handlePause}
+          on:ended={handleEnded}
+          on:progress={updateBuffered}
+          on:error={handleError}
+        ></video>
       {:else}
         <div class="flex flex-col items-center gap-4 px-6 text-center">
           <svg

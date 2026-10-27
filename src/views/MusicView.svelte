@@ -1,7 +1,9 @@
 <script lang="ts">
   import { ArrowLeft, ArrowUpDown, ChevronRight, LayoutGrid, LayoutList, Search } from 'lucide-svelte';
-  import { artists } from '../lib/mock';
+  import { artists, DEMO_MEDIA_SRC, type Album, type Artist } from '../lib/mock';
   import { musicBreadcrumb, selectedArtistId, selectedAlbumId, musicViewMode, musicSort } from '../stores/music';
+  import { navigate } from '../stores/navigation';
+  import { setQueue, type Track } from '../stores/player';
   import FuzzySearch from '../components/FuzzySearch.svelte';
 
   let localBreadcrumb = $musicBreadcrumb;
@@ -33,13 +35,13 @@
     }
   }
 
-  function selectArtist(a) {
+  function selectArtist(a: Artist) {
     selectedArtistId.set(a.id);
     selectedAlbumId.set(null);
     musicBreadcrumb.set(['Videos', 'Music', a.name]);
   }
 
-  function selectAlbum(al) {
+  function selectAlbum(al: Album) {
     if (!artist) return;
     selectedAlbumId.set(al.id);
     musicBreadcrumb.set(['Videos', 'Music', artist.name, al.title]);
@@ -53,6 +55,22 @@
 
   function toggleView() {
     musicViewMode.set($musicViewMode === 'grid' ? 'list' : 'grid');
+  }
+
+  /** Play the visible album tracks through the shared demo clip. */
+  function playTrack(index: number) {
+    if (!album) return;
+
+    const tracks: Track[] = filteredTracks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      artist: artist?.name,
+      duration: t.durationSeconds,
+      src: DEMO_MEDIA_SRC,
+    }));
+
+    setQueue(tracks, index);
+    navigate('home');
   }
 </script>
 
@@ -136,13 +154,18 @@
         <div class="grid grid-cols-[36px_1fr_120px_90px] items-center gap-3 px-6 py-2 text-[11px] uppercase tracking-wide text-vlc-muted">
           <span>#</span><span>Title</span><span>Artist</span><span>Duration</span>
         </div>
-        {#each filteredTracks as t}
-          <div class="grid grid-cols-[36px_1fr_120px_90px] items-center gap-3 px-6 py-2 text-[13px] text-vlc-secondary hover:bg-vlc-card rounded-control">
+        {#each filteredTracks as t, i (t.id)}
+          <button
+            type="button"
+            class="grid w-full grid-cols-[36px_1fr_120px_90px] items-center gap-3 rounded-control px-6 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+            title={`Play ${t.title}`}
+            on:click={() => playTrack(i)}
+          >
             <span class="text-vlc-muted">{t.trackNumber}</span>
             <span class="truncate text-white">{t.title}</span>
             <span class="truncate">{artist?.name}</span>
             <span class="text-vlc-muted">{formatDuration(t.durationSeconds)}</span>
-          </div>
+          </button>
         {/each}
       </div>
     {/if}

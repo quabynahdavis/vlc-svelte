@@ -1,7 +1,9 @@
 <script lang="ts">
   import { ArrowLeft, Plus, MoreHorizontal, GripVertical, Search } from 'lucide-svelte';
-  import { playlists } from '../lib/mock';
+  import { DEMO_MEDIA_SRC, playlists } from '../lib/mock';
   import { playlistsSelectedId, playlistsSort } from '../stores/playlists';
+  import { navigate } from '../stores/navigation';
+  import { setQueue, type Track } from '../stores/player';
   import FuzzySearch from '../components/FuzzySearch.svelte';
 
   $: sort = $playlistsSort;
@@ -31,6 +33,22 @@
 
   function handleTrackContext(e: MouseEvent, playlistId: string, trackId: string) {
     e.preventDefault();
+  }
+
+  /** Queue the open playlist through the shared demo clip and jump to the player. */
+  function playPlaylistTrack(index: number) {
+    if (!activePlaylist) return;
+
+    const tracks: Track[] = activePlaylist.tracks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      artist: t.artist,
+      duration: t.durationSeconds,
+      src: DEMO_MEDIA_SRC,
+    }));
+
+    setQueue(tracks, index);
+    navigate('home');
   }
 
   $: activePlaylist = playlists.find(p => p.id === selected);
@@ -86,13 +104,25 @@
       <div class="min-h-0 flex-1 overflow-y-auto">
         <div class="border-t border-vlc-border">
           <div class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 px-6 py-2 text-[11px] uppercase text-vlc-muted">#<span>Title</span><span class="text-right">Artist</span><span class="text-right">Duration</span><span></span></div>
-          {#each activePlaylist?.tracks as track, i}
-            <div class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 px-6 py-2 border-t border-vlc-border/30 text-[13px] text-vlc-secondary hover:bg-vlc-card rounded-control">
+          {#each activePlaylist?.tracks ?? [] as track, i (track.id)}
+            <div
+              class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-6 py-2 text-[13px] text-vlc-secondary hover:bg-vlc-card"
+              role="button"
+              tabindex="0"
+              aria-label={`Play ${track.title}`}
+              on:click={() => playPlaylistTrack(i)}
+              on:keydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  playPlaylistTrack(i);
+                }
+              }}
+            >
               <span class="text-vlc-muted">{i + 1}</span>
               <span class="truncate text-white">{track.title}</span>
               <span class="truncate">{track.artist}</span>
               <span class="text-right text-vlc-muted">{formatDuration(track.durationSeconds)}</span>
-              <button class="flex h-6 w-6 items-center justify-center text-vlc-muted hover:text-white" on:contextmenu={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)}>
+              <button class="flex h-6 w-6 items-center justify-center text-vlc-muted hover:text-white" on:click|stopPropagation={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)} on:contextmenu={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)}>
                 <GripVertical size={14} strokeWidth={1.75} />
               </button>
             </div>

@@ -31,12 +31,10 @@
   import SubtitlesPanel from './settings/SubtitlesPanel.svelte';
   import VideoPanel from './settings/VideoPanel.svelte';
   import ExportImportPanel from './settings/ExportImportPanel.svelte';
-import { settings, defaultSettings } from '../stores/settings';
+  import { resetSettings } from '../stores/settings';
 
   export let open = false;
   export let onClose: () => void = () => {};
-
-  let resetError = '';
 
   interface SettingsItem {
     id: string;
@@ -81,6 +79,127 @@ import { settings, defaultSettings } from '../stores/settings';
     },
   ];
 
+  // Field-level search index: category labels alone are too coarse when a
+  // user searches for a concrete control (e.g. "proxy" or "snapshot").
+  const searchTerms: Record<string, string[]> = {
+    general: [
+      'appearance',
+      'interface language',
+      'language',
+      'theme',
+      'dark',
+      'light',
+      'accent color',
+      'startup',
+      'confirmation dialogs',
+      'updates',
+      'diagnostics',
+      'developer mode',
+      'log',
+      'log file',
+      'log details',
+    ],
+    interface: [
+      'interface language',
+      'language',
+      'theme',
+      'minimize to tray',
+      'systray icon',
+      'single instance',
+      'remaining time',
+      'file caching',
+    ],
+    privacy: [
+      'network access',
+      'usage statistics',
+      'telemetry',
+      'update check',
+      'reset preferences',
+    ],
+    controls: ['hotkeys', 'keyboard shortcuts', 'shortcut', 'reset hotkeys'],
+    playback: [
+      'skip frames',
+      'drop late frames',
+      'hardware decoding',
+      'speed playback',
+      'playback speed',
+      'loop mode',
+      'resume playback',
+    ],
+    video: [
+      'output module',
+      'deinterlace',
+      'hardware decoding',
+      'post-processing',
+      'video filters',
+      'snapshots',
+      'snapshot directory',
+      'snapshot format',
+    ],
+    audio: [
+      'equalizer',
+      'preset',
+      'two-pass',
+      'spatial audio',
+      'stereo widening',
+      'audio effects',
+    ],
+    subtitles: [
+      'subtitle track',
+      'subtitle language',
+      'subtitle delay',
+      'subtitle speed',
+      'subtitle font',
+      'text color',
+      'outline color',
+      'embedded subtitle',
+    ],
+    library: [
+      'media library',
+      'library folders',
+      'scan on startup',
+      'hidden files',
+      'artwork',
+      'metadata',
+      'file types',
+    ],
+    network: [
+      'http proxy',
+      'proxy user',
+      'proxy password',
+      'cache size',
+      'timeout',
+      'user agent',
+      'cookies',
+      'ipv6',
+    ],
+    performance: [
+      'thread count',
+      'real-time priority',
+      'memory copy',
+      'gpu acceleration',
+      'hdr tonemapping',
+      'frame drop threshold',
+    ],
+    recording: [
+      'recording directory',
+      'format',
+      'video codec',
+      'audio codec',
+      'bitrate',
+      'video bitrate',
+      'audio bitrate',
+    ],
+    extensions: ['extensions', 'plugins', 'lua scripts', 'scripts directory', 'script security'],
+    exportimport: ['export', 'import', 'json', 'backup', 'restore settings'],
+  };
+
+  function matchesSearch(item: SettingsItem, groupLabel: string, query: string): boolean {
+    if (!query) return true;
+    const terms = [item.label, groupLabel, ...(searchTerms[item.id] ?? [])];
+    return terms.some((term) => term.toLowerCase().includes(query));
+  }
+
   // Keep the original `<SettingsModal onClose={...} />` usage working while
   // also supporting `<SettingsModal bind:open />` from the shell.
   const hasOpenProp = Object.prototype.hasOwnProperty.call($$props, 'open');
@@ -95,9 +214,7 @@ import { settings, defaultSettings } from '../stores/settings';
   $: filteredGroups = groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) =>
-        item.label.toLowerCase().includes(normalizedQuery),
-      ),
+      items: group.items.filter((item) => matchesSearch(item, group.label, normalizedQuery)),
     }))
     .filter((group) => group.items.length > 0);
   $: title =
@@ -116,6 +233,14 @@ import { settings, defaultSettings } from '../stores/settings';
 
   function selectCategory(id: string): void {
     category = id;
+    contentEl?.scrollTo({ top: 0 });
+  }
+
+  function resetAllSettings(): void {
+    if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
+    resetSettings();
+    category = 'general';
+    query = '';
     contentEl?.scrollTo({ top: 0 });
   }
 
@@ -216,7 +341,7 @@ import { settings, defaultSettings } from '../stores/settings';
             type="button" 
             class="h-9 px-4 rounded-[8px] bg-vlc-danger/20 text-vlc-danger hover:bg-vlc-danger/30"
             aria-label="Reset all settings"
-            on:click={() => { if (confirm('Reset all settings to defaults? This cannot be undone.')) { settings.set({ ...settings }); } }}
+            on:click={resetAllSettings}
           >
             Reset All Settings
           </button>

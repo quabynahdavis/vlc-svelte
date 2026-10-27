@@ -16,9 +16,11 @@
     player,
     prev as prevTrack,
     setVolume,
+    stop as stopPlayer,
     toggle as togglePlayback,
     toggleMute,
   } from './stores/player';
+  import { activeNav, navigate } from './stores/navigation';
   import {
     closeContextMenu,
     contextMenu,
@@ -33,7 +35,7 @@
   import RecentView from './views/RecentView.svelte';
   import PlaylistsView from './views/PlaylistsView.svelte';
 
-  let activeNav: NavId = 'home';
+  let activeNavLast = $activeNav;
   let sidebarExpanded = false;
   const sidebarPreference: Partial<Record<NavId, boolean>> = {};
   let showSettings = false;
@@ -45,19 +47,21 @@
   $: propertySections = propertyPreset === 'video' ? videoPreset : compressorPreset;
   $: propertyTitle = propertyPreset === 'video' ? 'Video Effects' : 'Collapse Settings';
 
+  // Keep the rail in step when views navigate programmatically (for example library -> player).
+  $: if ($activeNav !== activeNavLast) {
+    activeNavLast = $activeNav;
+    sidebarExpanded = sidebarPreference[$activeNav] ?? $activeNav !== 'home';
+  }
+
   function handleNavSelect(id: RailItemId) {
     if (id === 'add') return;
-    activeNav = id;
+    navigate(id);
     sidebarExpanded = sidebarPreference[id] ?? id !== 'home';
   }
 
   function handleSidebarExpanded(value: boolean) {
     sidebarExpanded = value;
-    sidebarPreference[activeNav] = value;
-  }
-
-  function stopPlayback(): void {
-    player.update((state) => ({ ...state, isPlaying: false, currentTime: 0 }));
+    sidebarPreference[$activeNav] = value;
   }
 
   /** Open Global Settings and select a category once the modal is mounted. */
@@ -94,7 +98,7 @@
         togglePlayback();
         break;
       case 'stop':
-        stopPlayback();
+        stopPlayer();
         break;
       case 'previous-item':
         prevTrack();
@@ -146,7 +150,7 @@
   <div class="flex min-h-0 flex-1">
     <div class="chrome-rail h-full shrink-0">
       <IconRail
-        active={activeNav}
+        active={$activeNav}
         expanded={sidebarExpanded}
         onSelect={handleNavSelect}
         onExpandedChange={handleSidebarExpanded}
@@ -157,24 +161,24 @@
       class="relative min-w-0 flex-1 overflow-hidden bg-vlc-app"
       on:contextmenu|preventDefault={openContextMenu}
     >
-      {#if activeNav === 'home'}
+      {#if $activeNav === 'home'}
         <PlayerView
           on:settings={() => (showSettings = true)}
           on:advancedSettings={(event) => void openSettingsAt(event.detail)}
         />
-      {:else if activeNav === 'videos'}
+      {:else if $activeNav === 'videos'}
         <LibraryView />
-      {:else if activeNav === 'music'}
+      {:else if $activeNav === 'music'}
         <MusicView />
-      {:else if activeNav === 'network'}
+      {:else if $activeNav === 'network'}
         <NetworkView />
-      {:else if activeNav === 'recent'}
+      {:else if $activeNav === 'recent'}
         <RecentView />
-      {:else if activeNav === 'playlists'}
+      {:else if $activeNav === 'playlists'}
         <PlaylistsView />
       {:else}
         <div class="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-          <p class="text-lg font-medium text-vlc-secondary">{NAV_LABELS[activeNav]}</p>
+          <p class="text-lg font-medium text-vlc-secondary">{NAV_LABELS[$activeNav]}</p>
           <p class="text-sm text-vlc-muted">{t('nav.coming_soon')}</p>
         </div>
       {/if}

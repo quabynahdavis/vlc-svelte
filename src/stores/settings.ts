@@ -1,4 +1,9 @@
 import { writable } from 'svelte/store';
+import {
+  loadSettings,
+  parseSettingsJson,
+  scheduleSettingsSave,
+} from '../lib/settingsPersistence';
 
 /**
  * A single typed settings store keeps the panel bindings simple:
@@ -327,7 +332,38 @@ export const defaultSettings: SettingsState = {
   scriptSecurity: 'Safe',
 };
 
-export const settings = writable<SettingsState>({ ...defaultSettings });
+export const settings = writable<SettingsState>(loadSettings(defaultSettings));
+
+// Persist subsequent changes only. The initial value was either loaded from
+// storage or is the default set, so writing it back on boot would be pointless.
+let isFirstEmission = true;
+settings.subscribe((state) => {
+  if (isFirstEmission) {
+    isFirstEmission = false;
+    return;
+  }
+  scheduleSettingsSave(state);
+});
+
+/** Deep clone of the defaults, safe to hand to `settings.set` (including nested arrays). */
+export function createDefaultSettings(): SettingsState {
+  return JSON.parse(JSON.stringify(defaultSettings)) as SettingsState;
+}
+
+/** Restore every setting to its default value. */
+export function resetSettings(): void {
+  settings.set(createDefaultSettings());
+}
+
+/**
+ * Validate imported JSON with the same merge/validation rules as persisted
+ * settings, then apply it. Returns the applied state for callers that need it.
+ */
+export function importSettingsFromJson(json: string): SettingsState {
+  const next = parseSettingsJson(json, defaultSettings);
+  settings.set(next);
+  return next;
+}
 
 export function setEqualizerGain(index: number, gain: number): void {
   settings.update((state) => ({

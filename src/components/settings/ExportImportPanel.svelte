@@ -1,23 +1,23 @@
 <script lang="ts">
-  import { settings } from '../../stores/settings';
+  import { importSettingsFromJson, settings } from '../../stores/settings';
   import Section from './Section.svelte';
 
   let fileInput: HTMLInputElement | null = null;
   let message = '';
   let messageType: 'success' | 'error' = 'success';
+  let messageTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function clearMessage() {
-    message = '';
-  }
-
-  function showMessage(msg: string, type: 'success' | 'error' = 'success') {
+  function showMessage(msg: string, type: 'success' | 'error' = 'success'): void {
     message = msg;
     messageType = type;
-    clearMessage();
-    setTimeout(clearMessage, 3000);
+    if (messageTimer !== null) clearTimeout(messageTimer);
+    messageTimer = setTimeout(() => {
+      message = '';
+      messageTimer = null;
+    }, 5000);
   }
 
-  function exportSettings() {
+  function exportSettings(): void {
     try {
       const data = JSON.stringify($settings, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
@@ -29,35 +29,52 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showMessage('Settings exported successfully');
+      showMessage('Settings exported successfully.', 'success');
     } catch {
-      showMessage('Export failed', 'error');
+      showMessage('Export failed: the browser blocked the download.', 'error');
     }
   }
 
-  function triggerImport() {
+  function triggerImport(): void {
     fileInput?.click();
   }
 
-  function handleFileChange(event: Event) {
+  function handleFileChange(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
+    if (file.size === 0) {
+      showMessage('Import failed: the selected file is empty.', 'error');
+      input.value = '';
+      return;
+    }
+
     const reader = new FileReader();
+
     reader.onload = () => {
       try {
-        const text = reader.result as string;
-        const parsed = JSON.parse(text);
-        settings.set(parsed);
-        showMessage('Settings imported successfully');
-      } catch {
-        showMessage('Invalid JSON file', 'error');
+        const text = typeof reader.result === 'string' ? reader.result : '';
+        importSettingsFromJson(text);
+        showMessage('Settings imported successfully.', 'success');
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : 'Unknown error';
+        showMessage(`Import failed: ${detail}`, 'error');
       } finally {
-        if (input) input.value = '';
+        input.value = '';
       }
     };
-    reader.onerror = () => showMessage('Failed to read file', 'error');
+
+    reader.onerror = () => {
+      showMessage('Import failed: the file could not be read.', 'error');
+      input.value = '';
+    };
+
+    reader.onabort = () => {
+      showMessage('Import cancelled.', 'error');
+      input.value = '';
+    };
+
     reader.readAsText(file);
   }
 </script>
@@ -67,6 +84,7 @@
     <div class="bg-vlc-card rounded-[8px] p-5 text-vlc-text">
       <p class="text-[14px] text-vlc-secondary mb-4">
         Export your settings to a JSON file or import from a previously exported file.
+        Imported files are validated and merged with the current defaults.
       </p>
       <div class="flex items-center gap-3">
         <button
@@ -88,7 +106,7 @@
         <input
           bind:this={fileInput}
           type="file"
-          accept="application/json"
+          accept="application/json,.json"
           class="hidden"
           aria-label="Import settings file"
           on:change={handleFileChange}

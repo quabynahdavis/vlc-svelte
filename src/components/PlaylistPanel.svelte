@@ -10,20 +10,16 @@
     Search,
     X,
   } from 'lucide-svelte';
-
-  type Playlist = {
-    id: string;
-    name: string;
-  };
+  import { playAt, player } from '../stores/player';
 
   const dispatch = createEventDispatcher<{ back: void; close: void }>();
 
-  const playlists: Playlist[] = [
-    { id: 'cool-songs', name: 'Cool Songs' },
-    { id: 'anime-to-watch', name: 'Anime to Watch' },
-  ];
-
-  let activePlaylist = 'cool-songs';
+  function formatDuration(seconds: number): string {
+    const total = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+    const minutes = Math.floor(total / 60);
+    const remainder = total % 60;
+    return `${minutes}:${String(remainder).padStart(2, '0')}`;
+  }
 </script>
 
 <aside
@@ -73,7 +69,7 @@
   </header>
 
   <div class="flex h-10 shrink-0 items-center justify-between border-b border-vlc-border px-4">
-    <span class="text-[11px] text-vlc-secondary">{playlists.length} items</span>
+    <span class="text-[11px] text-vlc-secondary">{$player.queue.length} items</span>
 
     <div class="flex items-center gap-3">
       <button
@@ -104,23 +100,37 @@
   </div>
 
   <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-    <div class="space-y-0.5">
-      {#each playlists as playlist (playlist.id)}
-        <button
-          type="button"
-          class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] transition-colors"
-          class:bg-vlc-card={activePlaylist === playlist.id}
-          class:text-white={activePlaylist === playlist.id}
-          class:text-vlc-secondary={activePlaylist !== playlist.id}
-          class:hover:bg-vlc-card={activePlaylist !== playlist.id}
-          class:hover:text-white={activePlaylist !== playlist.id}
-          aria-current={activePlaylist === playlist.id ? 'true' : undefined}
-          on:click={() => (activePlaylist = playlist.id)}
-        >
-          <ListMusic size={16} strokeWidth={1.75} class="shrink-0" />
-          <span class="truncate">{playlist.name}</span>
-        </button>
-      {/each}
-    </div>
+    {#if $player.queue.length === 0}
+      <p class="px-3 py-4 text-[12px] text-vlc-muted">
+        The queue is empty. Open a video from the library to start playback.
+      </p>
+    {:else}
+      <div class="space-y-0.5">
+        {#each $player.queue as track, index (track.id)}
+          <button
+            type="button"
+            class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] transition-colors"
+            class:bg-vlc-card={$player.currentIndex === index}
+            class:text-white={$player.currentIndex === index}
+            class:text-vlc-secondary={$player.currentIndex !== index}
+            class:hover:bg-vlc-card={$player.currentIndex !== index}
+            class:hover:text-white={$player.currentIndex !== index}
+            aria-current={$player.currentIndex === index ? 'true' : undefined}
+            title={track.title}
+            on:click={() => playAt(index)}
+          >
+            <ListMusic
+              size={16}
+              strokeWidth={1.75}
+              class={`shrink-0 ${$player.currentIndex === index ? 'text-vlc-orange' : ''}`}
+            />
+            <span class="min-w-0 flex-1 truncate">{track.title}</span>
+            <span class="shrink-0 text-[11px] tabular-nums text-vlc-muted">
+              {formatDuration(track.duration)}
+            </span>
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 </aside>

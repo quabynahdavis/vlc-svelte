@@ -14,7 +14,12 @@ export interface MediaItem {
   progress: number;
   /** Optional artwork. No artwork is bundled yet, so cards fall back to a placeholder. */
   thumbnailPath?: string;
+  /** Optional local media source. Demo library items point at the bundled sample clip. */
+  src?: string;
 }
+
+/** Small bundled clip used by the demo library and music queues. */
+export const DEMO_MEDIA_SRC = '/demo/sample.mp4';
 
 export const showsBreadcrumb: string[] = ['Videos', 'Shows', 'The Wand', 'S01'];
 
@@ -135,6 +140,7 @@ export const showsItems: MediaItem[] = EPISODE_ORDER.map((episode) => {
     durationSeconds: EPISODE_DURATIONS[episode - 1],
     progress: episode <= 4 ? WATCHED_PROGRESS[episode] ?? 1 : 0,
     thumbnailPath: undefined,
+    src: DEMO_MEDIA_SRC,
   };
 });
 

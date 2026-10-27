@@ -11,11 +11,13 @@ export default {
           raised: '#232323',
           border: '#262626',
           borderStrong: '#373737',
-          orange: '#D37918',
-          orangeDark: '#AB6314',
-          orangeDeep: '#371F06',
+          // Accent ramp is driven by CSS variables set in src/lib/theme.ts.
+          // RGB triplets keep Tailwind opacity modifiers (`bg-vlc-orange/20`) working.
+          orange: 'rgb(var(--accent-rgb) / <alpha-value>)',
+          orangeDark: 'rgb(var(--accent-pressed-rgb) / <alpha-value>)',
+          orangeDeep: 'rgb(var(--accent-deepest-rgb) / <alpha-value>)',
           // Retained for existing consumers; matches the camelCase token above.
-          'orange-dark': '#AB6314',
+          'orange-dark': 'rgb(var(--accent-pressed-rgb) / <alpha-value>)',
           text: '#EAEAEA',
           secondary: '#B8B8B8',
           muted: '#6B6B6B',
@@ -40,7 +42,7 @@ export default {
         input: '6px',
       },
       backgroundImage: {
-        'vlc-accent': 'linear-gradient(135deg, #AB6314 0%, #D37918 100%)',
+        'vlc-accent': 'var(--accent-gradient)',
       },
     },
   },

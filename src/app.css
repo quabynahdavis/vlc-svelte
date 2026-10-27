@@ -5,6 +5,18 @@
 @layer base {
   :root {
     color-scheme: dark;
+    /* Accent defaults; src/lib/theme.ts overrides these at runtime. */
+    --accent: #d37918;
+    --accent-rgb: 211 121 24;
+    --accent-pressed: #ab6314;
+    --accent-pressed-rgb: 171 99 20;
+    --accent-deepest: #371f06;
+    --accent-deepest-rgb: 55 31 6;
+    --accent-gradient: linear-gradient(135deg, #ab6314 0%, #d37918 100%);
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
   }
 
   html,
@@ -46,7 +58,7 @@
   }
 
   ::selection {
-    background-color: theme('colors.vlc.orange');
+    background-color: var(--accent);
     color: theme('colors.vlc.app');
   }
 }
