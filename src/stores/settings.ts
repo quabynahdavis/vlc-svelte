@@ -87,6 +87,10 @@ export interface SettingsState {
   showRemainingTime: boolean;
   fileCachingMs: string;
 
+  // Window chrome
+  /** `true` = native OS title bar/decorations, `false` = in-app custom title bar. */
+  useSystemTitleBar: boolean;
+
   // Privacy
   allowNetworkAccess: boolean;
   sendUsageStats: boolean;
@@ -262,6 +266,9 @@ export const defaultSettings: SettingsState = {
   singleInstance: false,
   showRemainingTime: true,
   fileCachingMs: '300',
+
+  // Window chrome
+  useSystemTitleBar: false,
 
   // Privacy
   allowNetworkAccess: true,

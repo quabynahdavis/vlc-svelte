@@ -11,6 +11,7 @@
   import TitleBar from './components/TitleBar.svelte';
   import { NAV_LABELS, type NavId, type RailItemId } from './lib/constants';
   import { t } from './lib/t';
+  import { applyWindowDecorations } from './lib/windowChrome';
   import {
     next as nextTrack,
     player,
@@ -21,6 +22,7 @@
     toggleMute,
   } from './stores/player';
   import { activeNav, navigate } from './stores/navigation';
+  import { settings } from './stores/settings';
   import {
     closeContextMenu,
     contextMenu,
@@ -46,6 +48,14 @@
 
   $: propertySections = propertyPreset === 'video' ? videoPreset : compressorPreset;
   $: propertyTitle = propertyPreset === 'video' ? 'Video Effects' : 'Collapse Settings';
+
+  // Keep the native window decorations in sync with the title bar preference.
+  // The guard avoids re-applying on every unrelated settings change.
+  let appliedTitleBarMode: boolean | null = null;
+  $: if ($settings.useSystemTitleBar !== appliedTitleBarMode) {
+    appliedTitleBarMode = $settings.useSystemTitleBar;
+    void applyWindowDecorations($settings.useSystemTitleBar);
+  }
 
   // Keep the rail in step when views navigate programmatically (for example library -> player).
   $: if ($activeNav !== activeNavLast) {
@@ -143,9 +153,11 @@
   class="app-shell flex h-screen w-screen flex-col overflow-hidden bg-vlc-app text-vlc-text"
   class:chrome-hidden={hideChrome}
 >
-  <div class="chrome-titlebar shrink-0">
-    <TitleBar onSettings={() => (showSettings = true)} />
-  </div>
+  {#if !$settings.useSystemTitleBar}
+    <div class="chrome-titlebar shrink-0">
+      <TitleBar onSettings={() => (showSettings = true)} />
+    </div>
+  {/if}
 
   <div class="flex min-h-0 flex-1">
     <div class="chrome-rail h-full shrink-0">

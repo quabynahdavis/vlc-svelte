@@ -51,4 +51,24 @@
       </div>
     </SettingRow>
   </Section>
+
+  <Section title="Window">
+    <SettingRow
+      label="Use system title bar"
+      info
+      hint="Show the native OS window decorations instead of the in-app title bar."
+    >
+      <Toggle
+        bind:value={$settings.useSystemTitleBar}
+        label="Use system title bar"
+        ariaLabel="Use system title bar"
+      />
+    </SettingRow>
+
+    <p class="mt-2 max-w-[560px] text-[12px] leading-5 text-vlc-muted">
+      The custom title bar is part of the app design. The system title bar uses native window
+      decorations instead; some Linux window managers may need an app restart before the change
+      is visible.
+    </p>
+  </Section>
 </div>

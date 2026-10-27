@@ -1,13 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimal core window permissions for the main window's custom title bar: minimize, toggle maximize, close, drag the window, and double-click the drag region to maximize.",
+  "description": "Minimal core window permissions for the main window's custom title bar: minimize, toggle maximize, close, drag the window, double-click the drag region to maximize, and switch between custom and native window decorations.",
   "windows": ["main"],
   "permissions": [
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
-    "core:window:allow-internal-toggle-maximize"
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-set-decorations"
   ]
 }

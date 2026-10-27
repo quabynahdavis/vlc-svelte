@@ -1,10 +1,13 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { Minus, MoreHorizontal, Square, X } from 'lucide-svelte';
   import { t } from '../lib/t';
 
   export let onSettings: () => void = () => {};
 
   type WindowAction = 'minimize' | 'maximize' | 'close';
+
+  let headerEl: HTMLElement;
 
   async function windowAction(action: WindowAction) {
     try {
@@ -19,9 +22,46 @@
       console.warn('Window controls are unavailable in this environment.', error);
     }
   }
+
+  /** Window buttons keep their own click behaviour; ignore double clicks on them. */
+  function isButtonTarget(target: EventTarget | null): boolean {
+    return target instanceof Element && target.closest('button') !== null;
+  }
+
+  /**
+   * Tauri injects a document-level drag script that toggles maximize on the
+   * second mousedown (Windows/Linux) or mouseup (macOS) of a double click on a
+   * `data-tauri-drag-region`. Stop those events from reaching the document so
+   * the dblclick handler below is the only toggle (otherwise the window would
+   * maximize and immediately restore).
+   */
+  function suppressNativeDoubleClick(event: MouseEvent): void {
+    if (event.detail !== 2 || isButtonTarget(event.target)) return;
+    event.stopPropagation();
+  }
+
+  /** Standard title bar behaviour: double click toggles maximize/restore. */
+  function handleTitleBarDoubleClick(event: MouseEvent): void {
+    if (isButtonTarget(event.target)) return;
+    void windowAction('maximize');
+  }
+
+  onMount(() => {
+    const header = headerEl;
+    header.addEventListener('mousedown', suppressNativeDoubleClick);
+    header.addEventListener('mouseup', suppressNativeDoubleClick);
+    header.addEventListener('dblclick', handleTitleBarDoubleClick);
+
+    return () => {
+      header.removeEventListener('mousedown', suppressNativeDoubleClick);
+      header.removeEventListener('mouseup', suppressNativeDoubleClick);
+      header.removeEventListener('dblclick', handleTitleBarDoubleClick);
+    };
+  });
 </script>
 
 <header
+  bind:this={headerEl}
   class="relative flex h-10 shrink-0 select-none items-center justify-between bg-vlc-app"
   data-tauri-drag-region
 >
