@@ -30,5 +30,13 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 
+# Vite generated timestamp configs
+vite.config.ts.timestamp-*
+
+# Test / coverage output
+test-results/
+playwright-report/
+coverage/
+
 # Misc
 *.local
