@@ -1,6 +1,8 @@
 # Frontend Architecture
 
-**Status:** the application shell and core UI components are implemented; library→player navigation, remaining settings panes and persistence are planned. Last updated 2026-10-26.
+**Status:** the application shell and core UI components are implemented; library→player navigation, remaining settings panes and persistence are planned. Last updated 2026-10-27.
+
+The frontend builds cleanly: `bunx vite build` writes `src-tauri/gen/dist/` in about 18 s (commit `fb04100` resolved the remaining Svelte compile errors).
 
 ## Entry point
 

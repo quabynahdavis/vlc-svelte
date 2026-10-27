@@ -2,6 +2,12 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-10-27
+
+### Fixed — frontend build
+
+- `fix(build): resolve Svelte compile errors blocking vite build` (`fb04100`) — `bunx vite build` now completes. Svelte rejects `class:` modifiers on components, so every lucide `ChevronDown`/`ChevronUp` is now wrapped in a `<span>` that carries the transform class; `src/components/settings/Section.svelte` had a duplicate `class` attribute (removed); `src/components/settings/TextInput.svelte` branches password vs text input because Svelte forbids a dynamic `type` on a `bind:` input; and `DEFAULT_HOTKEYS` is now exported from `src/stores/settings.ts` so `ControlsPanel.svelte` can import it.
+
 ## 2026-10-26
 
 ### Implemented — UI phases
