@@ -1,8 +1,21 @@
 <script lang="ts">
-  import { Trash2, Search } from 'lucide-svelte';
-  import { recentItems } from '../lib/mock';
+  import { Trash2 } from 'lucide-svelte';
+  import { recentItems, type RecentMediaItem } from '../lib/mock';
   import { recentActiveTab, recentSearch, recentFilterType } from '../stores/recent';
   import FuzzySearch from '../components/FuzzySearch.svelte';
+
+  type RecentTab = 'media' | 'devices' | 'network';
+
+  interface RecentGroup {
+    label: string;
+    items: RecentMediaItem[];
+  }
+
+  const recentTabs: { id: RecentTab; label: string }[] = [
+    { id: 'media', label: 'Media' },
+    { id: 'devices', label: 'Devices' },
+    { id: 'network', label: 'Network' },
+  ];
 
   let query = '';
   function handleSearch(e: CustomEvent<string>) {
@@ -11,7 +24,8 @@
 
   $: filter = $recentFilterType;
 
-  $: historyItems = recentItems;
+  /** Newest first, always, so grouping is deterministic regardless of source order. */
+  $: historyItems = [...recentItems].sort((a, b) => b.timestamp - a.timestamp);
 
   $: filtered = historyItems.filter(item => {
     const matchesQuery = !query || item.title.toLowerCase().includes(query) || item.source.toLowerCase().includes(query);
@@ -31,21 +45,33 @@
     return d.toLocaleDateString();
   }
 
-  function groupByDay(items) {
-    const groups = [];
-    let currentLabel = '';
-    let currentGroup = [];
-    for (const it of items) {
-      const label = formatTimestamp(it.timestamp);
-      if (label !== currentLabel) {
-        if (currentGroup.length) groups.push({ label: currentLabel, items: currentGroup });
-        currentLabel = label;
-        currentGroup = [it];
+  function dayKey(ts: number): string {
+    const date = new Date(ts);
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  }
+
+  function groupByDay(items: RecentMediaItem[]): RecentGroup[] {
+    const groups: RecentGroup[] = [];
+    let currentKey: string | null = null;
+    let currentGroup: RecentMediaItem[] = [];
+
+    for (const item of items) {
+      const key = dayKey(item.timestamp);
+      if (key !== currentKey) {
+        if (currentGroup.length > 0) {
+          groups.push({ label: formatTimestamp(currentGroup[0].timestamp), items: currentGroup });
+        }
+        currentKey = key;
+        currentGroup = [item];
       } else {
-        currentGroup.push(it);
+        currentGroup.push(item);
       }
     }
-    if (currentGroup.length) groups.push({ label: currentLabel, items: currentGroup });
+
+    if (currentGroup.length > 0) {
+      groups.push({ label: formatTimestamp(currentGroup[0].timestamp), items: currentGroup });
+    }
+
     return groups;
   }
 
@@ -60,9 +86,16 @@
 
 <div class="flex h-full min-h-0 flex-col bg-vlc-app">
   <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-6">
-    <nav class="flex gap-2">
-      {#each ['media','devices','network'] as tab}
-        <button class="px-3 py-1.5 rounded-control text-[13px] { $recentActiveTab === tab ? 'bg-vlc-card text-white' : 'text-vlc-secondary hover:bg-vlc-card' }" on:click={() => recentActiveTab.set(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>
+    <nav class="flex gap-2" aria-label="Recent categories">
+      {#each recentTabs as tab (tab.id)}
+        <button
+          type="button"
+          class="px-3 py-1.5 rounded-control text-[13px] { $recentActiveTab === tab.id ? 'bg-vlc-card text-white' : 'text-vlc-secondary hover:bg-vlc-card' }"
+          aria-pressed={$recentActiveTab === tab.id}
+          on:click={() => recentActiveTab.set(tab.id)}
+        >
+          {tab.label}
+        </button>
       {/each}
     </nav>
     <div class="ml-auto flex items-center gap-2">

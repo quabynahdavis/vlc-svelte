@@ -4,14 +4,22 @@
   import LibraryToolbar from '../components/LibraryToolbar.svelte';
   import MediaCard from '../components/MediaCard.svelte';
   import type { MediaItem } from '../lib/mock';
-  import { breadcrumb, filteredItems, libraryImportLog, searchQuery } from '../stores/library';
+  import {
+    breadcrumb,
+    filteredItems,
+    libraryImportLog,
+    librarySortDirection,
+    librarySortKey,
+    searchQuery,
+    sortedItems,
+  } from '../stores/library';
   import { navigate } from '../stores/navigation';
   import { setQueue, type Track } from '../stores/player';
 
   $: activeQuery = $searchQuery.trim();
 
   function handleSelect(item: MediaItem) {
-    const items = get(filteredItems);
+    const items = get(sortedItems);
     const tracks: Track[] = items.map((entry) => ({
       id: entry.id,
       title: entry.title,
@@ -30,15 +38,20 @@
     breadcrumb={$breadcrumb}
     itemCount={$filteredItems.length}
     searchValue={$searchQuery}
+    sortKey={$librarySortKey}
+    sortDirection={$librarySortDirection}
     onSearch={(value) => searchQuery.set(value)}
+    onSortKeyChange={(key) => librarySortKey.set(key)}
+    onToggleSortDirection={() =>
+      librarySortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'))}
   />
 
   <div class="min-h-0 flex-1 overflow-y-auto">
-    {#if $filteredItems.length > 0}
+    {#if $sortedItems.length > 0}
       <div
         class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
       >
-        {#each $filteredItems as item (item.id)}
+        {#each $sortedItems as item (item.id)}
           <MediaCard {item} onSelect={handleSelect} />
         {/each}
       </div>

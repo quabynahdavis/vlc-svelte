@@ -1,12 +1,42 @@
 <script lang="ts">
-  import { ArrowLeft, Plus, MoreHorizontal, GripVertical, Search } from 'lucide-svelte';
-  import { DEMO_MEDIA_SRC, playlists } from '../lib/mock';
-  import { playlistsSelectedId, playlistsSort } from '../stores/playlists';
+  import { tick } from 'svelte';
+  import {
+    ArrowDown,
+    ArrowLeft,
+    ArrowUp,
+    ArrowUpDown,
+    Check,
+    GripVertical,
+    MoreHorizontal,
+    Plus,
+    Search,
+  } from 'lucide-svelte';
+  import { DEMO_MEDIA_SRC, playlists, type Playlist } from '../lib/mock';
+  import {
+    playlistsSelectedId,
+    playlistsSort,
+    playlistsSortDirection,
+    type PlaylistsSortKey,
+    type SortDirection,
+  } from '../stores/playlists';
   import { navigate } from '../stores/navigation';
   import { setQueue, type Track } from '../stores/player';
   import FuzzySearch from '../components/FuzzySearch.svelte';
 
-  $: sort = $playlistsSort;
+  interface SortOption {
+    key: PlaylistsSortKey;
+    label: string;
+  }
+
+  const sortOptions: SortOption[] = [
+    { key: 'manual', label: 'Manual' },
+    { key: 'name', label: 'Name' },
+    { key: 'date', label: 'Date' },
+    { key: 'count', label: 'Item count' },
+  ];
+
+  const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+
   $: selected = $playlistsSelectedId;
 
   let query = '';
@@ -15,6 +45,111 @@
   }
 
   $: filtered = playlists.filter(item => item.name.toLowerCase().includes(query));
+
+  /** `manual` keeps source order; everything else is stable and direction-aware. */
+  function sortPlaylists(
+    items: Playlist[],
+    key: PlaylistsSortKey,
+    direction: SortDirection,
+  ): Playlist[] {
+    if (key === 'manual') return items;
+    const sign = direction === 'asc' ? 1 : -1;
+
+    return items
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => {
+        let result = 0;
+
+        if (key === 'name') result = collator.compare(a.item.name, b.item.name);
+        else if (key === 'date') result = a.item.lastModified - b.item.lastModified;
+        else result = a.item.trackCount - b.item.trackCount;
+
+        if (result === 0) return a.index - b.index;
+        return result * sign;
+      })
+      .map(({ item }) => item);
+  }
+
+  $: sortedPlaylists = sortPlaylists(filtered, $playlistsSort, $playlistsSortDirection);
+  $: activeSortLabel =
+    sortOptions.find((option) => option.key === $playlistsSort)?.label ?? 'Manual';
+  $: directionLabel =
+    $playlistsSort === 'manual'
+      ? 'Manual order'
+      : $playlistsSortDirection === 'asc'
+        ? 'Ascending'
+        : 'Descending';
+
+  let sortOpen = false;
+  let sortRoot: HTMLDivElement;
+  let sortMenu: HTMLDivElement;
+
+  async function toggleSortMenu() {
+    sortOpen = !sortOpen;
+    if (!sortOpen) return;
+
+    await tick();
+    sortMenu?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+  }
+
+  function closeSortMenu(refocus = false) {
+    sortOpen = false;
+    if (!refocus) return;
+
+    requestAnimationFrame(() => {
+      sortRoot?.querySelector<HTMLElement>('[data-sort-trigger]')?.focus();
+    });
+  }
+
+  function selectSortKey(key: PlaylistsSortKey) {
+    playlistsSort.set(key);
+    closeSortMenu(true);
+  }
+
+  function toggleSortDirection() {
+    if ($playlistsSort === 'manual') return;
+    playlistsSortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+    closeSortMenu(true);
+  }
+
+  function handleWindowPointer(event: MouseEvent) {
+    if (!sortOpen) return;
+    const target = event.target;
+    if (target instanceof Node && sortRoot?.contains(target)) return;
+    sortOpen = false;
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    if (!sortOpen || event.key !== 'Escape') return;
+    event.preventDefault();
+    closeSortMenu(true);
+  }
+
+  function handleSortMenuKeydown(event: KeyboardEvent) {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+
+    const items = Array.from(
+      sortMenu?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])') ?? [],
+    );
+    if (items.length === 0) return;
+
+    event.preventDefault();
+    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+    let nextIndex = 0;
+
+    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
+    else if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
+    else if (event.key === 'End') nextIndex = items.length - 1;
+
+    items[nextIndex]?.focus();
+  }
+
+  function handleSortFocusOut(event: FocusEvent) {
+    if (!sortOpen) return;
+    const next = event.relatedTarget;
+    if (next instanceof Node && sortRoot?.contains(next)) return;
+    sortOpen = false;
+  }
 
   function formatDuration(s: number) {
     const h = Math.floor(s / 3600);
@@ -54,6 +189,8 @@
   $: activePlaylist = playlists.find(p => p.id === selected);
 </script>
 
+<svelte:window on:click={handleWindowPointer} on:keydown={handleWindowKeydown} />
+
 <div class="flex h-full bg-vlc-app">
   <aside class="w-[200px] shrink-0 border-r border-vlc-border bg-vlc-panel flex flex-col">
     <header class="flex h-11 items-center gap-2 border-b border-vlc-border px-3">
@@ -61,6 +198,88 @@
         <ArrowLeft size={16} strokeWidth={1.75} />
       </button>
       <h2 class="min-w-0 flex-1 truncate text-[13px] font-medium text-white">Playlists</h2>
+
+      <div class="relative" bind:this={sortRoot} on:focusout={handleSortFocusOut}>
+        <button
+          type="button"
+          data-sort-trigger
+          class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+          title={`Sort playlists: ${activeSortLabel} (${directionLabel.toLowerCase()})`}
+          aria-label={`Sort playlists, currently ${activeSortLabel}, ${directionLabel.toLowerCase()}`}
+          aria-haspopup="menu"
+          aria-expanded={sortOpen}
+          aria-controls={sortOpen ? 'playlists-sort-menu' : undefined}
+          on:click={toggleSortMenu}
+        >
+          <ArrowUpDown size={15} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+
+        {#if sortOpen}
+          <div
+            id="playlists-sort-menu"
+            bind:this={sortMenu}
+            role="menu"
+            tabindex="-1"
+            aria-label="Sort playlists by"
+            class="absolute left-0 top-full z-30 mt-1 w-44 rounded-control border border-vlc-borderStrong bg-vlc-panel p-1 shadow-2xl"
+            on:keydown={handleSortMenuKeydown}
+          >
+            <p class="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-vlc-muted">
+              Sort by
+            </p>
+
+            {#each sortOptions as option (option.key)}
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={$playlistsSort === option.key}
+                tabindex="-1"
+                class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {$playlistsSort === option.key
+                  ? 'bg-vlc-card text-white'
+                  : 'text-vlc-secondary hover:bg-vlc-card hover:text-white'}"
+                on:click={() => selectSortKey(option.key)}
+              >
+                <Check
+                  size={13}
+                  strokeWidth={2}
+                  class={$playlistsSort === option.key ? 'text-vlc-orange' : 'text-transparent'}
+                  aria-hidden="true"
+                />
+                <span class="flex-1">{option.label}</span>
+              </button>
+            {/each}
+
+            <div class="my-1 h-px bg-vlc-border" role="separator"></div>
+
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={$playlistsSortDirection === 'desc'}
+              tabindex="-1"
+              disabled={$playlistsSort === 'manual'}
+              class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              title={$playlistsSort === 'manual'
+                ? 'Choose a sort option to change direction'
+                : 'Toggle sort direction'}
+              on:click={toggleSortDirection}
+            >
+              <Check
+                size={13}
+                strokeWidth={2}
+                class={$playlistsSortDirection === 'desc' ? 'text-vlc-orange' : 'text-transparent'}
+                aria-hidden="true"
+              />
+              <span class="flex-1">Descending</span>
+              {#if $playlistsSortDirection === 'desc'}
+                <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
+              {:else}
+                <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
+              {/if}
+            </button>
+          </div>
+        {/if}
+      </div>
+
       <button class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card" title="Create Playlist" on:click={() => {}}>
         <Plus size={16} strokeWidth={1.75} />
       </button>
@@ -68,7 +287,7 @@
 
     <div class="flex-1 overflow-y-auto px-2 py-2">
       <div class="space-y-0.5">
-        {#each filtered as pl}
+        {#each sortedPlaylists as pl (pl.id)}
           <button class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] {selected === pl.id ? 'bg-vlc-card text-white' : 'text-vlc-secondary hover:bg-vlc-card hover:text-white' }" on:click={() => openPlaylist(pl.id)}>
             <span class="shrink-0">📋</span>
             <span class="truncate">{pl.name}</span>
@@ -95,9 +314,6 @@
           <div class="w-56">
             <FuzzySearch placeholder="Search…" on:search={handleSearch} />
           </div>
-          <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card" title="Sort">
-            <span class="text-xs">Sort: {sort}</span>
-          </button>
         </div>
       </header>
 

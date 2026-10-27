@@ -1,10 +1,27 @@
 <script lang="ts">
-  import { ArrowLeft, ArrowUpDown, ChevronRight, LayoutGrid, LayoutList, Search } from 'lucide-svelte';
+  import { tick } from 'svelte';
+  import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Check, ChevronRight, LayoutGrid, LayoutList } from 'lucide-svelte';
   import { artists, DEMO_MEDIA_SRC, type Album, type Artist } from '../lib/mock';
-  import { musicBreadcrumb, selectedArtistId, selectedAlbumId, musicViewMode, musicSort } from '../stores/music';
+  import {
+    musicBreadcrumb,
+    selectedArtistId,
+    selectedAlbumId,
+    musicViewMode,
+    musicSort,
+    musicSortDirection,
+    type MusicSortKey,
+    type SortDirection,
+  } from '../stores/music';
   import { navigate } from '../stores/navigation';
   import { setQueue, type Track } from '../stores/player';
   import FuzzySearch from '../components/FuzzySearch.svelte';
+
+  interface SortOption {
+    key: MusicSortKey;
+    label: string;
+  }
+
+  const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
 
   let localBreadcrumb = $musicBreadcrumb;
   $: localBreadcrumb = $musicBreadcrumb;
@@ -23,6 +40,168 @@
   $: filteredArtists = artists.filter(item => item.name.toLowerCase().includes(query));
   $: filteredAlbums = artist ? artist.albums.filter(al => !query || al.title.toLowerCase().includes(query) || al.year.toString().includes(query)) : [];
   $: filteredTracks = album ? album.tracks.filter(t => !query || t.title.toLowerCase().includes(query)) : [];
+
+  /** Columns that make sense for the level currently on screen. */
+  $: sortOptions = (isAlbumView
+    ? [
+        { key: 'title', label: 'Title' },
+        { key: 'artist', label: 'Artist' },
+        { key: 'duration', label: 'Duration' },
+      ]
+    : isArtistView
+      ? [
+          { key: 'title', label: 'Title' },
+          { key: 'year', label: 'Year' },
+          { key: 'duration', label: 'Duration' },
+        ]
+      : [
+          { key: 'title', label: 'Name' },
+          { key: 'album', label: 'Albums' },
+          { key: 'duration', label: 'Duration' },
+        ]) as SortOption[];
+
+  $: activeSortKey = sortOptions.some((option) => option.key === $musicSort)
+    ? $musicSort
+    : sortOptions[0].key;
+  $: activeSortLabel = sortOptions.find((option) => option.key === activeSortKey)?.label ?? 'Title';
+
+  /**
+   * Stable, direction-aware sort. Equal values keep their previous relative
+   * order in both directions.
+   */
+  function sortStable<T>(
+    items: T[],
+    compare: (a: T, b: T) => number,
+    direction: SortDirection,
+  ): T[] {
+    const sign = direction === 'asc' ? 1 : -1;
+
+    return items
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => {
+        const result = compare(a.item, b.item);
+        if (result === 0) return a.index - b.index;
+        return result * sign;
+      })
+      .map(({ item }) => item);
+  }
+
+  function artistDuration(a: Artist): number {
+    return a.albums.reduce((total, entry) => total + entry.durationSeconds, 0);
+  }
+
+  $: sortedArtists = sortStable(
+    filteredArtists,
+    (a, b) => {
+      switch (activeSortKey) {
+        case 'album':
+          return a.albumCount - b.albumCount;
+        case 'duration':
+          return artistDuration(a) - artistDuration(b);
+        default:
+          return collator.compare(a.name, b.name);
+      }
+    },
+    $musicSortDirection,
+  );
+
+  $: sortedAlbums = sortStable(
+    filteredAlbums,
+    (a, b) => {
+      switch (activeSortKey) {
+        case 'year':
+          return a.year - b.year;
+        case 'duration':
+          return a.durationSeconds - b.durationSeconds;
+        default:
+          return collator.compare(a.title, b.title);
+      }
+    },
+    $musicSortDirection,
+  );
+
+  $: sortedTracks = sortStable(
+    filteredTracks,
+    (a, b) => {
+      switch (activeSortKey) {
+        case 'artist':
+          return collator.compare(artist?.name ?? '', artist?.name ?? '');
+        case 'duration':
+          return a.durationSeconds - b.durationSeconds;
+        default:
+          return collator.compare(a.title, b.title);
+      }
+    },
+    $musicSortDirection,
+  );
+
+  let sortOpen = false;
+  let sortRoot: HTMLDivElement;
+  let sortMenu: HTMLDivElement;
+
+  async function toggleSortMenu() {
+    sortOpen = !sortOpen;
+    if (!sortOpen) return;
+
+    await tick();
+    sortMenu?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+  }
+
+  function closeSortMenu(refocus = false) {
+    sortOpen = false;
+    if (!refocus) return;
+
+    requestAnimationFrame(() => {
+      sortRoot?.querySelector<HTMLElement>('[data-sort-trigger]')?.focus();
+    });
+  }
+
+  function selectSortKey(key: MusicSortKey) {
+    musicSort.set(key);
+    closeSortMenu(true);
+  }
+
+  function toggleSortDirection() {
+    musicSortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+    closeSortMenu(true);
+  }
+
+  function handleWindowPointer(event: MouseEvent) {
+    if (!sortOpen) return;
+    const target = event.target;
+    if (target instanceof Node && sortRoot?.contains(target)) return;
+    sortOpen = false;
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    if (!sortOpen || event.key !== 'Escape') return;
+    event.preventDefault();
+    closeSortMenu(true);
+  }
+
+  function handleSortMenuKeydown(event: KeyboardEvent) {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+
+    const items = Array.from(sortMenu?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? []);
+    if (items.length === 0) return;
+
+    event.preventDefault();
+    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+    let nextIndex = 0;
+
+    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
+    else if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
+    else if (event.key === 'End') nextIndex = items.length - 1;
+
+    items[nextIndex]?.focus();
+  }
+
+  function handleSortFocusOut(event: FocusEvent) {
+    if (!sortOpen) return;
+    const next = event.relatedTarget;
+    if (next instanceof Node && sortRoot?.contains(next)) return;
+    sortOpen = false;
+  }
 
   function goBack() {
     if ($selectedAlbumId) {
@@ -61,7 +240,7 @@
   function playTrack(index: number) {
     if (!album) return;
 
-    const tracks: Track[] = filteredTracks.map((t) => ({
+    const tracks: Track[] = sortedTracks.map((t) => ({
       id: t.id,
       title: t.title,
       artist: artist?.name,
@@ -73,6 +252,8 @@
     navigate('home');
   }
 </script>
+
+<svelte:window on:click={handleWindowPointer} on:keydown={handleWindowKeydown} />
 
 <div class="flex h-full min-h-0 flex-col bg-vlc-app">
   <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-6">
@@ -102,9 +283,89 @@
       <div class="w-60">
         <FuzzySearch placeholder="Search…" on:search={handleSearch} />
       </div>
-      <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card hover:text-white" title="Sort">
-        <ArrowUpDown size={16} strokeWidth={1.75} />
-      </button>
+      <div class="relative" bind:this={sortRoot} on:focusout={handleSortFocusOut}>
+        <button
+          type="button"
+          data-sort-trigger
+          class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+          title={`Sort: ${activeSortLabel} (${$musicSortDirection === 'asc' ? 'ascending' : 'descending'})`}
+          aria-label={`Sort music, currently ${activeSortLabel}, ${$musicSortDirection === 'asc' ? 'ascending' : 'descending'}`}
+          aria-haspopup="menu"
+          aria-expanded={sortOpen}
+          aria-controls={sortOpen ? 'music-sort-menu' : undefined}
+          on:click={toggleSortMenu}
+        >
+          <ArrowUpDown size={16} strokeWidth={1.75} aria-hidden="true" />
+          <span class="whitespace-nowrap text-xs">{activeSortLabel}</span>
+          {#if $musicSortDirection === 'asc'}
+            <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
+          {:else}
+            <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
+          {/if}
+        </button>
+
+        {#if sortOpen}
+          <div
+            id="music-sort-menu"
+            bind:this={sortMenu}
+            role="menu"
+            tabindex="-1"
+            aria-label="Sort music by"
+            class="absolute right-0 top-full z-30 mt-1 w-44 rounded-control border border-vlc-borderStrong bg-vlc-panel p-1 shadow-2xl"
+            on:keydown={handleSortMenuKeydown}
+          >
+            <p class="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-vlc-muted">
+              Sort by
+            </p>
+
+            {#each sortOptions as option (option.key)}
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={activeSortKey === option.key}
+                tabindex="-1"
+                class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {activeSortKey === option.key
+                  ? 'bg-vlc-card text-white'
+                  : 'text-vlc-secondary hover:bg-vlc-card hover:text-white'}"
+                on:click={() => selectSortKey(option.key)}
+              >
+                <Check
+                  size={13}
+                  strokeWidth={2}
+                  class={activeSortKey === option.key ? 'text-vlc-orange' : 'text-transparent'}
+                  aria-hidden="true"
+                />
+                <span class="flex-1">{option.label}</span>
+              </button>
+            {/each}
+
+            <div class="my-1 h-px bg-vlc-border" role="separator"></div>
+
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={$musicSortDirection === 'desc'}
+              tabindex="-1"
+              class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+              title="Toggle sort direction"
+              on:click={toggleSortDirection}
+            >
+              <Check
+                size={13}
+                strokeWidth={2}
+                class={$musicSortDirection === 'desc' ? 'text-vlc-orange' : 'text-transparent'}
+                aria-hidden="true"
+              />
+              <span class="flex-1">Descending</span>
+              {#if $musicSortDirection === 'desc'}
+                <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
+              {:else}
+                <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
+              {/if}
+            </button>
+          </div>
+        {/if}
+      </div>
       <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card hover:text-white" title="Toggle view" on:click={toggleView}>
         {#if $musicViewMode === 'grid'}
           <LayoutList size={16} strokeWidth={1.75} />
@@ -118,7 +379,7 @@
   <div class="min-h-0 flex-1 overflow-y-auto">
     {#if !isArtistView && !isAlbumView}
       <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {#each filteredArtists as a}
+        {#each sortedArtists as a (a.id)}
           <button class="group block w-full text-left focus:outline-none" on:click={() => selectArtist(a)}>
             <div class="relative aspect-square w-full overflow-hidden rounded-lg border border-vlc-border bg-vlc-card transition group-hover:border-vlc-borderStrong">
               <div class="flex h-full w-full items-center justify-center text-vlc-muted">🎤</div>
@@ -130,7 +391,7 @@
       </div>
     {:else if isArtistView && artist}
       <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {#each filteredAlbums as al}
+        {#each sortedAlbums as al (al.id)}
           <button class="group block w-full text-left focus:outline-none" on:click={() => selectAlbum(al)}>
             <div class="relative aspect-square w-full overflow-hidden rounded-lg border border-vlc-border bg-vlc-card transition group-hover:border-vlc-borderStrong">
               <div class="flex h-full w-full items-center justify-center text-vlc-muted">💿</div>
@@ -154,7 +415,7 @@
         <div class="grid grid-cols-[36px_1fr_120px_90px] items-center gap-3 px-6 py-2 text-[11px] uppercase tracking-wide text-vlc-muted">
           <span>#</span><span>Title</span><span>Artist</span><span>Duration</span>
         </div>
-        {#each filteredTracks as t, i (t.id)}
+        {#each sortedTracks as t, i (t.id)}
           <button
             type="button"
             class="grid w-full grid-cols-[36px_1fr_120px_90px] items-center gap-3 rounded-control px-6 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"

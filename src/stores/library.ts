@@ -24,3 +24,50 @@ export const filteredItems: Readable<MediaItem[]> = derived(
   },
 );
 
+/** Columns offered by the library sort menu. */
+export type LibrarySortKey = 'title' | 'duration' | 'progress' | 'episode';
+export type SortDirection = 'asc' | 'desc';
+
+export const librarySortKey: Writable<LibrarySortKey> = writable('episode');
+export const librarySortDirection: Writable<SortDirection> = writable('asc');
+
+const titleCollator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+
+/**
+ * `filteredItems` reordered by the active sort key.
+ *
+ * Ties fall back to the original position so the order is stable in both
+ * directions, and text comparisons ignore case.
+ */
+export const sortedItems: Readable<MediaItem[]> = derived(
+  [filteredItems, librarySortKey, librarySortDirection],
+  ([$filteredItems, $sortKey, $sortDirection]) => {
+    const direction = $sortDirection === 'asc' ? 1 : -1;
+
+    return $filteredItems
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => {
+        let comparison = 0;
+
+        switch ($sortKey) {
+          case 'title':
+            comparison = titleCollator.compare(a.item.title, b.item.title);
+            break;
+          case 'duration':
+            comparison = a.item.durationSeconds - b.item.durationSeconds;
+            break;
+          case 'progress':
+            comparison = a.item.progress - b.item.progress;
+            break;
+          case 'episode':
+            comparison = a.item.episode - b.item.episode;
+            break;
+        }
+
+        if (comparison === 0) return a.index - b.index;
+        return comparison * direction;
+      })
+      .map(({ item }) => item);
+  },
+);
+
