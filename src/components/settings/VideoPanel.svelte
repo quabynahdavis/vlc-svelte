@@ -65,7 +65,7 @@
     </SettingRow>
 
     <SettingRow label="Hardware decoding enabled" info hint="Enable hardware-accelerated video decoding.">
-      <Toggle bind:value={$settings.hardwareDecodingEnabled} label="Hardware decoding enabled" aria-label="Hardware decoding enabled" />
+      <Toggle bind:value={$settings.hardwareDecodingEnabled} label="Hardware decoding enabled" ariaLabel="Hardware decoding enabled" />
     </SettingRow>
 
     <SettingRow label="Post-processing level" info hint="Set the post-processing quality level (0-6).">
