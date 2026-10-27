@@ -47,11 +47,11 @@
 <div class="flex h-full bg-vlc-app">
   <aside class="w-[200px] shrink-0 border-r border-vlc-border bg-vlc-panel flex flex-col">
     <div class="px-3 py-3 border-b border-vlc-border">
-      <div class="text-[13px] font-medium text-white">Categories</div>
+      <div class="text-[13px] font-medium text-vlc-text">Categories</div>
     </div>
     <div class="overflow-y-auto py-2">
       {#each networkCategories as cat}
-        <button class="w-full text-left px-3 py-2 text-[13px] rounded-control { $networkSelectedCategory === cat ? 'bg-vlc-card text-white' : 'text-vlc-secondary hover:bg-vlc-card hover:text-white' }" on:click={() => selectCategory(cat)}>
+        <button class="w-full text-left px-3 py-2 text-[13px] rounded-control { $networkSelectedCategory === cat ? 'bg-vlc-raised text-vlc-text' : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text' }" on:click={() => selectCategory(cat)}>
           {cat}
         </button>
       {/each}
@@ -60,13 +60,13 @@
 
   <div class="flex min-w-0 flex-1 flex-col">
     <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-6">
-      <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-raised hover:text-white" on:click={goBack} aria-label="Back">
+      <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text" on:click={goBack} aria-label="Back">
         <ArrowLeft size={18} strokeWidth={1.75} />
       </button>
       <nav class="flex min-w-0 items-center gap-2 text-[13px]">
         {#each breadcrumb as crumb, i}
           {#if i > 0}<ChevronRight size={14} class="text-vlc-muted" />{/if}
-          <span class="{i === breadcrumb.length -1 ? 'text-white' : 'text-vlc-secondary'} truncate">{crumb}</span>
+          <span class="{i === breadcrumb.length -1 ? 'text-vlc-text' : 'text-vlc-secondary'} truncate">{crumb}</span>
         {/each}
       </nav>
       <div class="ml-auto flex items-center gap-3 w-56">
@@ -80,7 +80,7 @@
           <div class="grid grid-cols-[1fr_120px_80px_80px] gap-3 px-2 py-2 text-[11px] uppercase text-vlc-muted">Name <span class="text-right">Genre</span><span class="text-right">Bitrate</span><span class="text-right">Country</span></div>
           {#each filteredStations as s}
             <div class="grid grid-cols-[1fr_120px_80px_80px] items-center gap-3 px-6 py-2 border-t border-vlc-border/30 text-[13px] text-vlc-secondary hover:bg-vlc-card rounded-control">
-              <span class="truncate text-white">{s.name}</span>
+              <span class="truncate text-vlc-text">{s.name}</span>
               <span class="text-right truncate">{s.genre}</span>
               <span class="text-right">{s.bitrate} kbps</span>
               <span class="text-right">{s.country}</span>
@@ -92,18 +92,18 @@
           <div class="p-6 grid gap-3">
             {#each shows as show}
               <button class="text-left rounded-panel border border-vlc-border bg-vlc-card px-4 py-3 hover:border-vlc-borderStrong" on:click={() => openShow(show.id)}>
-                <div class="text-[15px] text-white">{show.title}</div>
+                <div class="text-[15px] text-vlc-text">{show.title}</div>
                 <div class="text-xs text-vlc-secondary">{show.author} • {show.episodeCount} episodes</div>
               </button>
             {/each}
           </div>
         {:else if selectedShowId}
           <div class="px-6 py-4">
-            <div class="text-[17px] font-medium text-white mb-3">Episodes</div>
+            <div class="text-[17px] font-medium text-vlc-text mb-3">Episodes</div>
             <div class="grid grid-cols-[1fr_120px_80px] gap-3 px-2 py-2 text-[11px] uppercase text-vlc-muted">Title <span class="text-right">Published</span><span class="text-right">Duration</span></div>
             {#each filteredShowEpisodes as ep}
               <div class="grid grid-cols-[1fr_120px_80px] items-center gap-3 px-6 py-2 border-t border-vlc-border/30 text-[13px] text-vlc-secondary hover:bg-vlc-card rounded-control">
-                <span class="truncate text-white">{ep.title}</span>
+                <span class="truncate text-vlc-text">{ep.title}</span>
                 <span class="text-right">{ep.published}</span>
                 <span class="text-right">{formatDuration(ep.durationSeconds)}</span>
               </div>
@@ -113,7 +113,7 @@
       {:else if category === 'Local Network'}
         <div class="p-6">
           <div class="rounded-panel border border-vlc-border bg-vlc-card p-4">
-            <div class="text-[15px] text-white mb-3">UPnP/DLNA Browser</div>
+            <div class="text-[15px] text-vlc-text mb-3">UPnP/DLNA Browser</div>
             <div class="text-xs text-vlc-secondary space-y-1">
               <div>Server A</div>
               <div class="pl-4">└ Music</div>

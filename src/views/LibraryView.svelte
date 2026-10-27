@@ -74,7 +74,7 @@
           <p class="mt-1 text-xs text-vlc-muted">Try a different title or clear the search.</p>
           <button
             type="button"
-            class="mt-4 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+            class="mt-4 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
             on:click={() => searchQuery.set('')}
           >
             Clear search

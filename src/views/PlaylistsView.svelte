@@ -194,16 +194,16 @@
 <div class="flex h-full bg-vlc-app">
   <aside class="w-[200px] shrink-0 border-r border-vlc-border bg-vlc-panel flex flex-col">
     <header class="flex h-11 items-center gap-2 border-b border-vlc-border px-3">
-      <button class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card" on:click={closePlaylist} aria-label="Back">
+      <button class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-raised" on:click={closePlaylist} aria-label="Back">
         <ArrowLeft size={16} strokeWidth={1.75} />
       </button>
-      <h2 class="min-w-0 flex-1 truncate text-[13px] font-medium text-white">Playlists</h2>
+      <h2 class="min-w-0 flex-1 truncate text-[13px] font-medium text-vlc-text">Playlists</h2>
 
       <div class="relative" bind:this={sortRoot} on:focusout={handleSortFocusOut}>
         <button
           type="button"
           data-sort-trigger
-          class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+          class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
           title={`Sort playlists: ${activeSortLabel} (${directionLabel.toLowerCase()})`}
           aria-label={`Sort playlists, currently ${activeSortLabel}, ${directionLabel.toLowerCase()}`}
           aria-haspopup="menu"
@@ -235,14 +235,14 @@
                 aria-checked={$playlistsSort === option.key}
                 tabindex="-1"
                 class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {$playlistsSort === option.key
-                  ? 'bg-vlc-card text-white'
-                  : 'text-vlc-secondary hover:bg-vlc-card hover:text-white'}"
+                  ? 'bg-vlc-raised text-vlc-text'
+                  : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
                 on:click={() => selectSortKey(option.key)}
               >
                 <Check
                   size={13}
                   strokeWidth={2}
-                  class={$playlistsSort === option.key ? 'text-vlc-orange' : 'text-transparent'}
+                  class={$playlistsSort === option.key ? 'text-vlc-orangeText' : 'text-transparent'}
                   aria-hidden="true"
                 />
                 <span class="flex-1">{option.label}</span>
@@ -257,7 +257,7 @@
               aria-checked={$playlistsSortDirection === 'desc'}
               tabindex="-1"
               disabled={$playlistsSort === 'manual'}
-              class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
               title={$playlistsSort === 'manual'
                 ? 'Choose a sort option to change direction'
                 : 'Toggle sort direction'}
@@ -266,7 +266,7 @@
               <Check
                 size={13}
                 strokeWidth={2}
-                class={$playlistsSortDirection === 'desc' ? 'text-vlc-orange' : 'text-transparent'}
+                class={$playlistsSortDirection === 'desc' ? 'text-vlc-orangeText' : 'text-transparent'}
                 aria-hidden="true"
               />
               <span class="flex-1">Descending</span>
@@ -280,7 +280,7 @@
         {/if}
       </div>
 
-      <button class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card" title="Create Playlist" on:click={() => {}}>
+      <button class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-raised" title="Create Playlist" on:click={() => {}}>
         <Plus size={16} strokeWidth={1.75} />
       </button>
     </header>
@@ -288,7 +288,7 @@
     <div class="flex-1 overflow-y-auto px-2 py-2">
       <div class="space-y-0.5">
         {#each sortedPlaylists as pl (pl.id)}
-          <button class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] {selected === pl.id ? 'bg-vlc-card text-white' : 'text-vlc-secondary hover:bg-vlc-card hover:text-white' }" on:click={() => openPlaylist(pl.id)}>
+          <button class="flex h-9 w-full items-center gap-3 rounded-control px-3 text-left text-[13px] {selected === pl.id ? 'bg-vlc-raised text-vlc-text' : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text' }" on:click={() => openPlaylist(pl.id)}>
             <span class="shrink-0">📋</span>
             <span class="truncate">{pl.name}</span>
           </button>
@@ -308,7 +308,7 @@
         <nav class="flex min-w-0 items-center gap-2 text-[13px]">
           <span class="text-vlc-secondary">Playlists</span>
           <span class="text-vlc-muted">/</span>
-          <span class="text-white truncate">{activePlaylist?.name}</span>
+          <span class="text-vlc-text truncate">{activePlaylist?.name}</span>
         </nav>
         <div class="ml-auto flex items-center gap-2">
           <div class="w-56">
@@ -335,10 +335,10 @@
               }}
             >
               <span class="text-vlc-muted">{i + 1}</span>
-              <span class="truncate text-white">{track.title}</span>
+              <span class="truncate text-vlc-text">{track.title}</span>
               <span class="truncate">{track.artist}</span>
               <span class="text-right text-vlc-muted">{formatDuration(track.durationSeconds)}</span>
-              <button class="flex h-6 w-6 items-center justify-center text-vlc-muted hover:text-white" on:click|stopPropagation={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)} on:contextmenu={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)}>
+              <button class="flex h-6 w-6 items-center justify-center text-vlc-muted hover:text-vlc-text" on:click|stopPropagation={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)} on:contextmenu={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)}>
                 <GripVertical size={14} strokeWidth={1.75} />
               </button>
             </div>

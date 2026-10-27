@@ -259,7 +259,7 @@
   <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-6">
     <button
       type="button"
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
       title="Back"
       aria-label="Go back"
       on:click={goBack}
@@ -272,7 +272,7 @@
         {#if i > 0}
           <ChevronRight size={14} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
         {/if}
-        <span class="min-w-0 truncate whitespace-nowrap" class:text-white={i === localBreadcrumb.length - 1} class:text-vlc-secondary={i !== localBreadcrumb.length - 1}>{crumb}</span>
+        <span class="min-w-0 truncate whitespace-nowrap" class:text-vlc-text={i === localBreadcrumb.length - 1} class:text-vlc-secondary={i !== localBreadcrumb.length - 1}>{crumb}</span>
       {/each}
     </nav>
 
@@ -287,7 +287,7 @@
         <button
           type="button"
           data-sort-trigger
-          class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+          class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
           title={`Sort: ${activeSortLabel} (${$musicSortDirection === 'asc' ? 'ascending' : 'descending'})`}
           aria-label={`Sort music, currently ${activeSortLabel}, ${$musicSortDirection === 'asc' ? 'ascending' : 'descending'}`}
           aria-haspopup="menu"
@@ -325,14 +325,14 @@
                 aria-checked={activeSortKey === option.key}
                 tabindex="-1"
                 class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {activeSortKey === option.key
-                  ? 'bg-vlc-card text-white'
-                  : 'text-vlc-secondary hover:bg-vlc-card hover:text-white'}"
+                  ? 'bg-vlc-raised text-vlc-text'
+                  : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
                 on:click={() => selectSortKey(option.key)}
               >
                 <Check
                   size={13}
                   strokeWidth={2}
-                  class={activeSortKey === option.key ? 'text-vlc-orange' : 'text-transparent'}
+                  class={activeSortKey === option.key ? 'text-vlc-orangeText' : 'text-transparent'}
                   aria-hidden="true"
                 />
                 <span class="flex-1">{option.label}</span>
@@ -346,14 +346,14 @@
               role="menuitemcheckbox"
               aria-checked={$musicSortDirection === 'desc'}
               tabindex="-1"
-              class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+              class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
               title="Toggle sort direction"
               on:click={toggleSortDirection}
             >
               <Check
                 size={13}
                 strokeWidth={2}
-                class={$musicSortDirection === 'desc' ? 'text-vlc-orange' : 'text-transparent'}
+                class={$musicSortDirection === 'desc' ? 'text-vlc-orangeText' : 'text-transparent'}
                 aria-hidden="true"
               />
               <span class="flex-1">Descending</span>
@@ -366,7 +366,7 @@
           </div>
         {/if}
       </div>
-      <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card hover:text-white" title="Toggle view" on:click={toggleView}>
+      <button class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-card hover:text-vlc-text" title="Toggle view" on:click={toggleView}>
         {#if $musicViewMode === 'grid'}
           <LayoutList size={16} strokeWidth={1.75} />
         {:else}
@@ -406,7 +406,7 @@
         <div class="flex items-center gap-4">
           <div class="h-24 w-24 shrink-0 rounded-lg border border-vlc-border bg-vlc-card flex items-center justify-center text-3xl">💿</div>
           <div>
-            <div class="text-[17px] font-medium text-white">{album.title}</div>
+            <div class="text-[17px] font-medium text-vlc-text">{album.title}</div>
             <div class="text-[13px] text-vlc-secondary">{artist?.name} • {album.year}</div>
           </div>
         </div>
@@ -423,7 +423,7 @@
             on:click={() => playTrack(i)}
           >
             <span class="text-vlc-muted">{t.trackNumber}</span>
-            <span class="truncate text-white">{t.title}</span>
+            <span class="truncate text-vlc-text">{t.title}</span>
             <span class="truncate">{artist?.name}</span>
             <span class="text-vlc-muted">{formatDuration(t.durationSeconds)}</span>
           </button>

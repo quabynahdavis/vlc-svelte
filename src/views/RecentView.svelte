@@ -90,7 +90,7 @@
       {#each recentTabs as tab (tab.id)}
         <button
           type="button"
-          class="px-3 py-1.5 rounded-control text-[13px] { $recentActiveTab === tab.id ? 'bg-vlc-card text-white' : 'text-vlc-secondary hover:bg-vlc-card' }"
+          class="px-3 py-1.5 rounded-control text-[13px] { $recentActiveTab === tab.id ? 'bg-vlc-card text-vlc-text' : 'text-vlc-secondary hover:bg-vlc-card' }"
           aria-pressed={$recentActiveTab === tab.id}
           on:click={() => recentActiveTab.set(tab.id)}
         >
@@ -120,7 +120,7 @@
               <div class="flex items-center gap-3 px-3 py-2 rounded-control hover:bg-vlc-card text-[13px] text-vlc-secondary">
                 <div class="w-8 text-center text-vlc-muted">{it.type === 'media' ? '▶' : it.type === 'device' ? '💾' : '📡'}</div>
                 <div class="min-w-0 flex-1">
-                  <div class="truncate text-white">{it.title}</div>
+                  <div class="truncate text-vlc-text">{it.title}</div>
                   <div class="truncate text-xs">{it.source}</div>
                 </div>
                 <div class="text-xs text-vlc-muted">{new Date(it.timestamp).toLocaleTimeString()}</div>
