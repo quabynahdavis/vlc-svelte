@@ -246,7 +246,7 @@
                       type="button"
                       class="grid w-full grid-cols-[1fr_120px_80px_80px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-3 py-2 text-left text-[13px] text-vlc-secondary transition-colors {focusRing} {selectedStationId === s.id
                         ? 'bg-vlc-raised text-vlc-text ring-1 ring-inset ring-vlc-orange/50'
-                        : 'hover:bg-vlc-card hover:text-vlc-text'}"
+                        : 'hover:bg-vlc-raised hover:text-vlc-text'}"
                       aria-label={stationLabel(s)}
                       aria-pressed={selectedStationId === s.id}
                       on:click={() => selectStation(s.id)}
@@ -269,7 +269,7 @@
                       type="button"
                       class="grid h-7 w-full grid-cols-[1fr_110px_70px] items-center gap-3 rounded-input px-2 text-left text-xs text-vlc-secondary transition-colors {focusRing} {selectedStationId === s.id
                         ? 'bg-vlc-raised text-vlc-text ring-1 ring-inset ring-vlc-orange/40'
-                        : 'hover:bg-vlc-card hover:text-vlc-text'}"
+                        : 'hover:bg-vlc-raised hover:text-vlc-text'}"
                       aria-label={stationLabel(s)}
                       aria-pressed={selectedStationId === s.id}
                       on:click={() => selectStation(s.id)}
@@ -333,7 +333,7 @@
                       <li>
                         <button
                           type="button"
-                          class="grid w-full grid-cols-[1fr_180px_100px] items-center gap-3 px-4 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-vlc-text {focusRing}"
+                          class="grid w-full grid-cols-[1fr_180px_100px] items-center gap-3 px-4 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
                           aria-label={showLabel(show)}
                           on:click={() => openShow(show.id)}
                         >
@@ -353,7 +353,7 @@
                     <li>
                       <button
                         type="button"
-                        class="grid h-8 w-full grid-cols-[1fr_150px_70px] items-center gap-3 rounded-input px-2 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-vlc-text {focusRing}"
+                        class="grid h-8 w-full grid-cols-[1fr_150px_70px] items-center gap-3 rounded-input px-2 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
                         aria-label={showLabel(show)}
                         on:click={() => openShow(show.id)}
                       >
@@ -427,7 +427,7 @@
                         type="button"
                         class="grid w-full grid-cols-[1fr_120px_80px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-3 py-2 text-left text-[13px] text-vlc-secondary transition-colors {focusRing} {selectedEpisodeId === ep.id
                           ? 'bg-vlc-raised text-vlc-text ring-1 ring-inset ring-vlc-orange/50'
-                          : 'hover:bg-vlc-card hover:text-vlc-text'}"
+                          : 'hover:bg-vlc-raised hover:text-vlc-text'}"
                         aria-label={episodeLabel(ep)}
                         aria-pressed={selectedEpisodeId === ep.id}
                         on:click={() => selectEpisode(ep.id)}
@@ -449,7 +449,7 @@
                         type="button"
                         class="grid h-7 w-full grid-cols-[1fr_70px] items-center gap-3 rounded-input px-2 text-left text-xs text-vlc-secondary transition-colors {focusRing} {selectedEpisodeId === ep.id
                           ? 'bg-vlc-raised text-vlc-text ring-1 ring-inset ring-vlc-orange/40'
-                          : 'hover:bg-vlc-card hover:text-vlc-text'}"
+                          : 'hover:bg-vlc-raised hover:text-vlc-text'}"
                         aria-label={episodeLabel(ep)}
                         aria-pressed={selectedEpisodeId === ep.id}
                         on:click={() => selectEpisode(ep.id)}

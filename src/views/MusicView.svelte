@@ -284,7 +284,7 @@
         <button
           type="button"
           data-sort-trigger
-          class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+          class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
           title={`Sort: ${activeSortLabel} (${$musicSortDirection === 'asc' ? 'ascending' : 'descending'})`}
           aria-label={`Sort music, currently ${activeSortLabel}, ${$musicSortDirection === 'asc' ? 'ascending' : 'descending'}`}
           aria-haspopup="menu"
@@ -401,7 +401,7 @@
             {#each sortedArtists as a (a.id)}
               <button
                 type="button"
-                class="grid w-full grid-cols-[minmax(0,1fr)_100px_100px] items-center gap-3 rounded-control px-3 py-2 text-left transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+                class="grid w-full grid-cols-[minmax(0,1fr)_100px_100px] items-center gap-3 rounded-control px-3 py-2 text-left transition-colors hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
                 title={`Open ${a.name}`}
                 on:click={() => selectArtist(a)}
               >
@@ -420,7 +420,7 @@
           {#each sortedArtists as a (a.id)}
             <button
               type="button"
-              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
               title={`Open ${a.name}`}
               on:click={() => selectArtist(a)}
             >
@@ -461,7 +461,7 @@
             {#each sortedAlbums as al (al.id)}
               <button
                 type="button"
-                class="grid w-full grid-cols-[minmax(0,1fr)_150px_70px_90px] items-center gap-3 rounded-control px-3 py-2 text-left transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+                class="grid w-full grid-cols-[minmax(0,1fr)_150px_70px_90px] items-center gap-3 rounded-control px-3 py-2 text-left transition-colors hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
                 title={`Open ${al.title}`}
                 on:click={() => selectAlbum(al)}
               >
@@ -481,7 +481,7 @@
           {#each sortedAlbums as al (al.id)}
             <button
               type="button"
-              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
               title={`Open ${al.title}`}
               on:click={() => selectAlbum(al)}
             >
@@ -530,7 +530,7 @@
           {#each sortedTracks as t, i (t.id)}
             <button
               type="button"
-              class="grid w-full grid-cols-[36px_1fr_120px_90px] items-center gap-3 rounded-control px-6 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+              class="grid w-full grid-cols-[36px_1fr_120px_90px] items-center gap-3 rounded-control px-6 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
               title={`Play ${t.title}`}
               on:click={() => playTrack(i)}
             >
@@ -546,7 +546,7 @@
           {#each sortedTracks as t, i (t.id)}
             <button
               type="button"
-              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+              class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
               title={`Play ${t.title}`}
               on:click={() => playTrack(i)}
             >

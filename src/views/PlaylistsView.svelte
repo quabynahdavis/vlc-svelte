@@ -392,7 +392,7 @@
             <div class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 px-6 py-2 text-[11px] uppercase text-vlc-muted">#<span>Title</span><span class="text-right">Artist</span><span class="text-right">Duration</span><span></span></div>
             {#each activePlaylist?.tracks ?? [] as track, i (track.id)}
               <div
-                class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-6 py-2 text-[13px] text-vlc-secondary hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+                class="grid grid-cols-[36px_1fr_120px_100px_40px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-6 py-2 text-[13px] text-vlc-secondary hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
                 role="button"
                 tabindex="0"
                 aria-label={`Play ${track.title}`}
@@ -419,7 +419,7 @@
             {#each activePlaylist?.tracks ?? [] as track, i (track.id)}
               <button
                 type="button"
-                class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
+                class="flex h-8 w-full items-center gap-3 rounded-input border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
                 title={`Play ${track.title}`}
                 on:click={() => playPlaylistTrack(i)}
               >

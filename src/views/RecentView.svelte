@@ -154,7 +154,7 @@
       {#each recentTabs as tab (tab.id)}
         <button
           type="button"
-          class="rounded-control px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app { $recentActiveTab === tab.id ? 'bg-vlc-card text-vlc-text' : 'text-vlc-secondary hover:bg-vlc-card hover:text-vlc-text' }"
+          class="rounded-control px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app { $recentActiveTab === tab.id ? 'bg-vlc-raised text-vlc-text' : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text' }"
           aria-pressed={$recentActiveTab === tab.id}
           on:click={() => recentActiveTab.set(tab.id)}
         >
@@ -179,7 +179,7 @@
       />
       <button
         type="button"
-        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
+        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
         title="Clear history"
         aria-label="Clear history and filters"
         on:click={clearHistory}
@@ -261,7 +261,7 @@
                 <li>
                   <button
                     type="button"
-                    class="flex w-full items-center gap-3 rounded-control px-3 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
+                    class="flex w-full items-center gap-3 rounded-control px-3 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
                     aria-label={itemAriaLabel(it)}
                     title={it.title}
                   >
@@ -286,7 +286,7 @@
                 <li>
                   <button
                     type="button"
-                    class="flex h-8 w-full items-center gap-2 rounded-input px-2 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
+                    class="flex h-8 w-full items-center gap-2 rounded-input px-2 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
                     aria-label={itemAriaLabel(it)}
                     title={it.title}
                   >
