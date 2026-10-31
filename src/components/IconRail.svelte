@@ -15,8 +15,10 @@
     ADD_ITEM,
     NAV_ITEMS,
     type NavId,
+    type NavItem,
     type RailItemId,
   } from '../lib/constants';
+  import { layout } from '../stores/layout';
 
   export let active: NavId = 'home';
   export let expanded = false;
@@ -33,7 +35,12 @@
     Plus,
   };
 
-  const railItems = [...NAV_ITEMS, ADD_ITEM];
+  $: railItems = [
+    ...$layout.railOrder
+      .map((id) => NAV_ITEMS.find((item) => item.id === id))
+      .filter((item): item is NavItem => Boolean(item)),
+    ADD_ITEM,
+  ];
 
   function toggleExpanded(): void {
     expanded = !expanded;

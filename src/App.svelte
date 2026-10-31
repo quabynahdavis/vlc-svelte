@@ -1,6 +1,7 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { tick } from 'svelte';
+  import AddToPlaylistDialog from './components/AddToPlaylistDialog.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
   import IconRail from './components/IconRail.svelte';
   import PropertyPanel, {
@@ -8,20 +9,27 @@
     videoPreset,
   } from './components/PropertyPanel.svelte';
   import SettingsModal from './components/SettingsModal.svelte';
+  import HotkeysWindow from './components/settings/HotkeysWindow.svelte';
+  import WelcomeScreen from './components/WelcomeScreen.svelte';
   import TitleBar from './components/TitleBar.svelte';
   import { NAV_LABELS, type NavId, type RailItemId } from './lib/constants';
+  import { toggleFullscreen } from './lib/gestures';
   import { t } from './lib/t';
   import { applyWindowDecorations } from './lib/windowChrome';
   import {
+    clearQueue,
     next as nextTrack,
     player,
     prev as prevTrack,
+    seek,
     setVolume,
     stop as stopPlayer,
     toggle as togglePlayback,
     toggleMute,
   } from './stores/player';
   import { activeNav, navigate } from './stores/navigation';
+  import { libraryImportLog } from './stores/library';
+  import { completeOnboarding, onboarding } from './stores/onboarding';
   import { settings } from './stores/settings';
   import {
     closeContextMenu,
@@ -41,8 +49,12 @@
   let sidebarExpanded = false;
   const sidebarPreference: Partial<Record<NavId, boolean>> = {};
   let showSettings = false;
+  let showHotkeys = false;
+  let hotkeysOpener: HTMLElement | null = null;
+  let showWelcome = !get(onboarding).completed;
   let showRightPanel = false;
   let hideChrome = false;
+  let menuCompact = false;
   let panelOpen = true;
   let propertyPreset: 'compressor' | 'video' = 'compressor';
 
@@ -90,6 +102,44 @@
     });
   }
 
+  /**
+   * Open the separate shortcuts window. The opener is remembered so focus can
+   * return to it when the window closes; the menu item may already be gone by
+   * then, in which case the window falls back to the main content area.
+   */
+  function openHotkeys(opener?: HTMLElement | null): void {
+    const active = typeof document === 'undefined' ? null : document.activeElement;
+    hotkeysOpener = opener ?? (active instanceof HTMLElement && active !== document.body ? active : null);
+    showHotkeys = true;
+  }
+
+  function closeHotkeys(): void {
+    showHotkeys = false;
+  }
+
+  function finishWelcome(): void {
+    completeOnboarding();
+    showWelcome = false;
+  }
+
+  /** Anchor the consolidated menu under the title-bar menu button. */
+  function openAppMenu(event: MouseEvent): void {
+    const trigger = event.currentTarget;
+    const rect = trigger instanceof HTMLElement ? trigger.getBoundingClientRect() : null;
+    menuCompact = false;
+    contextMenu.set({
+      open: true,
+      x: Math.round(rect?.left ?? 12),
+      y: Math.round((rect?.bottom ?? 44) + 4),
+    });
+  }
+
+  /** Right-click keeps the shorter, playback-focused menu. */
+  function handleContextMenu(event: MouseEvent): void {
+    menuCompact = true;
+    openContextMenu(event);
+  }
+
   async function quitApp(): Promise<void> {
     if (typeof window === 'undefined') return;
 
@@ -100,6 +150,13 @@
       // Closing is only possible inside the Tauri shell; the browser preview stays open.
       console.warn('Quit is only available in the desktop shell.', error);
     }
+  }
+
+  /** Route a shell-menu request into the library's own add-media menu. */
+  async function requestOpenMedia(kind: 'file' | 'folder' | 'network'): Promise<void> {
+    navigate('videos');
+    await tick();
+    window.dispatchEvent(new CustomEvent('vlc-open-media', { detail: kind }));
   }
 
   function handleMenuAction(id: string): void {
@@ -139,6 +196,61 @@
       case 'effects-hide':
         propertiesPanel.set(false);
         break;
+      case 'playback-speed':
+        openDock('playback');
+        break;
+      case 'playback-jump-forward':
+        seek(Math.min(get(player).duration, get(player).currentTime + 10));
+        break;
+      case 'playback-jump-backward':
+        seek(Math.max(0, get(player).currentTime - 10));
+        break;
+      case 'video-fullscreen':
+        toggleFullscreen(document.querySelector<HTMLElement>('.player-shell'));
+        break;
+      case 'video-zoom':
+      case 'video-aspect-ratio':
+        openDock('video');
+        break;
+      case 'audio-track':
+        openDock('audio');
+        break;
+      case 'subtitle-add-file':
+      case 'subtitle-track':
+      case 'subtitle-delay':
+        openDock('subtitles');
+        break;
+      case 'playlist-add':
+        openDock('queue');
+        break;
+      case 'playlist-clear':
+        clearQueue();
+        break;
+      case 'open-file':
+        void requestOpenMedia('file');
+        break;
+      case 'open-folder':
+        void requestOpenMedia('folder');
+        break;
+      case 'open-network':
+        void requestOpenMedia('network');
+        break;
+      case 'open-disc':
+        navigate('videos');
+        libraryImportLog.set('Insert a disc, then open it from the system file manager.');
+        break;
+      case 'keyboard-shortcuts':
+        openHotkeys();
+        break;
+      case 'settings':
+        showSettings = true;
+        break;
+      case 'layout-settings':
+        void openSettingsAt('Layout');
+        break;
+      case 'show-welcome':
+        showWelcome = true;
+        break;
       case 'quit':
         void quitApp();
         break;
@@ -155,7 +267,7 @@
 >
   {#if !$settings.useSystemTitleBar}
     <div class="chrome-titlebar shrink-0">
-      <TitleBar onSettings={() => (showSettings = true)} />
+      <TitleBar onMenu={openAppMenu} />
     </div>
   {/if}
 
@@ -170,8 +282,10 @@
     </div>
 
     <main
-      class="relative min-w-0 flex-1 overflow-hidden bg-vlc-app"
-      on:contextmenu|preventDefault={openContextMenu}
+      class="relative min-w-0 flex-1 overflow-hidden bg-vlc-app focus:outline-none"
+      tabindex="-1"
+      data-hotkeys-return-fallback
+      on:contextmenu={handleContextMenu}
     >
       {#if $activeNav === 'home'}
         <PlayerView
@@ -217,15 +331,31 @@
   </div>
 
   {#if showSettings}
-    <SettingsModal onClose={() => (showSettings = false)} />
+    <SettingsModal
+      onClose={() => (showSettings = false)}
+      onOpenHotkeys={() => openHotkeys()}
+    />
   {/if}
 
   <ContextMenu
     x={$contextMenu.x}
     y={$contextMenu.y}
     open={$contextMenu.open}
+    compact={menuCompact}
     onClose={closeContextMenu}
     onAction={handleMenuAction}
+  />
+
+  <AddToPlaylistDialog />
+
+  {#if showHotkeys}
+    <HotkeysWindow returnFocus={hotkeysOpener} onClose={closeHotkeys} />
+  {/if}
+
+  <WelcomeScreen
+    open={showWelcome}
+    onComplete={finishWelcome}
+    onSkip={finishWelcome}
   />
 </div>
 

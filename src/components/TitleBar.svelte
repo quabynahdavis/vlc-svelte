@@ -3,7 +3,8 @@
   import { Minus, MoreHorizontal, Square, X } from 'lucide-svelte';
   import { t } from '../lib/t';
 
-  export let onSettings: () => void = () => {};
+  /** Opens the consolidated application menu anchored to the menu button. */
+  export let onMenu: (event: MouseEvent) => void = () => {};
 
   type WindowAction = 'minimize' | 'maximize' | 'close';
 
@@ -109,7 +110,8 @@
       class="flex h-7 w-8 items-center justify-center rounded-input text-vlc-dim transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={t('app.menu')}
       aria-label={t('app.menu')}
-      on:click={onSettings}
+      aria-haspopup="menu"
+      on:click={onMenu}
     >
       <MoreHorizontal size={16} strokeWidth={2} aria-hidden="true" />
     </button>

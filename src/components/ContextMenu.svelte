@@ -3,10 +3,11 @@
     AudioLines,
     Captions,
     ChevronRight,
-    Circle,
     Clapperboard,
     EyeOff,
     FolderOpen,
+    Keyboard,
+    LayoutDashboard,
     ListVideo,
     LogOut,
     Play,
@@ -14,6 +15,7 @@
     Settings,
     SkipBack,
     SkipForward,
+    Sparkles,
     Square,
   } from 'lucide-svelte';
   import { onMount, tick } from 'svelte';
@@ -22,6 +24,8 @@
   export let x = 0;
   export let y = 0;
   export let open = false;
+  /** Right-click menus stay short; the title-bar menu shows the full tree. */
+  export let compact = false;
   export let onClose: () => void = () => {};
   export let onAction: (id: string) => void = () => {};
 
@@ -52,7 +56,6 @@
     { id: 'stop', label: 'Stop', shortcut: 'S', icon: Square, tone: 'accent' },
     { id: 'previous-item', label: 'Previous Item', shortcut: 'P', icon: SkipBack, tone: 'accent' },
     { id: 'next-item', label: 'Next Item', shortcut: 'N', icon: SkipForward, tone: 'accent' },
-    { id: 'record', label: 'Record', shortcut: 'R', icon: Circle, tone: 'accent' },
     { id: 'hide-ui', label: 'Hide UI', shortcut: 'Ctrl + \\', icon: EyeOff, tone: 'neutral' },
     { type: 'divider' },
     {
@@ -106,6 +109,7 @@
       icon: Settings,
       tone: 'neutral',
       children: [
+        { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts' },
         { id: 'effects-compressor', label: 'Audio Effects' },
         { id: 'effects-video', label: 'Video Effects' },
         { id: 'effects-hide', label: 'Hide Effects Panel' },
@@ -133,6 +137,54 @@
         { id: 'open-network', label: 'Open Network Stream' },
       ],
     },
+    { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
+    { id: 'layout-settings', label: 'Customize Layout', icon: LayoutDashboard, tone: 'neutral' },
+    { id: 'show-welcome', label: 'Welcome Screen', icon: Sparkles, tone: 'neutral' },
+    { type: 'divider' },
+    { id: 'quit', label: 'Quit VLC', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+  ];
+
+  /**
+   * Right-click menu: fast, short and focused on playback plus Hide UI. The
+   * full settings tree stays in the title-bar menu.
+   */
+  const compactMenuItems: MenuItem[] = [
+    { id: 'play-pause', label: 'Play', shortcut: 'Space', icon: Play, tone: 'accent' },
+    { id: 'stop', label: 'Stop', shortcut: 'S', icon: Square, tone: 'accent' },
+    { id: 'previous-item', label: 'Previous Item', shortcut: 'P', icon: SkipBack, tone: 'accent' },
+    { id: 'next-item', label: 'Next Item', shortcut: 'N', icon: SkipForward, tone: 'accent' },
+    { id: 'hide-ui', label: 'Hide UI', shortcut: 'Ctrl + \\', icon: EyeOff, tone: 'neutral' },
+    { type: 'divider' },
+    {
+      id: 'video',
+      label: 'Video',
+      icon: Clapperboard,
+      tone: 'neutral',
+      children: [{ id: 'video-fullscreen', label: 'Fullscreen' }],
+    },
+    {
+      id: 'audio',
+      label: 'Audio',
+      icon: AudioLines,
+      tone: 'neutral',
+      children: [
+        { id: 'audio-mute', label: 'Mute' },
+        { id: 'audio-track', label: 'Audio Track' },
+      ],
+    },
+    {
+      id: 'subtitle',
+      label: 'Subtitle',
+      icon: Captions,
+      tone: 'neutral',
+      children: [
+        { id: 'subtitle-track', label: 'Subtitle Track' },
+        { id: 'subtitle-delay', label: 'Subtitle Delay' },
+      ],
+    },
+    { type: 'divider' },
+    { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard, tone: 'neutral' },
+    { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
     { id: 'quit', label: 'Quit VLC', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
   ];
 
@@ -153,10 +205,12 @@
   const SUBMENU_FLIP_THRESHOLD = 340;
   const VIEWPORT_MARGIN = 8;
 
-  const submenuItems = new Map<string, ActionItem>();
-  for (const item of menuItems) {
-    if ('id' in item && item.children?.length) submenuItems.set(item.id, item);
-  }
+  $: activeMenuItems = compact ? compactMenuItems : menuItems;
+  $: submenuItems = new Map(
+    activeMenuItems
+      .filter((item): item is ActionItem => 'id' in item && Boolean(item.children?.length))
+      .map((item) => [item.id, item]),
+  );
 
   $: if (open) {
     // Track these values so the menu repositions when it is reopened elsewhere.
@@ -329,7 +383,7 @@
     on:mouseleave={handleMenuLeave}
     on:scroll={() => (openSubmenu = null)}
   >
-    {#each menuItems as item, index (item.type === 'divider' ? `divider-${index}` : item.id)}
+    {#each activeMenuItems as item, index (item.type === 'divider' ? `divider-${index}` : item.id)}
       {#if item.type === 'divider'}
         <div class="my-1 h-px bg-vlc-border" role="separator" data-menu-divider></div>
       {:else}
