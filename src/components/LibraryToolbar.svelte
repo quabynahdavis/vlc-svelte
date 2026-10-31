@@ -7,11 +7,11 @@
     ArrowUpDown,
     Check,
     ChevronRight,
-    MoreHorizontal,
     Search,
   } from 'lucide-svelte';
-  import type { LibrarySortKey, SortDirection } from '../stores/library';
+  import type { LibrarySortKey, LibraryWatchFilter, SortDirection } from '../stores/library';
   import { libraryViewMode } from '../stores/viewModes';
+  import LibraryAddMenu from './LibraryAddMenu.svelte';
   import ViewModeToggle from './ViewModeToggle.svelte';
 
   export let breadcrumb: string[] = [];
@@ -19,21 +19,32 @@
   export let searchValue = '';
   export let sortKey: LibrarySortKey = 'episode';
   export let sortDirection: SortDirection = 'asc';
+  export let watchFilter: LibraryWatchFilter = 'all';
   export let onBack: () => void = () => {};
   export let onSearch: (value: string) => void = () => {};
   export let onSortKeyChange: (key: LibrarySortKey) => void = () => {};
   export let onToggleSortDirection: () => void = () => {};
+  export let onWatchFilterChange: (filter: LibraryWatchFilter) => void = () => {};
+  export let onBreadcrumbSelect: (index: number) => void = () => {};
 
   const sortOptions: { key: LibrarySortKey; label: string }[] = [
     { key: 'title', label: 'Title' },
     { key: 'duration', label: 'Duration' },
     { key: 'progress', label: 'Progress' },
     { key: 'episode', label: 'Episode' },
+    { key: 'watched', label: 'Watched' },
+  ];
+
+  const watchFilterOptions: { value: LibraryWatchFilter; label: string; ariaLabel: string }[] = [
+    { value: 'all', label: 'All', ariaLabel: 'Show all items' },
+    { value: 'unwatched', label: 'Unwatched', ariaLabel: 'Show unwatched items' },
+    { value: 'watched', label: 'Watched', ariaLabel: 'Show watched items' },
   ];
 
   let sortOpen = false;
   let sortRoot: HTMLDivElement;
   let sortMenu: HTMLDivElement;
+  let watchFilterGroup: HTMLDivElement;
 
   $: activeSortLabel = sortOptions.find((option) => option.key === sortKey)?.label ?? 'Title';
   $: directionLabel = sortDirection === 'asc' ? 'Ascending' : 'Descending';
@@ -105,6 +116,34 @@
     if (next instanceof Node && sortRoot?.contains(next)) return;
     sortOpen = false;
   }
+
+  function selectWatchFilter(value: LibraryWatchFilter) {
+    if (value === watchFilter) return;
+    onWatchFilterChange(value);
+  }
+
+  async function handleWatchFilterKeydown(event: KeyboardEvent) {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    const count = watchFilterOptions.length;
+    const current = Math.max(
+      0,
+      watchFilterOptions.findIndex((option) => option.value === watchFilter),
+    );
+    let next = current;
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (current - 1 + count) % count;
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (current + 1) % count;
+    else if (event.key === 'End') next = count - 1;
+
+    onWatchFilterChange(watchFilterOptions[next].value);
+
+    await tick();
+    watchFilterGroup?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+  }
 </script>
 
 <svelte:window on:click={handleWindowPointer} on:keydown={handleWindowKeydown} />
@@ -133,13 +172,18 @@
           aria-hidden="true"
         />
       {/if}
-      <span
-        class="min-w-0 truncate whitespace-nowrap"
+      <button
+        type="button"
+        class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
         class:text-vlc-text={index === breadcrumb.length - 1}
         class:text-vlc-secondary={index !== breadcrumb.length - 1}
+        class:hover:text-vlc-text={index !== breadcrumb.length - 1}
+        aria-current={index === breadcrumb.length - 1 ? 'page' : undefined}
+        title={index === breadcrumb.length - 1 ? crumb : `Go to ${crumb}`}
+        on:click={() => onBreadcrumbSelect(index)}
       >
         {crumb}
-      </span>
+      </button>
     {/each}
   </nav>
 
@@ -147,6 +191,33 @@
     <span class="mr-2 whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
       {itemCount} {itemCount === 1 ? 'item' : 'items'}
     </span>
+
+    <div
+      bind:this={watchFilterGroup}
+      class="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-control border border-vlc-border bg-vlc-card p-0.5"
+      role="radiogroup"
+      tabindex="-1"
+      aria-label="Filter by watched status"
+      on:keydown={handleWatchFilterKeydown}
+    >
+      {#each watchFilterOptions as option (option.value)}
+        {@const active = watchFilter === option.value}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={active}
+          aria-label={option.ariaLabel}
+          tabindex={active ? 0 : -1}
+          class="h-6 whitespace-nowrap rounded-input px-1.5 text-[11px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {active
+            ? 'bg-vlc-raised text-vlc-text'
+            : 'text-vlc-secondary hover:text-vlc-text'}"
+          title={option.ariaLabel}
+          on:click={() => selectWatchFilter(option.value)}
+        >
+          {option.label}
+        </button>
+      {/each}
+    </div>
 
     <div class="relative" bind:this={sortRoot} on:focusout={handleSortFocusOut}>
       <button
@@ -257,13 +328,6 @@
 
     <span class="mx-2 h-5 w-px bg-vlc-border" aria-hidden="true"></span>
 
-    <button
-      type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-      title="More"
-      aria-label="More options"
-    >
-      <MoreHorizontal size={18} strokeWidth={1.75} />
-    </button>
+    <LibraryAddMenu />
   </div>
 </header>
