@@ -179,16 +179,16 @@
     </div>
   {/if}
 
-  <div class="sticky top-0 z-10 border-b border-vlc-border bg-vlc-panel px-3 py-2">
+  <div class="sticky top-0 z-10 border-b border-vlc-border bg-vlc-panel px-3 py-2 space-y-2">
+    <div class="relative">
+      <Search size={16} strokeWidth={1.8} class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-vlc-muted" aria-hidden="true" />
+      <input
+        class="h-10 w-full rounded-control border border-vlc-border bg-vlc-app pl-9 pr-3 text-[13px] text-vlc-text placeholder:text-vlc-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60"
+        placeholder="Search queue"
+        bind:value={search}
+      />
+    </div>
     <div class="flex items-center gap-2">
-      <div class="relative flex-1">
-        <Search size={14} strokeWidth={1.8} class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-vlc-muted" aria-hidden="true" />
-        <input
-          class="h-8 w-full rounded-control border border-vlc-border bg-vlc-app pl-8 pr-2 text-[12px] text-vlc-text placeholder:text-vlc-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60"
-          placeholder="Search queue"
-          bind:value={search}
-        />
-      </div>
       <button
         class="flex h-8 items-center gap-1 rounded-control border border-vlc-border bg-vlc-app px-2 text-[11px] text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text"
         on:click={() => {
@@ -221,7 +221,7 @@
         <Trash2 size={14} strokeWidth={1.8} />
       </button>
     </div>
-    <div class="mt-2 flex items-center gap-2">
+    <div class="flex items-center gap-2">
       <button
         class="flex h-6 items-center gap-1 rounded-control text-[11px] text-vlc-secondary hover:text-vlc-text"
         on:click={toggleSelectAll}
