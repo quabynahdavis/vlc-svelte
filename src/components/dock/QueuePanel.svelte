@@ -45,12 +45,14 @@
     });
 
   function handleDragOver(event: DragEvent): void {
-    if (!isTrackDrag(event)) {
+    const hasTrack = isTrackDrag(event);
+    const hasFiles = event.dataTransfer?.types.includes('Files');
+    if (!hasTrack && !hasFiles) {
       dragActive = false;
       return;
     }
     event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    if (event.dataTransfer) event.dataTransfer.dropEffect = hasTrack ? 'copy' : 'copy';
     dragActive = true;
   }
 
@@ -63,14 +65,27 @@
   }
 
   function handleDrop(event: DragEvent): void {
-    if (!isTrackDrag(event)) {
-      dragActive = false;
-      return;
-    }
     event.preventDefault();
     dragActive = false;
-    const track = readTrackDrag(event);
-    if (track) addToQueue(track);
+
+    if (isTrackDrag(event)) {
+      const track = readTrackDrag(event);
+      if (track) addToQueue(track);
+      return;
+    }
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach((file) => {
+        const track = {
+          id: `${file.name}-${Date.now()}-${Math.random()}`,
+          title: file.name.replace(/\.[^.]+$/, ''),
+          duration: 0,
+          src: file.name, // placeholder; real app would use a file URL / Tauri open
+        };
+        addToQueue(track);
+      });
+    }
   }
 
   function toggleSelectAll() {
