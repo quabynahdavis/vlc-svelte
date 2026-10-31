@@ -1,5 +1,19 @@
 <script lang="ts">
-  import { ArrowLeft, ChevronRight, Clock, Globe, Podcast, Radio } from 'lucide-svelte';
+  import { onDestroy, tick } from 'svelte';
+  import {
+    ArrowLeft,
+    Calendar,
+    ChevronRight,
+    Clock,
+    Globe,
+    Pencil,
+    Play,
+    Plus,
+    Podcast,
+    Radio,
+    Trash2,
+    X,
+  } from 'lucide-svelte';
   import {
     networkCategories,
     podcastEpisodes,
@@ -9,10 +23,26 @@
     type PodcastShow,
     type RadioStation,
   } from '../lib/mock';
-  import { networkSelectedCategory, networkPath } from '../stores/network';
+  import {
+    networkPath,
+    networkSelectedCategory,
+    removeSavedStream,
+    savedStreams,
+    type SavedStream,
+  } from '../stores/network';
+  import { currentTrack, setQueue } from '../stores/player';
+  import { navigate } from '../stores/navigation';
   import { networkViewMode, type ViewMode } from '../stores/viewModes';
   import FuzzySearch from '../components/FuzzySearch.svelte';
   import ViewModeToggle from '../components/ViewModeToggle.svelte';
+  import AddStreamDialog from '../components/AddStreamDialog.svelte';
+
+  /**
+   * Saved Streams replaces the redundant "Custom URL" category: the add
+   * dialog now owns custom URLs, so a second entry would be misleading.
+   */
+  const SAVED_STREAMS_CATEGORY = 'Saved Streams';
+  const libraryCategories = networkCategories.filter((cat) => cat !== 'Custom URL');
 
   $: category = $networkSelectedCategory;
 
@@ -20,6 +50,26 @@
   let searchKey = 0;
   let selectedStationId: string | null = null;
   let selectedEpisodeId: string | null = null;
+  let selectedSavedId: string | null = null;
+
+  let dialogOpen = false;
+  let dialogMode: 'add' | 'edit' = 'add';
+  let editingStream: SavedStream | null = null;
+  let dialogTrigger: HTMLElement | null = null;
+  let addButtonEl: HTMLButtonElement | null = null;
+  let detailEl: HTMLElement | null = null;
+  let mainEl: HTMLDivElement | null = null;
+
+  let pendingRemoveId: string | null = null;
+  let removeButtonEl: HTMLButtonElement | null = null;
+  let confirmRemoveEl: HTMLButtonElement | null = null;
+
+  let statusMessage = '';
+  let statusTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onDestroy(() => {
+    if (statusTimer) clearTimeout(statusTimer);
+  });
 
   function handleSearch(e: CustomEvent<string>) {
     query = e.detail;
@@ -28,6 +78,14 @@
   function clearSearch() {
     query = '';
     searchKey += 1;
+  }
+
+  function announce(message: string) {
+    statusMessage = message;
+    if (statusTimer) clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => {
+      statusMessage = '';
+    }, 3200);
   }
 
   $: filteredStations = radioStations.filter(
@@ -54,28 +112,62 @@
     (episode) => !query || episode.title.toLowerCase().includes(query),
   );
 
-  $: breadcrumb = ['Network', category, ...(selectedShow ? [selectedShow.title] : [])];
+  $: filteredSavedStreams = $savedStreams.filter((stream) => {
+    if (!query) return true;
+    return (
+      stream.name.toLowerCase().includes(query) ||
+      stream.url.toLowerCase().includes(query)
+    );
+  });
+
+  $: selectedSaved =
+    selectedSavedId !== null
+      ? $savedStreams.find((stream) => stream.id === selectedSavedId) ?? null
+      : null;
+
+  $: selectedSavedIsPlaying = selectedSaved
+    ? $currentTrack?.src === selectedSaved.url
+    : false;
+
+  $: breadcrumb = [
+    'Network',
+    category,
+    ...(category === SAVED_STREAMS_CATEGORY && selectedSaved ? [selectedSaved.name] : []),
+    ...(selectedShow ? [selectedShow.title] : []),
+  ];
 
   $: visibleCount =
-    category === 'Internet Radio'
-      ? filteredStations.length
-      : category === 'Podcasts'
-        ? selectedShow
-          ? filteredShowEpisodes.length
-          : filteredShows.length
-        : 0;
+    category === SAVED_STREAMS_CATEGORY
+      ? filteredSavedStreams.length
+      : category === 'Internet Radio'
+        ? filteredStations.length
+        : category === 'Podcasts'
+          ? selectedShow
+            ? filteredShowEpisodes.length
+            : filteredShows.length
+          : 0;
 
-  $: showCount = category === 'Internet Radio' || category === 'Podcasts';
+  $: showCount =
+    category === SAVED_STREAMS_CATEGORY ||
+    category === 'Internet Radio' ||
+    category === 'Podcasts';
 
   function selectCategory(cat: string) {
     networkSelectedCategory.set(cat);
     networkPath.set([]);
     selectedStationId = null;
     selectedEpisodeId = null;
+    selectedSavedId = null;
+    pendingRemoveId = null;
     clearSearch();
   }
 
   function goBack() {
+    if (selectedSavedId !== null) {
+      selectedSavedId = null;
+      pendingRemoveId = null;
+      return;
+    }
     if ($networkPath.length > 0) {
       networkPath.set($networkPath.slice(0, -1));
     }
@@ -99,6 +191,119 @@
 
   function setViewMode(mode: ViewMode) {
     networkViewMode.set(mode);
+  }
+
+  async function selectSavedStream(id: string) {
+    if (selectedSavedId === id) return;
+    selectedSavedId = id;
+    pendingRemoveId = null;
+
+    // On narrow screens the detail pane sits above the list; bring it into view.
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+      await tick();
+      detailEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  function streamProtocol(url: string): string {
+    try {
+      return new URL(url).protocol.replace(':', '').toUpperCase();
+    } catch {
+      return '';
+    }
+  }
+
+  function streamHost(url: string): string {
+    try {
+      return new URL(url).host;
+    } catch {
+      return url;
+    }
+  }
+
+  function streamLocation(stream: SavedStream): string {
+    const protocol = streamProtocol(stream.url);
+    const host = streamHost(stream.url);
+    return protocol ? `${protocol} · ${host}` : host;
+  }
+
+  function streamLabel(stream: SavedStream): string {
+    return `Select ${stream.name}, ${streamLocation(stream)}, added ${formatAddedAt(stream.addedAt)}`;
+  }
+
+  function formatAddedAt(timestamp: number) {
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime())
+      ? 'Unknown date'
+      : date.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+  }
+
+  function openAddDialog(event?: MouseEvent) {
+    dialogMode = 'add';
+    editingStream = null;
+    dialogTrigger =
+      event?.currentTarget instanceof HTMLElement ? event.currentTarget : addButtonEl;
+    dialogOpen = true;
+  }
+
+  function openEditDialog(stream: SavedStream, event: MouseEvent) {
+    dialogMode = 'edit';
+    editingStream = stream;
+    dialogTrigger =
+      event.currentTarget instanceof HTMLElement ? event.currentTarget : addButtonEl;
+    dialogOpen = true;
+  }
+
+  function closeDialog() {
+    dialogOpen = false;
+  }
+
+  function handleStreamSaved(
+    event: CustomEvent<{ stream: SavedStream; message: string }>,
+  ) {
+    const { stream, message } = event.detail;
+
+    networkSelectedCategory.set(SAVED_STREAMS_CATEGORY);
+    networkPath.set([]);
+    selectedStationId = null;
+    selectedEpisodeId = null;
+    selectedSavedId = stream.id;
+    pendingRemoveId = null;
+    // The empty-state trigger disappears after the first save; fall back to
+    // the persistent header button so focus is never lost.
+    if (dialogMode === 'add') dialogTrigger = addButtonEl;
+    clearSearch();
+    dialogOpen = false;
+    announce(message);
+    tick().then(() => mainEl?.scrollTo({ top: 0, behavior: 'smooth' }));
+  }
+
+  function playStream(stream: SavedStream) {
+    setQueue([{ id: stream.id, title: stream.name, duration: 0, src: stream.url }], 0);
+    navigate('home');
+  }
+
+  async function requestRemove(id: string) {
+    pendingRemoveId = id;
+    await tick();
+    confirmRemoveEl?.focus();
+  }
+
+  function cancelRemove() {
+    pendingRemoveId = null;
+    tick().then(() => removeButtonEl?.focus());
+  }
+
+  function confirmRemove(stream: SavedStream) {
+    removeSavedStream(stream.id);
+    pendingRemoveId = null;
+    if (selectedSavedId === stream.id) selectedSavedId = null;
+    announce('Stream removed');
+    tick().then(() => addButtonEl?.focus());
   }
 
   function formatDuration(s: number) {
@@ -128,13 +333,31 @@
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app';
 </script>
 
-<div class="flex h-full bg-vlc-app">
+<div class="relative flex h-full bg-vlc-app">
   <aside class="flex w-[200px] shrink-0 flex-col border-r border-vlc-border bg-vlc-panel">
     <div class="border-b border-vlc-border px-3 py-3">
       <div class="text-[13px] font-medium text-vlc-text">Categories</div>
     </div>
     <nav class="overflow-y-auto py-2" aria-label="Network categories">
-      {#each networkCategories as cat (cat)}
+      <button
+        type="button"
+        class="flex w-full items-center justify-between gap-2 rounded-control px-3 py-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-panel {$networkSelectedCategory === SAVED_STREAMS_CATEGORY
+          ? 'bg-vlc-raised text-vlc-text'
+          : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
+        aria-current={$networkSelectedCategory === SAVED_STREAMS_CATEGORY ? 'page' : undefined}
+        on:click={() => selectCategory(SAVED_STREAMS_CATEGORY)}
+      >
+        <span class="truncate">Saved Streams</span>
+        <span
+          class="shrink-0 rounded-full border border-vlc-border bg-vlc-card px-1.5 py-0.5 text-[10px] tabular-nums text-vlc-secondary"
+        >
+          {$savedStreams.length}
+        </span>
+      </button>
+
+      <div class="mx-3 my-1.5 border-t border-vlc-border" aria-hidden="true"></div>
+
+      {#each libraryCategories as cat (cat)}
         <button
           type="button"
           class="w-full rounded-control px-3 py-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-panel { $networkSelectedCategory === cat ? 'bg-vlc-raised text-vlc-text' : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text' }"
@@ -181,6 +404,17 @@
             {visibleCount} items
           </span>
         {/if}
+        <button
+          bind:this={addButtonEl}
+          type="button"
+          class="flex h-8 shrink-0 items-center gap-1.5 rounded-control bg-vlc-orange px-2.5 text-[12px] font-medium text-vlc-orangeDeep transition-[filter,background-color] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app"
+          title="Add stream"
+          aria-label="Add stream"
+          on:click={openAddDialog}
+        >
+          <Plus size={16} strokeWidth={2} aria-hidden="true" />
+          <span class="hidden xl:inline">Add Stream</span>
+        </button>
         <div class="w-40 shrink xl:w-56">
           {#key searchKey}
             <FuzzySearch placeholder="Search…" on:search={handleSearch} />
@@ -194,8 +428,259 @@
       </div>
     </header>
 
-    <div class="min-h-0 flex-1 overflow-y-auto">
-      {#if category === 'Internet Radio'}
+    <div bind:this={mainEl} class="min-h-0 flex-1 overflow-y-auto">
+      {#if category === SAVED_STREAMS_CATEGORY}
+        <section aria-label="Saved streams" class="flex min-h-full flex-col lg:flex-row">
+          <div class="min-w-0 flex-1">
+            {#if $savedStreams.length === 0}
+              <div class="flex min-h-[360px] flex-col items-center justify-center px-6 py-16 text-center">
+                <span
+                  class="flex h-12 w-12 items-center justify-center rounded-full border border-vlc-border bg-vlc-card text-vlc-secondary"
+                  aria-hidden="true"
+                >
+                  <Radio size={22} strokeWidth={1.75} />
+                </span>
+                <h1 class="mt-4 text-[17px] font-medium text-vlc-text">No saved streams yet</h1>
+                <p class="mt-1 max-w-sm text-[13px] leading-5 text-vlc-secondary">
+                  Add a radio, podcast or video stream URL and it will appear here for quick
+                  playback.
+                </p>
+                <button
+                  type="button"
+                  class="mt-5 flex h-9 items-center gap-1.5 rounded-control bg-vlc-orange px-3.5 text-[12px] font-medium text-vlc-orangeDeep transition-[filter,background-color] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app"
+                  on:click={openAddDialog}
+                >
+                  <Plus size={16} strokeWidth={2} aria-hidden="true" />
+                  Add stream
+                </button>
+              </div>
+            {:else if filteredSavedStreams.length === 0}
+              <div class="px-6 py-10 text-center text-sm text-vlc-muted">
+                No saved streams match your search.
+              </div>
+            {:else if $networkViewMode === 'grid'}
+              <div class="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                {#each filteredSavedStreams as stream (stream.id)}
+                  <button
+                    type="button"
+                    class="group flex h-full min-h-[112px] flex-col rounded-panel border p-4 text-left transition-colors {focusRing} {selectedSavedId === stream.id
+                      ? 'border-vlc-orange/60 bg-vlc-raised ring-1 ring-vlc-orange/30'
+                      : 'border-vlc-border bg-vlc-card hover:border-vlc-borderStrong hover:bg-vlc-raised'}"
+                    aria-label={streamLabel(stream)}
+                    aria-pressed={selectedSavedId === stream.id}
+                    on:click={() => selectSavedStream(stream.id)}
+                  >
+                    <div class="flex min-w-0 items-start gap-3">
+                      <span
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-vlc-border bg-vlc-panel text-vlc-secondary transition-colors group-hover:text-vlc-text"
+                        aria-hidden="true"
+                      >
+                        <Radio size={18} strokeWidth={1.75} />
+                      </span>
+                      <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm font-medium text-vlc-text">
+                          {stream.name}
+                        </span>
+                        <span class="mt-0.5 block truncate text-xs text-vlc-secondary">
+                          {streamHost(stream.url)}
+                        </span>
+                      </span>
+                    </div>
+                    <div class="mt-auto flex items-center justify-between gap-2 pt-3 text-[11px] text-vlc-muted">
+                      <span
+                        class="rounded-full border border-vlc-border bg-vlc-panel px-1.5 py-0.5 font-medium text-vlc-secondary"
+                      >
+                        {streamProtocol(stream.url)}
+                      </span>
+                      <span class="inline-flex min-w-0 items-center gap-1">
+                        <Calendar size={12} strokeWidth={1.75} aria-hidden="true" />
+                        <span class="truncate">{formatAddedAt(stream.addedAt)}</span>
+                      </span>
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            {:else if $networkViewMode === 'list'}
+              <div class="px-6 py-4">
+                <div
+                  class="grid grid-cols-[1fr_180px_120px] gap-3 px-3 py-2 text-[11px] uppercase tracking-wide text-vlc-muted"
+                  aria-hidden="true"
+                >
+                  <span>Name</span>
+                  <span>Source</span>
+                  <span class="text-right">Added</span>
+                </div>
+                <ul>
+                  {#each filteredSavedStreams as stream (stream.id)}
+                    <li>
+                      <button
+                        type="button"
+                        class="grid w-full grid-cols-[1fr_180px_120px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-3 py-2 text-left text-[13px] text-vlc-secondary transition-colors {focusRing} {selectedSavedId === stream.id
+                          ? 'bg-vlc-raised text-vlc-text ring-1 ring-inset ring-vlc-orange/50'
+                          : 'hover:bg-vlc-raised hover:text-vlc-text'}"
+                        aria-label={streamLabel(stream)}
+                        aria-pressed={selectedSavedId === stream.id}
+                        on:click={() => selectSavedStream(stream.id)}
+                      >
+                        <span class="truncate text-vlc-text">{stream.name}</span>
+                        <span class="truncate">{streamLocation(stream)}</span>
+                        <span class="text-right text-vlc-muted">
+                          {formatAddedAt(stream.addedAt)}
+                        </span>
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {:else}
+              <div class="px-6 py-3">
+                <ul class="space-y-px">
+                  {#each filteredSavedStreams as stream (stream.id)}
+                    <li>
+                      <button
+                        type="button"
+                        class="grid h-7 w-full grid-cols-[1fr_150px_110px] items-center gap-3 rounded-input px-2 text-left text-xs text-vlc-secondary transition-colors {focusRing} {selectedSavedId === stream.id
+                          ? 'bg-vlc-raised text-vlc-text ring-1 ring-inset ring-vlc-orange/40'
+                          : 'hover:bg-vlc-raised hover:text-vlc-text'}"
+                        aria-label={streamLabel(stream)}
+                        aria-pressed={selectedSavedId === stream.id}
+                        on:click={() => selectSavedStream(stream.id)}
+                      >
+                        <span class="truncate text-vlc-text">{stream.name}</span>
+                        <span class="truncate text-right text-vlc-muted">
+                          {streamLocation(stream)}
+                        </span>
+                        <span class="truncate text-right text-vlc-muted">
+                          {formatAddedAt(stream.addedAt)}
+                        </span>
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+          </div>
+
+          {#if selectedSaved}
+            {@const stream = selectedSaved}
+            <aside
+              bind:this={detailEl}
+              class="order-first shrink-0 border-b border-vlc-border bg-vlc-panel p-4 lg:order-last lg:w-[300px] lg:border-b-0 lg:border-l"
+              aria-label={`${stream.name} details`}
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <h2 class="truncate text-[15px] font-medium text-vlc-text" title={stream.name}>
+                    {stream.name}
+                  </h2>
+                  <p class="mt-0.5 text-xs text-vlc-secondary">{streamLocation(stream)}</p>
+                </div>
+                <button
+                  type="button"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-panel"
+                  title="Close details"
+                  aria-label="Close stream details"
+                  on:click={() => {
+                    selectedSavedId = null;
+                    pendingRemoveId = null;
+                  }}
+                >
+                  <X size={15} strokeWidth={1.75} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div class="mt-4 flex flex-wrap items-center gap-1.5">
+                <span
+                  class="rounded-full border border-vlc-border bg-vlc-card px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-vlc-secondary"
+                >
+                  {streamProtocol(stream.url)}
+                </span>
+                <span class="inline-flex items-center gap-1 text-[11px] text-vlc-muted">
+                  <Calendar size={12} strokeWidth={1.75} aria-hidden="true" />
+                  Added {formatAddedAt(stream.addedAt)}
+                </span>
+              </div>
+
+              <dl class="mt-4 space-y-2.5 border-t border-vlc-border pt-4 text-[12px]">
+                <div>
+                  <dt class="text-vlc-muted">Address</dt>
+                  <dd class="mt-0.5 break-all text-vlc-secondary">{stream.url}</dd>
+                </div>
+                <div>
+                  <dt class="text-vlc-muted">Host</dt>
+                  <dd class="mt-0.5 truncate text-vlc-secondary">{streamHost(stream.url)}</dd>
+                </div>
+              </dl>
+
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="flex h-8 items-center gap-1.5 rounded-control bg-vlc-orange px-3 text-[12px] font-medium text-vlc-orangeDeep transition-[filter,background-color] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-panel"
+                  on:click={() => playStream(stream)}
+                >
+                  <Play size={15} strokeWidth={2} aria-hidden="true" />
+                  Play
+                </button>
+                <button
+                  type="button"
+                  class="flex h-8 items-center gap-1.5 rounded-control border border-vlc-border bg-vlc-card px-3 text-[12px] text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-panel"
+                  on:click={(event) => openEditDialog(stream, event)}
+                >
+                  <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />
+                  Edit
+                </button>
+                <button
+                  bind:this={removeButtonEl}
+                  type="button"
+                  class="flex h-8 items-center gap-1.5 rounded-control border border-vlc-danger/40 px-3 text-[12px] text-vlc-danger transition-colors hover:bg-vlc-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-danger/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-panel"
+                  on:click={() => requestRemove(stream.id)}
+                >
+                  <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                  Remove
+                </button>
+              </div>
+
+              {#if pendingRemoveId === stream.id}
+                <div
+                  class="mt-3 rounded-control border border-vlc-danger/40 bg-vlc-danger/10 p-3"
+                  role="alertdialog"
+                  aria-labelledby="remove-stream-title"
+                  aria-describedby="remove-stream-desc"
+                >
+                  <p id="remove-stream-title" class="text-[12px] font-medium text-vlc-text">
+                    Remove this stream?
+                  </p>
+                  <p id="remove-stream-desc" class="mt-1 text-[11px] leading-4 text-vlc-secondary">
+                    {#if selectedSavedIsPlaying}
+                      This stream is currently playing. It will keep playing, but it will be
+                      removed from your saved list.
+                    {:else}
+                      It will be removed from Saved Streams. This cannot be undone.
+                    {/if}
+                  </p>
+                  <div class="mt-2.5 flex gap-2">
+                    <button
+                      bind:this={confirmRemoveEl}
+                      type="button"
+                      class="h-7 rounded-control border border-vlc-danger/50 px-2.5 text-[11px] font-medium text-vlc-danger transition-colors hover:bg-vlc-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-danger/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-panel"
+                      on:click={() => confirmRemove(stream)}
+                    >
+                      Remove
+                    </button>
+                    <button
+                      type="button"
+                      class="h-7 rounded-control px-2.5 text-[11px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-panel"
+                      on:click={cancelRemove}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              {/if}
+            </aside>
+          {/if}
+        </section>
+      {:else if category === 'Internet Radio'}
         <section aria-label="Internet radio stations">
           {#if $networkViewMode === 'grid'}
             <div class="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
@@ -488,4 +973,23 @@
       {/if}
     </div>
   </div>
+
+  {#if statusMessage}
+    <div
+      class="pointer-events-none absolute bottom-6 right-6 z-20 rounded-control border border-vlc-borderStrong bg-vlc-panel px-3 py-2 text-[12px] text-vlc-text shadow-lg"
+      role="status"
+      aria-live="polite"
+    >
+      {statusMessage}
+    </div>
+  {/if}
 </div>
+
+<AddStreamDialog
+  open={dialogOpen}
+  mode={dialogMode}
+  stream={editingStream}
+  returnFocusTo={dialogTrigger}
+  on:close={closeDialog}
+  on:saved={handleStreamSaved}
+/>

@@ -9,19 +9,19 @@
 
 <div class="flex flex-col gap-9 pb-4">
   <Section title="Proxy">
-    <SettingRow label="HTTP proxy" info hint="Proxy server in host:port format (e.g., proxy.example.com:8080).">
+    <SettingRow label="HTTP proxy" info hint="Route traffic through a proxy, written as host:port.">
       <div class="w-[426px]">
         <TextInput bind:value={$settings.httpProxy} ariaLabel="HTTP proxy" placeholder="host:port" />
       </div>
     </SettingRow>
 
-    <SettingRow label="Proxy user" info hint="Username for proxy authentication.">
+    <SettingRow label="Proxy user">
       <div class="w-[426px]">
         <TextInput bind:value={$settings.proxyUser} ariaLabel="Proxy user" placeholder="Username" />
       </div>
     </SettingRow>
 
-    <SettingRow label="Proxy password" info hint="Password for proxy authentication.">
+    <SettingRow label="Proxy password">
       <div class="w-[426px]">
         <TextInput bind:value={$settings.proxyPassword} ariaLabel="Proxy password" placeholder="Password" type="password" />
       </div>
@@ -29,7 +29,7 @@
   </Section>
 
   <Section title="Cache & Timeouts">
-    <SettingRow label="Cache size (MB)" info hint="Network cache size in megabytes.">
+    <SettingRow label="Cache size (MB)" info hint="How much downloaded data is kept in memory to avoid re-fetching.">
       <div class="w-[426px]">
         <Slider
           bind:value={$settings.cacheSizeMB}
@@ -44,7 +44,7 @@
       </div>
     </SettingRow>
 
-    <SettingRow label="Timeout (ms)" info hint="Network timeout in milliseconds.">
+    <SettingRow label="Timeout (ms)" info hint="How long to wait for a network reply before giving up.">
       <div class="w-[200px]">
         <TextInput bind:value={$settings.timeoutMs} ariaLabel="Timeout (ms)" placeholder="10000" mono />
       </div>
@@ -52,17 +52,17 @@
   </Section>
 
   <Section title="HTTP">
-    <SettingRow label="User agent" info hint="HTTP User-Agent string sent with requests.">
+    <SettingRow label="User agent">
       <div class="w-[426px]">
         <TextInput bind:value={$settings.userAgent} ariaLabel="User agent" placeholder="VLC/3.0" />
       </div>
     </SettingRow>
 
-    <SettingRow label="Cookies" info hint="Accept and send HTTP cookies.">
+    <SettingRow label="Cookies">
       <Toggle bind:value={$settings.cookies} label="Cookies" />
     </SettingRow>
 
-    <SettingRow label="Prefer IPv6" info hint="Prefer IPv6 over IPv4 for network connections.">
+    <SettingRow label="Prefer IPv6" info hint="Try IPv6 first when a server supports both address types.">
       <Toggle bind:value={$settings.preferIPv6} label="Prefer IPv6" />
     </SettingRow>
   </Section>
