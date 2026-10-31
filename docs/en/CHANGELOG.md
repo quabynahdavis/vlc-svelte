@@ -4,6 +4,11 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-10-31
 
+### Changed — contribution standards
+
+- Rewrote [CONTRIBUTING.md](../CONTRIBUTING.md) to document atomic commits, Conventional Commit types and scopes, message and authorship rules, the `/docs/{lang}/{domain}/NN-topic.md` structure, required `OVERVIEW.md` and `CHANGELOG.md` files, and the i18n and translation workflow.
+- Updated the **Contributing** sections in both READMEs to point at the commit, documentation and translation standards.
+
 ### Added — internationalization guide
 
 - Added [guides/03-internationalization.md](guides/03-internationalization.md): language tags and file patterns, required `OVERVIEW.md` and `CHANGELOG.md` files, source-of-truth and synchronization rules, landing-page switchers, Asante Twi guidance, terminology, adding a language and a translation pull-request checklist.

@@ -15,7 +15,7 @@ The design reference exports (26 files: 25 PNGs + 1 SVG) live in the repository-
 | Document | Description |
 | --- | --- |
 | [CHANGELOG.md](CHANGELOG.md) | Revision history of the English documentation and project milestones. |
-| [../CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, design rules, checks, commit style, pull requests and licensing. |
+| [../CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, design rules, checks, commit and documentation standards, translations, pull requests and licensing. |
 | [architecture/01-overview.md](architecture/01-overview.md) | Tech stack, repository layout, architecture and design goals. |
 | [architecture/02-frontend.md](architecture/02-frontend.md) | Svelte app structure, implemented components, stores, views, persistence keys and styling conventions. |
 | [architecture/03-tauri-backend.md](architecture/03-tauri-backend.md) | Tauri v2 configuration, Rust entry point, window capabilities, custom decorations and planned commands. |
@@ -62,7 +62,7 @@ docs/
 ## Documentation conventions
 
 - Detailed documentation is **English-only** today. The Asante Twi README is a translated entry point; it links back to the English documentation and does not mirror the topic files. Full translation rules live in [guides/03-internationalization.md](guides/03-internationalization.md).
-- `/docs/en/` is the language root and holds the only required `OVERVIEW.md` / `CHANGELOG.md` pair.
+- `/docs/en/` is currently the only language root; it holds the required `OVERVIEW.md` / `CHANGELOG.md` pair.
 - Domain folders (`architecture/`, `design/`, `guides/`) contain numbered topic documents only; they do not duplicate domain-level overview or changelog files.
 - Topic files use sequential prefixes (`01-`, `02-`, ...).
 - Paths, commands and code identifiers stay in English.

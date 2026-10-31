@@ -110,7 +110,7 @@ Nkyerɛw a ɛyɛ nokware no wɔ Borɔfo kasa mu wɔ [`docs/en/`](en/OVERVIEW.md)
 | [en/guides/02-design-reference.md](en/guides/02-design-reference.md) | Design exports 26 no ne sɛnea wobɛde adi dwuma sɛ spec. |
 | [en/guides/03-internationalization.md](en/guides/03-internationalization.md) | Language tags, translated landing pages, required files, terminology ne translation PR checklist. |
 | [en/CHANGELOG.md](en/CHANGELOG.md) | Project milestones ne nkyerɛw nsakraeɛ. |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, design rules, checks, commit style, pull requests ne licensing. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, design rules, checks, commit ne documentation standards, translations, pull requests ne licensing. |
 
 ## Status
 
@@ -133,7 +133,7 @@ Library, music, playlist ne network data yɛ mock data. Imported media ne playli
 
 ## Mmoa a wobɛboa
 
-Kenkan [contributing guide](CONTRIBUTING.md) ma setup, design rules, checks ne pull-request flow. Contributing guide no wɔ Borɔfo kasa mu. Yɛma issues ne pull requests akwaaba wɔ [GitHub](https://github.com/quabynahdavis/vlc-svelte).
+Kenkan [contributing guide](CONTRIBUTING.md) ma setup, design rules, checks, atomic commit ne documentation standards, ne translation workflow. Contributing guide no wɔ Borɔfo kasa mu. Yɛma issues ne pull requests akwaaba wɔ [GitHub](https://github.com/quabynahdavis/vlc-svelte).
 
 ## License
 

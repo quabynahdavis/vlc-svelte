@@ -110,7 +110,7 @@ The canonical documentation is written in English under [`docs/en/`](en/OVERVIEW
 | [en/guides/02-design-reference.md](en/guides/02-design-reference.md) | Inventory of the 26 design exports and how to use them as a spec. |
 | [en/guides/03-internationalization.md](en/guides/03-internationalization.md) | Language tags, translated landing pages, required files, terminology and the translation PR checklist. |
 | [en/CHANGELOG.md](en/CHANGELOG.md) | Project milestones and documentation revisions. |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, design rules, checks, commit style, pull requests and licensing. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, design rules, checks, commit and documentation standards, translations, pull requests and licensing. |
 
 ## Status
 
@@ -133,7 +133,7 @@ Library, music, playlist and network data are mock data. Imported media and play
 
 ## Contributing
 
-Read the [contributing guide](CONTRIBUTING.md) for setup, design rules, checks and the pull-request flow. Issues and pull requests are welcome on [GitHub](https://github.com/quabynahdavis/vlc-svelte).
+Read the [contributing guide](CONTRIBUTING.md) for setup, design rules, checks, atomic commit and documentation standards, and the translation workflow. Issues and pull requests are welcome on [GitHub](https://github.com/quabynahdavis/vlc-svelte).
 
 ## License
 
