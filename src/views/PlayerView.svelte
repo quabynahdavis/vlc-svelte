@@ -13,9 +13,10 @@
     toggleFullscreen,
     wheelNotches,
   } from '../lib/gestures';
-  import { currentTrack, next, player, setVolume, toggle } from '../stores/player';
+  import { currentTrack, next, player, setQueue, setVolume, toggle } from '../stores/player';
 import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
+  import { getContinueByType, upsertWatch, type WatchEntry } from '../stores/watch';
 
   const dispatch = createEventDispatcher<{ settings: void; advancedSettings: string }>();
 
@@ -65,6 +66,20 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   $: hasMedia = Boolean(videoSrc);
   $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}`;
   $: mediaTitle = $currentTrack?.title?.trim() || 'Kanea';
+
+  import { watchEntries } from '../stores/watch';
+  $: continueVideoItems = $watchEntries
+    .filter(e => e.type === 'video' && !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
+    .sort((a, b) => b.lastWatchedAt - a.lastWatchedAt)
+    .slice(0, 5);
+  $: continueMusicItems = $watchEntries
+    .filter(e => e.type === 'music' && !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
+    .sort((a, b) => b.lastWatchedAt - a.lastWatchedAt)
+    .slice(0, 5);
+  $: continueStreamItems = $watchEntries
+    .filter(e => e.type === 'stream' && !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
+    .sort((a, b) => b.lastWatchedAt - a.lastWatchedAt)
+    .slice(0, 5);
 
   // Rebind the Picture-in-Picture listeners whenever the media element changes.
   $: syncPipElement(videoEl);
@@ -213,6 +228,18 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
       ...state,
       currentTime: Number.isFinite(el.currentTime) ? el.currentTime : state.currentTime,
     }));
+
+    const track = $currentTrack;
+    if (track && videoSrc) {
+      upsertWatch({
+        mediaKey: mediaKey,
+        type: 'video',
+        title: mediaTitle,
+        duration: $player.duration || track.duration || 0,
+        position: el.currentTime,
+        src: videoSrc,
+      });
+    }
   }
 
   function handlePlay(): void {
@@ -238,6 +265,17 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   }
 
   function handleEnded(): void {
+    const track = $currentTrack;
+    if (track && videoSrc) {
+      upsertWatch({
+        mediaKey: mediaKey,
+        type: 'video',
+        title: mediaTitle,
+        duration: $player.duration || track.duration || 0,
+        position: $player.duration || track.duration || 0,
+        src: videoSrc,
+      });
+    }
     if ($player.repeat === 'one' && videoEl) {
       videoEl.currentTime = 0;
       void videoEl.play().catch((error) => {
@@ -699,51 +737,89 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
           on:error={handleError}
         ></video>
       {:else}
-        <div class="flex flex-col items-center gap-4 px-6 text-center">
-          <svg
-            class="h-24 w-24 drop-shadow-[0_0_40px_rgb(var(--accent-rgb)_/_0.18)]"
-            viewBox="0 0 96 96"
-            fill="none"
-            aria-hidden="true"
-          >
-            <defs>
-              <linearGradient
-                id="vlc-empty-cone-gradient"
-                x1="48"
-                y1="8"
-                x2="48"
-                y2="85"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop stop-color="var(--accent)" />
-                <stop offset="1" stop-color="var(--accent-pressed)" />
-              </linearGradient>
-            </defs>
-            <path d="M48 8 68 72H28L48 8Z" fill="url(#vlc-empty-cone-gradient)" />
-            <path
-              d="M38.9 34h18.2l2.6 10H36.3l2.6-10Z"
-              fill="var(--selection-ink)"
-              fill-opacity=".18"
-            />
-            <path
-              d="M35.2 50h25.6l2.2 8.5H33l2.2-8.5Z"
-              fill="var(--selection-ink)"
-              fill-opacity=".12"
-            />
-            <rect
-              x="18"
-              y="72"
-              width="60"
-              height="13"
-              rx="5"
-              fill="url(#vlc-empty-cone-gradient)"
-            />
-          </svg>
-
-          <div class="space-y-1.5">
-            <p class="text-[15px] font-medium text-vlc-secondary">No media loaded</p>
-            <p class="text-xs text-vlc-muted">Open a file to start playback</p>
+        <div class="flex h-full w-full flex-col items-center justify-start gap-6 overflow-y-auto px-6 py-10">
+          <div class="flex flex-col items-center gap-4">
+            <svg class="h-24 w-24 drop-shadow-[0_0_40px_rgb(var(--accent-rgb)_/_0.18)]" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="vlc-empty-cone-gradient" x1="48" y1="8" x2="48" y2="85" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="var(--accent)" />
+                  <stop offset="1" stop-color="var(--accent-pressed)" />
+                </linearGradient>
+              </defs>
+              <path d="M48 8 68 72H28L48 8Z" fill="url(#vlc-empty-cone-gradient)" />
+              <path d="M38.9 34h18.2l2.6 10H36.3l2.6-10Z" fill="var(--selection-ink)" fill-opacity=".18" />
+              <path d="M35.2 50h25.6l2.2 8.5H33l2.2-8.5Z" fill="var(--selection-ink)" fill-opacity=".12" />
+              <rect x="18" y="72" width="60" height="13" rx="5" fill="url(#vlc-empty-cone-gradient)" />
+            </svg>
+            <div class="space-y-1.5 text-center">
+              <p class="text-[15px] font-medium text-vlc-secondary">No media loaded</p>
+              <p class="text-xs text-vlc-muted">Open a file to start playback</p>
+            </div>
           </div>
+
+          {#if continueVideoItems.length > 0}
+            <section class="w-full max-w-5xl">
+              <h2 class="mb-3 text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue watching</h2>
+              <div class="flex gap-3 overflow-x-auto pb-2">
+                {#each continueVideoItems as item}
+                  <button class="min-w-[180px] rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
+                    if (item.src) {
+                      setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
+                    }
+                  }}>
+                    <div class="aspect-video w-full overflow-hidden rounded bg-vlc-app">
+                      {#if item.thumbnail}
+                        <img src={item.thumbnail} alt="" class="h-full w-full object-cover" />
+                      {/if}
+                    </div>
+                    <p class="mt-1 truncate text-[12px] text-vlc-text">{item.title}</p>
+                    <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-vlc-raised">
+                      <div class="h-full bg-vlc-orange" style={`width:${Math.min(100, Math.max(0, (item.position / item.duration) * 100))}%`} />
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            </section>
+          {/if}
+
+          {#if continueMusicItems.length > 0}
+            <section class="w-full max-w-5xl">
+              <h2 class="mb-3 text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue playing</h2>
+              <div class="flex gap-3 overflow-x-auto pb-2">
+                {#each continueMusicItems as item}
+                  <button class="min-w-[140px] rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
+                    if (item.src) setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
+                  }}>
+                    <div class="aspect-square w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center">
+                      {#if item.thumbnail}
+                        <img src={item.thumbnail} alt="" class="h-full w-full object-cover" />
+                      {/if}
+                    </div>
+                    <p class="mt-1 truncate text-[12px] text-vlc-text">{item.title}</p>
+                    <p class="truncate text-[10px] text-vlc-muted">{item.artist || ''}</p>
+                  </button>
+                {/each}
+              </div>
+            </section>
+          {/if}
+
+          {#if continueStreamItems.length > 0}
+            <section class="w-full max-w-5xl">
+              <h2 class="mb-3 text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue streaming</h2>
+              <div class="flex gap-3 overflow-x-auto pb-2">
+                {#each continueStreamItems as item}
+                  <button class="min-w-[180px] rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
+                    if (item.src) setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
+                  }}>
+                    <div class="aspect-video w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center text-vlc-muted">
+                      Stream
+                    </div>
+                    <p class="mt-1 truncate text-[12px] text-vlc-text">{item.title}</p>
+                  </button>
+                {/each}
+              </div>
+            </section>
+          {/if}
         </div>
       {/if}
 

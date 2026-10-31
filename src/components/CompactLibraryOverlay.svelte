@@ -18,6 +18,7 @@
     type LibraryWatchFilter,
   } from '../stores/library';
   import { player, setQueue, type Track } from '../stores/player';
+  import { watchEntries } from '../stores/watch';
 
   export let open = false;
   export let fullscreen = false;
@@ -190,6 +191,26 @@
     </header>
 
     <div class="shrink-0 space-y-2 border-b border-vlc-border px-3 py-2.5">
+      {#if $watchEntries.length > 0}
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          {#each $watchEntries.filter(e => e.type === 'video' && !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02).slice(0, 3) as item}
+            <button class="min-w-[120px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-1.5 text-left hover:bg-vlc-raised" on:click={() => {
+              if (item.src) setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
+            }}>
+              <div class="aspect-video w-full overflow-hidden rounded bg-vlc-app">
+                {#if item.thumbnail}
+                  <img src={item.thumbnail} alt="" class="h-full w-full object-cover" />
+                {/if}
+              </div>
+              <p class="mt-1 truncate text-[10px] text-vlc-text">{item.title}</p>
+              <div class="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-vlc-raised">
+                <div class="h-full bg-vlc-orange" style={`width:${Math.min(100, Math.max(0, (item.position / item.duration) * 100))}%`} />
+              </div>
+            </button>
+          {/each}
+        </div>
+      {/if}
+
       <label class="flex h-8 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5">
         <Search size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
         <input
