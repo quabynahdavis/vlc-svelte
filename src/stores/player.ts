@@ -138,6 +138,93 @@ export function clearQueue(): void {
   }));
 }
 
+/** Remove a single track from the queue by index. */
+export function removeFromQueue(index: number): void {
+  player.update((state) => {
+    if (index < 0 || index >= state.queue.length) return state;
+
+    const queue = state.queue.filter((_, i) => i !== index);
+    let currentIndex = state.currentIndex;
+
+    if (queue.length === 0) {
+      return {
+        ...state,
+        queue,
+        currentIndex: -1,
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+      };
+    }
+
+    if (currentIndex > index) {
+      currentIndex -= 1;
+    } else if (currentIndex === index) {
+      // If we removed the current item, move to next or previous.
+      const nextIndex = Math.min(index, queue.length - 1);
+      currentIndex = nextIndex;
+    }
+
+    return { ...state, queue, currentIndex };
+  });
+}
+
+/** Remove multiple tracks from the queue by indices. */
+export function removeFromQueueMany(indices: number[]): void {
+  if (indices.length === 0) return;
+
+  player.update((state) => {
+    const toRemove = new Set(indices.filter(i => i >= 0 && i < state.queue.length));
+    const queue = state.queue.filter((_, i) => !toRemove.has(i));
+    if (queue.length === 0) {
+      return {
+        ...state,
+        queue,
+        currentIndex: -1,
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+      };
+    }
+
+    let currentIndex = state.currentIndex;
+    // Adjust current index based on removals before it.
+    let shift = 0;
+    for (const i of indices) {
+      if (i < currentIndex) shift += 1;
+    }
+    currentIndex = Math.max(0, currentIndex - shift);
+    if (currentIndex >= queue.length) currentIndex = queue.length - 1;
+
+    return { ...state, queue, currentIndex };
+  });
+}
+
+/** Move a track within the queue. */
+export function moveQueueItem(fromIndex: number, toIndex: number): void {
+  player.update((state) => {
+    const { queue, currentIndex } = state;
+    if (fromIndex < 0 || fromIndex >= queue.length) return state;
+    if (toIndex < 0 || toIndex >= queue.length) return state;
+    if (fromIndex === toIndex) return state;
+
+    const nextQueue = [...queue];
+    const [item] = nextQueue.splice(fromIndex, 1);
+    nextQueue.splice(toIndex, 0, item);
+
+    let nextCurrentIndex = currentIndex;
+    if (currentIndex === fromIndex) {
+      nextCurrentIndex = toIndex;
+    } else if (currentIndex > fromIndex && currentIndex <= toIndex) {
+      nextCurrentIndex -= 1;
+    } else if (currentIndex < fromIndex && currentIndex >= toIndex) {
+      nextCurrentIndex += 1;
+    }
+
+    return { ...state, queue: nextQueue, currentIndex: nextCurrentIndex };
+  });
+}
+
 /** Stop playback and rewind, keeping the queue and loaded track intact. */
 export function stop(): void {
   player.update((state) => ({ ...state, isPlaying: false, currentTime: 0 }));
