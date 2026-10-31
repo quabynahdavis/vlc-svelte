@@ -3,7 +3,6 @@
   import { get } from 'svelte/store';
   import { Library, Minimize, PictureInPicture, Volume2, VolumeX } from 'lucide-svelte';
   import CompactLibraryOverlay from '../components/CompactLibraryOverlay.svelte';
-  import PlaylistPanel from '../components/PlaylistPanel.svelte';
   import RightDock from '../components/RightDock.svelte';
   import TransportBar from '../components/TransportBar.svelte';
   import {
@@ -26,7 +25,6 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   /** How long fullscreen chrome stays visible after the last interaction. */
   const CHROME_HIDE_DELAY_MS = 2500;
 
-  let showPlaylist = true;
   let videoEl: HTMLVideoElement | null = null;
   /** Fullscreen target: wraps the stage and the transport so both stay mounted. */
   let shellEl: HTMLDivElement | null = null;
@@ -594,17 +592,6 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
 </script>
 
 <div class="relative flex h-full min-h-0 overflow-hidden bg-vlc-app">
-  {#if showPlaylist}
-    <!-- Full-width on desktop; a stage overlay on narrow windows keeps the transport intact. -->
-    <div
-      class="absolute bottom-[52px] left-0 top-0 z-20 w-[300px] lg:static lg:h-full lg:shadow-none"
-    >
-      <PlaylistPanel
-        on:close={() => (showPlaylist = false)}
-        on:back={handleBack}
-      />
-    </div>
-  {/if}
 
   <div
     bind:this={shellEl}
@@ -673,7 +660,6 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
 
     <div
       class="player-stage group relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-vlc-app lg:pl-0"
-      class:pl-[300px]={showPlaylist}
       on:wheel|nonpassive={handleStageWheel}
     >
       {#if !isFullscreen}
