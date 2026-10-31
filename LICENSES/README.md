@@ -12,4 +12,9 @@ This repository carries two licenses with different scopes.
 - The UI redesign is an independent interface. It does not relicense libvlc or any VLC source code.
 - VLC, the VLC cone logo and libvlc are trademarks or components of the VideoLAN project. Their names, marks and upstream code remain subject to VideoLAN's own terms; this repository does not grant trademark rights.
 - Third-party dependencies keep their own licenses. See `package.json`, `bun.lock` and `src-tauri/Cargo.toml`.
-- The exports in `VLC Redesign (Community)/` are design reference material. Confirm their provenance before redistributing them separately from this repository.
+- The exports in `VLC Redesign (Community)/` are design reference material created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA). They are not covered by the MIT license and remain the creator's work; do not redistribute them as project assets.
+
+## Credits
+
+- **Design reference:** [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) — VLC redesign concept and the exports in `VLC Redesign (Community)/`.
+- **VLC, the VLC cone and libvlc:** the [VideoLAN](https://www.videolan.org/) project.

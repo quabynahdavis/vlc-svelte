@@ -135,6 +135,12 @@ Library, music, playlist and network data are mock data. Imported media and play
 
 Read the [contributing guide](CONTRIBUTING.md) for setup, design rules, checks, atomic commit and documentation standards, and the translation workflow. Issues and pull requests are welcome on [GitHub](https://github.com/quabynahdavis/vlc-svelte).
 
+## Credits
+
+- **Design reference:** [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) created the VLC redesign concept and the exports in `VLC Redesign (Community)/`. They are included as visual reference and remain her work; they are not relicensed under this project's MIT license.
+- **VLC and the cone mark:** the [VideoLAN](https://www.videolan.org/) project. This community redesign is not affiliated with or endorsed by VideoLAN.
+- **Stack:** Tauri, Svelte, Tailwind CSS and bun.
+
 ## License
 
 The UI redesign source and original documentation are released under the [MIT License](../LICENSE). libvlc and VLC-derived components remain under [LGPL-2.1-or-later](../LICENSES/LGPL-2.1.txt); see [LICENSES/README.md](../LICENSES/README.md) for scope. VLC, the VLC cone and libvlc are VideoLAN project marks or components and are not relicensed by this repository.

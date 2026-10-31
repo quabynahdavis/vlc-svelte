@@ -4,6 +4,12 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-10-31
 
+### Added — design attribution
+
+- Credited [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) for the VLC redesign concept and the design exports in `VLC Redesign (Community)/` across both READMEs, the project overview, the design system, the design reference inventory and the license scope.
+- Clarified that the design exports are visual reference only, remain the creator's work and are not covered by the MIT license.
+- Updated the contributing guide and [LICENSES/README.md](../../LICENSES/README.md) so contributors do not treat the exports as MIT-licensed project assets.
+
 ### Changed — contribution standards
 
 - Rewrote [CONTRIBUTING.md](../CONTRIBUTING.md) to document atomic commits, Conventional Commit types and scopes, message and authorship rules, the `/docs/{lang}/{domain}/NN-topic.md` structure, required `OVERVIEW.md` and `CHANGELOG.md` files, and the i18n and translation workflow.

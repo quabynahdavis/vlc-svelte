@@ -135,6 +135,12 @@ Library, music, playlist ne network data yɛ mock data. Imported media ne playli
 
 Kenkan [contributing guide](CONTRIBUTING.md) ma setup, design rules, checks, atomic commit ne documentation standards, ne translation workflow. Contributing guide no wɔ Borɔfo kasa mu. Yɛma issues ne pull requests akwaaba wɔ [GitHub](https://github.com/quabynahdavis/vlc-svelte).
 
+## Nkaeɛ
+
+- **Design reference:** [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) na ɔyɛɛ VLC redesign concept ne exports a ɛwɔ `VLC Redesign (Community)/`. Wɔde wɔn sii hɔ sɛ visual reference; wɔn adwuma no da so yɛ wɔn dea, na ɛnyɛ MIT license ase.
+- **VLC ne cone mark:** [VideoLAN](https://www.videolan.org/) project. Saa community redesign yi nni VideoLAN affiliation anaasɛ endorsement.
+- **Stack:** Tauri, Svelte, Tailwind CSS ne bun.
+
 ## License
 
 UI redesign source ne documentation a ɛfiri yɛn nkyɛn no wɔ [MIT License](../LICENSE) ase. libvlc ne VLC-derived components no da so wɔ [LGPL-2.1-or-later](../LICENSES/LGPL-2.1.txt) ase; hwɛ [LICENSES/README.md](../LICENSES/README.md) ma scope no. VLC, VLC cone ne libvlc yɛ VideoLAN project marks anaa components; saa repository yi nnye wɔn license.

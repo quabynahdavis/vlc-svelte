@@ -246,6 +246,7 @@ UI changes should include before/after screenshots and note dark and light theme
 - The UI redesign source and original documentation are released under the [MIT License](../LICENSE).
 - libvlc and VLC-derived components remain under the [LGPL-2.1-or-later](../LICENSES/LGPL-2.1.txt). See [LICENSES/README.md](../LICENSES/README.md) for scope.
 - By contributing, you agree that your original contributions are licensed under MIT. Do not submit code or assets you cannot license.
+- The design reference exports in `VLC Redesign (Community)/` were created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) and are **not** covered by the MIT license. Do not relicense or redistribute them as project assets.
 - VLC, the VLC cone and libvlc are VideoLAN project marks or components; this repository does not relicense them.
 
 ## Questions

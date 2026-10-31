@@ -2,6 +2,8 @@
 
 The folder `VLC Redesign (Community)/` at the repository root contains the exported visual specification: **26 files (25 PNGs + 1 SVG)**. The exports are reference art, not application assets — rebuild the UI with HTML/Svelte/Tailwind rather than embedding screenshots. Canonical colour, typography and radius tokens live in [../design/01-design-system.md](../design/01-design-system.md); the dark palette is extracted from these files, while the light palette is a project extension.
 
+> **Attribution:** these exports were created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) for her VLC redesign concept. They are included as visual reference only, remain her work and are not relicensed under this project's MIT license. The implementation in `src/` is an independent Svelte rebuild.
+
 ## Inventory by screen
 
 ### Player — 5 files
@@ -68,7 +70,7 @@ Both are large modal windows with a search field and a category sidebar:
 
 ### Property / effect panels — 7 files
 
-All are 1440 px wide and show collapsible **Collapse Settings** panels with slider rows and numeric readouts. Despite the `Property` filename, the content is audio/video **effect parameters**, not a generic file-properties inspector. The `1=expanded` suffix looks like a Figma component-variant name; confirm with the design owner before treating it as a navigation label.
+All are 1440 px wide and show collapsible **Collapse Settings** panels with slider rows and numeric readouts. Despite the `Property` filename, the content is audio/video **effect parameters**, not a generic file-properties inspector. The `1=expanded` suffix is a Figma component-variant name, not a navigation label.
 
 | File | Size (px) | Content (observed labels) |
 | --- | --- | --- |

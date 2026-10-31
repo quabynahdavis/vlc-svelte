@@ -1,8 +1,8 @@
 # Design System
 
-**Status:** implemented. The semantic token set, dual dark/light themes and runtime accent theming live in `src/app.css`, `tailwind.config.js` and `src/lib/theme.ts`. The PNG exports remain the visual reference for the dark palette and component proportions. Last updated 2026-10-29.
+**Status:** implemented. The semantic token set, dual dark/light themes and runtime accent theming live in `src/app.css`, `tailwind.config.js` and `src/lib/theme.ts`. The PNG exports remain the visual reference for the dark palette and component proportions. Last updated 2026-10-31.
 
-This document is the canonical token reference for the VLC Redesign UI. The source exports are the **25 PNG files** in `VLC Redesign (Community)/` at the repository root. Rebuild the interface in Svelte and Tailwind; never embed the exports as application UI.
+This document is the canonical token reference for the VLC Redesign UI. The source exports are the **25 PNG files** in `VLC Redesign (Community)/` at the repository root. They were created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) for her VLC redesign concept and are used as visual reference only. Rebuild the interface in Svelte and Tailwind; never embed the exports as application UI.
 
 ## Source of truth
 
