@@ -86,6 +86,23 @@ export function createPlaylistWithTrack(name: string, track: PlaylistTrack): Pla
   return playlist;
 }
 
+/** Create a session-only playlist from an array of tracks. */
+export function createPlaylistFromTracks(name: string, tracks: PlaylistTrack[]): Playlist {
+  const entries = tracks.map(trackFromPayload);
+  const totalDurationSeconds = entries.reduce((sum, t) => sum + (t.durationSeconds ?? 0), 0);
+  const playlist: Playlist = {
+    id: createPlaylistId(),
+    name: name.trim(),
+    trackCount: entries.length,
+    totalDurationSeconds,
+    lastModified: Date.now(),
+    tracks: entries,
+  };
+
+  playlistsData.update((items) => [playlist, ...items]);
+  return playlist;
+}
+
 /** Bump the version suffix when the persisted shape changes. */
 export const PLAYLIST_PINS_STORAGE_KEY = 'vlc.playlists.pins.v1';
 

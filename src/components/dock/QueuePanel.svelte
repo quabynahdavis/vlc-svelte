@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { ListMusic, Search, Trash2, GripVertical, MoreHorizontal, CheckSquare, Square, ArrowUpDown } from 'lucide-svelte';
+  import { ListMusic, Search, Trash2, GripVertical, MoreHorizontal, CheckSquare, Square, ArrowUpDown, Save } from 'lucide-svelte';
   import { isTrackDrag, readTrackDrag } from '../../lib/dragTrack';
   import { addToQueue, clearQueue, moveQueueItem, playAt, player, removeFromQueue, removeFromQueueMany } from '../../stores/player';
+  import { createPlaylistFromTracks } from '../../stores/playlists';
   import { createEventDispatcher } from 'svelte';
 
   const dispatch = createEventDispatcher();
@@ -145,6 +146,20 @@
   function closeContext() {
     showContextFor = null;
   }
+
+  function saveQueueAsPlaylist() {
+    if (queue.length === 0) return;
+    const name = prompt('Playlist name', 'Queue playlist');
+    if (!name) return;
+    const tracks = queue.map(t => ({
+      id: t.id,
+      title: t.title,
+      artist: t.artist ?? '',
+      durationSeconds: t.duration,
+      source: t.src ?? '',
+    }));
+    createPlaylistFromTracks(name, tracks);
+  }
 </script>
 
 <div
@@ -190,6 +205,13 @@
         title="Toggle sort direction"
       >
         {sortAsc ? '↑' : '↓'}
+      </button>
+      <button
+        class="flex h-8 w-8 items-center justify-center rounded-control border border-vlc-border bg-vlc-app text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text"
+        title="Save queue as playlist"
+        on:click={saveQueueAsPlaylist}
+      >
+        <Save size={14} strokeWidth={1.8} />
       </button>
       <button
         class="flex h-8 w-8 items-center justify-center rounded-control border border-vlc-border bg-vlc-app text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text"
