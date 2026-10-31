@@ -4,6 +4,13 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-10-31
 
+### Added — bilingual documentation
+
+- Added [docs/README.md](../README.md), the English documentation landing page: project summary, feature highlights, documentation index, quick-start commands, layout and status labels.
+- Added [docs/README.as-twi.md](../README.as-twi.md), the Asante Twi translation of the landing page, with the same structure and links back to the English documentation.
+- Both READMEs carry a language switcher at the top and bottom: **English** · **Asante Twi**.
+- Updated [OVERVIEW.md](OVERVIEW.md) to link the language landing pages, show the new docs tree and clarify that detailed documentation remains English-only while the Asante Twi README is a translated entry point.
+
 ### Added — shell and player
 
 - **Consolidated application menu**: the title-bar menu button opens the full menu (playback, video, audio, subtitle, playlist, open media, settings, layout, welcome, quit); right-click opens a shorter playback-focused menu that keeps **Hide UI**.

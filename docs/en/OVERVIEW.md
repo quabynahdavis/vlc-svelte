@@ -1,6 +1,8 @@
 # VLC Redesign (Community) — Documentation
 
-**Language:** English only.
+**Language:** English · [Asante Twi README](../README.as-twi.md)
+
+Detailed documentation is maintained in English. The bilingual landing pages are [README.md](../README.md) (English) and [README.as-twi.md](../README.as-twi.md) (Asante Twi).
 
 ## Project summary
 
@@ -25,6 +27,8 @@ The design reference exports (26 files: 25 PNGs + 1 SVG) live in the repository-
 
 ```
 docs/
+├── README.md
+├── README.as-twi.md
 └── en/
     ├── OVERVIEW.md
     ├── CHANGELOG.md
@@ -50,7 +54,7 @@ docs/
 
 ## Documentation conventions
 
-- The documentation is **English-only**, with no translated mirrors.
+- Detailed documentation is **English-only**. The Asante Twi README is a translated entry point; it links back to the English documentation and does not mirror the topic files.
 - `/docs/en/` is the language root and holds the only required `OVERVIEW.md` / `CHANGELOG.md` pair.
 - Domain folders (`architecture/`, `design/`, `guides/`) contain numbered topic documents only; they do not duplicate domain-level overview or changelog files.
 - Topic files use sequential prefixes (`01-`, `02-`, ...).
