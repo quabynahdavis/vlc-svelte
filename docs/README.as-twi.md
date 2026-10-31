@@ -25,6 +25,11 @@ Orange cone, neutral gray surfaces, soft rectangular corners, ne dark/light them
   <a href="README.md"><img src="https://img.shields.io/badge/docs-English%20%7C%20Asante%20Twi-FF8800?style=flat-square&logo=readthedocs&logoColor=white" alt="Documentation in English and Asante Twi" /></a>
 </p>
 
+<p>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-FF8800?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="MIT License" /></a>
+  <a href="../LICENSES/LGPL-2.1.txt"><img src="https://img.shields.io/badge/libvlc-LGPL--2.1--or--later-FF8800?style=flat-square&logo=gnu&logoColor=white" alt="libvlc: LGPL-2.1-or-later" /></a>
+</p>
+
 <p><a href="README.md">English</a> · <strong>Asante Twi</strong></p>
 
 </div>
@@ -104,6 +109,7 @@ Nkyerɛw a ɛyɛ nokware no wɔ Borɔfo kasa mu wɔ [`docs/en/`](en/OVERVIEW.md)
 | [en/guides/01-setup.md](en/guides/01-setup.md) | Prerequisites, installation, development, build ne troubleshooting. |
 | [en/guides/02-design-reference.md](en/guides/02-design-reference.md) | Design exports 26 no ne sɛnea wobɛde adi dwuma sɛ spec. |
 | [en/CHANGELOG.md](en/CHANGELOG.md) | Project milestones ne nkyerɛw nsakraeɛ. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, design rules, checks, commit style, pull requests ne licensing. |
 
 ## Status
 
@@ -126,7 +132,11 @@ Library, music, playlist ne network data yɛ mock data. Imported media ne playli
 
 ## Mmoa a wobɛboa
 
-Yɛma issues ne pull requests akwaaba wɔ [GitHub](https://github.com/quabynahdavis/vlc-svelte). Di `bun run check` ansa na wobɛbue PR.
+Kenkan [contributing guide](CONTRIBUTING.md) ma setup, design rules, checks ne pull-request flow. Contributing guide no wɔ Borɔfo kasa mu. Yɛma issues ne pull requests akwaaba wɔ [GitHub](https://github.com/quabynahdavis/vlc-svelte).
+
+## License
+
+UI redesign source ne documentation a ɛfiri yɛn nkyɛn no wɔ [MIT License](../LICENSE) ase. libvlc ne VLC-derived components no da so wɔ [LGPL-2.1-or-later](../LICENSES/LGPL-2.1.txt) ase; hwɛ [LICENSES/README.md](../LICENSES/README.md) ma scope no. VLC, VLC cone ne libvlc yɛ VideoLAN project marks anaa components; saa repository yi nnye wɔn license.
 
 ---
 

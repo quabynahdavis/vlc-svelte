@@ -25,6 +25,11 @@ Orange cone, neutral gray surfaces, softened rectangular corners, and a dual dar
   <a href="README.md"><img src="https://img.shields.io/badge/docs-English%20%7C%20Asante%20Twi-FF8800?style=flat-square&logo=readthedocs&logoColor=white" alt="Documentation in English and Asante Twi" /></a>
 </p>
 
+<p>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-FF8800?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="MIT License" /></a>
+  <a href="../LICENSES/LGPL-2.1.txt"><img src="https://img.shields.io/badge/libvlc-LGPL--2.1--or--later-FF8800?style=flat-square&logo=gnu&logoColor=white" alt="libvlc: LGPL-2.1-or-later" /></a>
+</p>
+
 <p><strong>English</strong> · <a href="README.as-twi.md">Asante Twi</a></p>
 
 </div>
@@ -104,6 +109,7 @@ The canonical documentation is written in English under [`docs/en/`](en/OVERVIEW
 | [en/guides/01-setup.md](en/guides/01-setup.md) | Prerequisites, installation, development, build and troubleshooting. |
 | [en/guides/02-design-reference.md](en/guides/02-design-reference.md) | Inventory of the 26 design exports and how to use them as a spec. |
 | [en/CHANGELOG.md](en/CHANGELOG.md) | Project milestones and documentation revisions. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, design rules, checks, commit style, pull requests and licensing. |
 
 ## Status
 
@@ -126,7 +132,11 @@ Library, music, playlist and network data are mock data. Imported media and play
 
 ## Contributing
 
-Issues and pull requests are welcome on [GitHub](https://github.com/quabynahdavis/vlc-svelte). Run `bun run check` before opening a PR.
+Read the [contributing guide](CONTRIBUTING.md) for setup, design rules, checks and the pull-request flow. Issues and pull requests are welcome on [GitHub](https://github.com/quabynahdavis/vlc-svelte).
+
+## License
+
+The UI redesign source and original documentation are released under the [MIT License](../LICENSE). libvlc and VLC-derived components remain under [LGPL-2.1-or-later](../LICENSES/LGPL-2.1.txt); see [LICENSES/README.md](../LICENSES/README.md) for scope. VLC, the VLC cone and libvlc are VideoLAN project marks or components and are not relicensed by this repository.
 
 ---
 

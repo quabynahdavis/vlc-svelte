@@ -15,6 +15,7 @@ The design reference exports (26 files: 25 PNGs + 1 SVG) live in the repository-
 | Document | Description |
 | --- | --- |
 | [CHANGELOG.md](CHANGELOG.md) | Revision history of the English documentation and project milestones. |
+| [../CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, design rules, checks, commit style, pull requests and licensing. |
 | [architecture/01-overview.md](architecture/01-overview.md) | Tech stack, repository layout, architecture and design goals. |
 | [architecture/02-frontend.md](architecture/02-frontend.md) | Svelte app structure, implemented components, stores, views, persistence keys and styling conventions. |
 | [architecture/03-tauri-backend.md](architecture/03-tauri-backend.md) | Tauri v2 configuration, Rust entry point, window capabilities, custom decorations and planned commands. |
@@ -29,6 +30,7 @@ The design reference exports (26 files: 25 PNGs + 1 SVG) live in the repository-
 docs/
 ├── README.md
 ├── README.as-twi.md
+├── CONTRIBUTING.md
 ├── assets/
 │   ├── vlc.svg
 │   └── screenshots/
@@ -63,3 +65,7 @@ docs/
 - Topic files use sequential prefixes (`01-`, `02-`, ...).
 - Paths, commands and code identifiers stay in English.
 - Dark design values come from the PNG exports; the light palette is a project extension. The canonical token list lives in [design/01-design-system.md](design/01-design-system.md). Do not invent alternate hex values in component docs.
+
+## License
+
+The UI redesign source and documentation are released under the [MIT License](../../LICENSE). libvlc and VLC-derived components remain under [LGPL-2.1-or-later](../../LICENSES/LGPL-2.1.txt); see [LICENSES/README.md](../../LICENSES/README.md) for scope. VLC, the VLC cone and libvlc are VideoLAN project marks or components and are not relicensed by this repository.

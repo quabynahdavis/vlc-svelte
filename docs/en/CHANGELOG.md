@@ -4,6 +4,14 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-10-31
 
+### Added — contributing and licensing
+
+- Added [CONTRIBUTING.md](../CONTRIBUTING.md): development setup, project layout, design rules, coding conventions, checks, commit style, pull-request flow, documentation expectations and licensing.
+- Added the root [LICENSE](../../LICENSE) with the MIT license for the UI redesign source and original documentation.
+- Added [LICENSES/LGPL-2.1.txt](../../LICENSES/LGPL-2.1.txt) with the GNU Lesser General Public License 2.1 text for libvlc and VLC-derived components.
+- Added [LICENSES/README.md](../../LICENSES/README.md) documenting the two license scopes, third-party dependencies and the VideoLAN trademark boundary.
+- Added MIT and LGPL badges plus **Contributing** and **License** sections to both READMEs, and linked the contributing guide from [OVERVIEW.md](OVERVIEW.md).
+
 ### Added — bilingual documentation
 
 - Added [docs/README.md](../README.md), the English documentation landing page: project summary, feature highlights, documentation index, quick-start commands, status labels, tech stack and contributing notes.
