@@ -4,6 +4,11 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-10-31
 
+### Added — internationalization guide
+
+- Added [guides/03-internationalization.md](guides/03-internationalization.md): language tags and file patterns, required `OVERVIEW.md` and `CHANGELOG.md` files, source-of-truth and synchronization rules, landing-page switchers, Asante Twi guidance, terminology, adding a language and a translation pull-request checklist.
+- Linked the guide from [OVERVIEW.md](OVERVIEW.md) and both README documentation tables.
+
 ### Added — contributing and licensing
 
 - Added [CONTRIBUTING.md](../CONTRIBUTING.md): development setup, project layout, design rules, coding conventions, checks, commit style, pull-request flow, documentation expectations and licensing.

@@ -108,6 +108,7 @@ The canonical documentation is written in English under [`docs/en/`](en/OVERVIEW
 | [en/design/02-redesign-vision.md](en/design/02-redesign-vision.md) | Target direction, with implemented, in-progress and planned items separated. |
 | [en/guides/01-setup.md](en/guides/01-setup.md) | Prerequisites, installation, development, build and troubleshooting. |
 | [en/guides/02-design-reference.md](en/guides/02-design-reference.md) | Inventory of the 26 design exports and how to use them as a spec. |
+| [en/guides/03-internationalization.md](en/guides/03-internationalization.md) | Language tags, translated landing pages, required files, terminology and the translation PR checklist. |
 | [en/CHANGELOG.md](en/CHANGELOG.md) | Project milestones and documentation revisions. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, design rules, checks, commit style, pull requests and licensing. |
 

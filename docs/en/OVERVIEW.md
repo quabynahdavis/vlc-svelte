@@ -23,6 +23,7 @@ The design reference exports (26 files: 25 PNGs + 1 SVG) live in the repository-
 | [design/02-redesign-vision.md](design/02-redesign-vision.md) | Target redesign direction, with implemented, in-progress and planned items explicitly separated. |
 | [guides/01-setup.md](guides/01-setup.md) | Prerequisites, installation, development, build, troubleshooting. |
 | [guides/02-design-reference.md](guides/02-design-reference.md) | Inventory of the 26 design exports and how to use them as an implementation spec. |
+| [guides/03-internationalization.md](guides/03-internationalization.md) | Language tags, translated landing pages, required files, terminology and the translation pull-request checklist. |
 
 ## Documentation layout
 
@@ -46,7 +47,8 @@ docs/
     │   └── 02-redesign-vision.md
     └── guides/
         ├── 01-setup.md
-        └── 02-design-reference.md
+        ├── 02-design-reference.md
+        └── 03-internationalization.md
 ```
 
 ## Status labels
@@ -59,7 +61,7 @@ docs/
 
 ## Documentation conventions
 
-- Detailed documentation is **English-only**. The Asante Twi README is a translated entry point; it links back to the English documentation and does not mirror the topic files.
+- Detailed documentation is **English-only** today. The Asante Twi README is a translated entry point; it links back to the English documentation and does not mirror the topic files. Full translation rules live in [guides/03-internationalization.md](guides/03-internationalization.md).
 - `/docs/en/` is the language root and holds the only required `OVERVIEW.md` / `CHANGELOG.md` pair.
 - Domain folders (`architecture/`, `design/`, `guides/`) contain numbered topic documents only; they do not duplicate domain-level overview or changelog files.
 - Topic files use sequential prefixes (`01-`, `02-`, ...).

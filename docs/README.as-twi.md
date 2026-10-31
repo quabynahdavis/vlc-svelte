@@ -108,6 +108,7 @@ Nkyerɛw a ɛyɛ nokware no wɔ Borɔfo kasa mu wɔ [`docs/en/`](en/OVERVIEW.md)
 | [en/design/02-redesign-vision.md](en/design/02-redesign-vision.md) | Target direction, a implemented, in-progress ne planned items wɔ mu. |
 | [en/guides/01-setup.md](en/guides/01-setup.md) | Prerequisites, installation, development, build ne troubleshooting. |
 | [en/guides/02-design-reference.md](en/guides/02-design-reference.md) | Design exports 26 no ne sɛnea wobɛde adi dwuma sɛ spec. |
+| [en/guides/03-internationalization.md](en/guides/03-internationalization.md) | Language tags, translated landing pages, required files, terminology ne translation PR checklist. |
 | [en/CHANGELOG.md](en/CHANGELOG.md) | Project milestones ne nkyerɛw nsakraeɛ. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, design rules, checks, commit style, pull requests ne licensing. |
 
