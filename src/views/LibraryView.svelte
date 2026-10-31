@@ -27,16 +27,14 @@
     'rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50';
 
   function handleSelect(item: MediaItem) {
-    const items = get(sortedItems);
-    const tracks: Track[] = items.map((entry) => ({
-      id: entry.id,
-      title: entry.title,
-      duration: entry.durationSeconds,
-      src: entry.src,
-    }));
-    const startIndex = items.findIndex((entry) => entry.id === item.id);
+    const track: Track = {
+      id: item.id,
+      title: item.title,
+      duration: item.durationSeconds,
+      src: item.src ?? '',
+    };
 
-    setQueue(tracks, startIndex >= 0 ? startIndex : 0);
+    setQueue([track], 0);
     navigate('home');
   }
 

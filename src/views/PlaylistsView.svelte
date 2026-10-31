@@ -214,15 +214,18 @@
   function playPlaylistTrack(index: number) {
     if (!activePlaylist) return;
 
-    const tracks: Track[] = activePlaylist.tracks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artist,
-      duration: t.durationSeconds,
-      src: t.source ?? DEMO_MEDIA_SRC,
-    }));
+    const track = activePlaylist.tracks[index];
+    if (!track) return;
 
-    setQueue(tracks, index);
+    const t: Track = {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      duration: track.durationSeconds,
+      src: track.source ?? DEMO_MEDIA_SRC,
+    };
+
+    setQueue([t], 0);
     navigate('home');
   }
 

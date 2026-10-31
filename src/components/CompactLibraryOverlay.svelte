@@ -120,11 +120,8 @@
   }
 
   function handleSelect(item: MediaItem): void {
-    const items = $sortedItems;
-    const tracks = items.map(trackFromItem);
-    const startIndex = items.findIndex((entry) => entry.id === item.id);
-
-    setQueue(tracks, startIndex >= 0 ? startIndex : 0);
+    const track = trackFromItem(item);
+    setQueue([track], 0);
     close();
   }
 
