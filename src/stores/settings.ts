@@ -80,6 +80,12 @@ export interface SettingsState {
   subtitleOutlineColor: string;
   subtitlePresetOpen: boolean;
 
+  // Subtitle matching
+  matchSubtitlesByFilename: boolean;
+  preferForcedSubtitles: boolean;
+  autoLoadSubtitlesFromFolder: boolean;
+  subtitleLanguagePriority: string;
+
   // Interface
   minimizeToTray: boolean;
   showSystrayIcon: boolean;
@@ -260,6 +266,12 @@ export const defaultSettings: SettingsState = {
   subtitleOutlineColor: '#0E0E0E',
   subtitlePresetOpen: true,
 
+  // Subtitle matching
+  matchSubtitlesByFilename: true,
+  preferForcedSubtitles: false,
+  autoLoadSubtitlesFromFolder: true,
+  subtitleLanguagePriority: 'English',
+
   // Interface
   minimizeToTray: true,
   showSystrayIcon: true,
@@ -338,6 +350,13 @@ export const defaultSettings: SettingsState = {
   luaScriptsDirectory: '',
   scriptSecurity: 'Safe',
 };
+
+/**
+ * Canonical defaults, also used by settings profiles to build the built-in
+ * read-only "Default" profile. Kept as an alias so existing imports of
+ * `defaultSettings` keep working.
+ */
+export const DEFAULT_SETTINGS: SettingsState = defaultSettings;
 
 export const settings = writable<SettingsState>(loadSettings(defaultSettings));
 

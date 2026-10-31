@@ -28,6 +28,16 @@
 
   const subtitleLanguages = ['English', 'Français', 'Deutsch', 'Español'];
   const subtitleFonts = ['Inter', 'Roboto', 'Noto Sans', 'DejaVu Sans'];
+  const languagePriorityOptions = [
+    'English',
+    'Français',
+    'Deutsch',
+    'Español',
+    'Italiano',
+    'Português',
+    '日本語',
+    '中文',
+  ];
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -111,6 +121,73 @@
     </div>
 
     <div class="mb-6 border-b border-vlc-border pb-6">
+      <Section title="Matching">
+        <div class="mb-4 rounded-[10px] border border-vlc-border bg-vlc-card px-4 py-3">
+          <p class="text-[12px] uppercase tracking-[0.06em] text-vlc-muted">
+            Supported subtitle formats
+          </p>
+          <dl class="mt-2.5 space-y-2">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <dt class="text-[13px] text-vlc-secondary">Subtitle files</dt>
+              <dd class="font-mono text-[12px] text-vlc-muted">.srt, .ass, .ssa, .vtt, .sub</dd>
+            </div>
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <dt class="text-[13px] text-vlc-secondary">Indexed subtitles</dt>
+              <dd class="font-mono text-[12px] text-vlc-muted">.idx, .sub</dd>
+            </div>
+          </dl>
+          <p class="mt-2.5 text-[11px] leading-4 text-vlc-muted">
+            Subtitle files are detected next to the video or inside the media folder.
+          </p>
+        </div>
+
+        <SettingRow
+          label="Match subtitles by filename"
+          info
+          hint="Load the subtitle file whose name matches the video file."
+        >
+          <Toggle
+            bind:value={$settings.matchSubtitlesByFilename}
+            label="Match subtitles by filename"
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Prefer forced subtitles"
+          info
+          hint="When several tracks match, choose the one marked as forced."
+        >
+          <Toggle bind:value={$settings.preferForcedSubtitles} label="Prefer forced subtitles" />
+        </SettingRow>
+
+        <SettingRow
+          label="Auto-load subtitles from the media folder"
+          info
+          hint="Look for matching subtitle files in the folder that contains the video."
+        >
+          <Toggle
+            bind:value={$settings.autoLoadSubtitlesFromFolder}
+            label="Auto-load subtitles from the media folder"
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Language priority"
+          info
+          hint="Order of languages used when more than one subtitle matches."
+        >
+          <div class="w-[300px]">
+            <Select
+              bind:value={$settings.subtitleLanguagePriority}
+              options={languagePriorityOptions}
+              ariaLabel="Subtitle language priority"
+            />
+          </div>
+        </SettingRow>
+      </Section>
+    </div>
+
+    <div class="mb-6 border-b border-vlc-border pb-6">
       <Section title="Synchronization">
         <SettingRow label="Subtitle Track Delay">
           <div class="w-[300px]">
@@ -147,7 +224,11 @@
           />
         </div>
 
-        <SettingRow label="Subtitle Duration Factor">
+        <SettingRow
+          label="Subtitle Duration Factor"
+          info
+          hint="Scales how long each subtitle stays on screen."
+        >
           <div class="w-[300px]">
             <TextInput
               bind:value={$settings.subtitleDurationFactor}
@@ -171,7 +252,11 @@
 
     <div class="mb-6">
       <Section title="Appearance">
-        <SettingRow label="Embedded Sub Format">
+        <SettingRow
+          label="Embedded Sub Format"
+          info
+          hint="Keep the styling stored inside embedded subtitle tracks."
+        >
           <Toggle bind:value={$settings.embeddedSubFormat} label="Embedded Sub Format" />
         </SettingRow>
         <SettingRow label="Subtitle Font">
