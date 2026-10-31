@@ -183,6 +183,31 @@
   background: transparent;
 }
 
+/* Utility classes for custom scrollbar colors on horizontal continue sections */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+.scrollbar-thumb-vlc-orange\/40 {
+  scrollbar-color: color-mix(in srgb, var(--accent) 40%, transparent) transparent;
+}
+.scrollbar-track-vlc-raised {
+  /* track is transparent by default */
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thumb-vlc-orange\/40::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 9999px;
+}
+
+.scrollbar-track-vlc-raised::-webkit-scrollbar-track {
+  background: var(--bg-raised);
+}
+
 /* Native drag/select is disabled across shell chrome; content opts back in. */
 [data-tauri-drag-region] {
   -webkit-user-select: none;

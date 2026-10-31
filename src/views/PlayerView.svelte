@@ -759,10 +759,13 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
 
           {#if continueVideoItems.length > 0}
             <section class="w-full max-w-5xl">
-              <h2 class="mb-3 text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue watching</h2>
-              <div class="flex gap-3 overflow-x-auto pb-2">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue watching</h2>
+                <p class="text-[10px] text-vlc-muted hidden lg:block">Shift + scroll or drag to scroll</p>
+              </div>
+              <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue watching">
                 {#each continueVideoItems as item}
-                  <button class="min-w-[180px] rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
+                  <button class="min-w-[180px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
                     if (item.src) {
                       setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
                     }
@@ -784,10 +787,13 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
 
           {#if continueMusicItems.length > 0}
             <section class="w-full max-w-5xl">
-              <h2 class="mb-3 text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue playing</h2>
-              <div class="flex gap-3 overflow-x-auto pb-2">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue playing</h2>
+                <p class="text-[10px] text-vlc-muted hidden lg:block">Shift + scroll or drag to scroll</p>
+              </div>
+              <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue playing">
                 {#each continueMusicItems as item}
-                  <button class="min-w-[140px] rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
+                  <button class="min-w-[140px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
                     if (item.src) setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
                   }}>
                     <div class="aspect-square w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center">
@@ -805,10 +811,13 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
 
           {#if continueStreamItems.length > 0}
             <section class="w-full max-w-5xl">
-              <h2 class="mb-3 text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue streaming</h2>
-              <div class="flex gap-3 overflow-x-auto pb-2">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue streaming</h2>
+                <p class="text-[10px] text-vlc-muted hidden lg:block">Shift + scroll or drag to scroll</p>
+              </div>
+              <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue streaming">
                 {#each continueStreamItems as item}
-                  <button class="min-w-[180px] rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
+                  <button class="min-w-[180px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
                     if (item.src) setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
                   }}>
                     <div class="aspect-video w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center text-vlc-muted">
