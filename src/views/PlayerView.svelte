@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { createEventDispatcher, onDestroy } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import { Volume2, VolumeX } from 'lucide-svelte';
+  import { Library, Minimize, PictureInPicture, Volume2, VolumeX } from 'lucide-svelte';
+  import CompactLibraryOverlay from '../components/CompactLibraryOverlay.svelte';
   import PlaylistPanel from '../components/PlaylistPanel.svelte';
   import RightDock from '../components/RightDock.svelte';
   import TransportBar from '../components/TransportBar.svelte';
@@ -21,10 +22,25 @@
   // Optional external source kept for compatibility with the shell/library flow.
   export let src = '';
 
+  /** How long fullscreen chrome stays visible after the last interaction. */
+  const CHROME_HIDE_DELAY_MS = 2500;
+
   let showPlaylist = true;
   let videoEl: HTMLVideoElement | null = null;
-  let stageEl: HTMLDivElement | null = null;
+  /** Fullscreen target: wraps the stage and the transport so both stay mounted. */
+  let shellEl: HTMLDivElement | null = null;
+  let topBarEl: HTMLDivElement | null = null;
+  let transportEl: HTMLDivElement | null = null;
+  let libraryTriggerEl: HTMLButtonElement | null = null;
+  let showLibrary = false;
   let buffered = 0;
+
+  let isFullscreen = false;
+  let chromeVisible = true;
+  let chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
+  let pipVideoEl: HTMLVideoElement | null = null;
+  let pipSupported = false;
+  let pipActive = false;
 
   /** Pending single-click timer; cancelled by a double-click or on destroy. */
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,6 +61,10 @@
   $: videoSrc = $currentTrack?.src ?? src;
   $: hasMedia = Boolean(videoSrc);
   $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}`;
+  $: mediaTitle = $currentTrack?.title?.trim() || 'VLC';
+
+  // Rebind the Picture-in-Picture listeners whenever the media element changes.
+  $: syncPipElement(videoEl);
 
   // Store -> element: load a new source and rewind when the current track changes.
   $: syncSource(videoEl, mediaKey, videoSrc, $currentTrack?.duration ?? 0);
@@ -287,7 +307,183 @@
 
     event.preventDefault();
     clearClickTimer();
-    toggleFullscreen(stageEl);
+    toggleFullscreen(shellEl);
+  }
+
+  function syncFullscreen(): void {
+    const active = Boolean(shellEl) && document.fullscreenElement === shellEl;
+    isFullscreen = active;
+
+    if (active) {
+      showChrome();
+    } else {
+      clearChromeTimer();
+      chromeVisible = true;
+    }
+  }
+
+  function handleExitFullscreen(): void {
+    if (!document.fullscreenElement) return;
+
+    void document.exitFullscreen().catch((error) => {
+      console.warn('Fullscreen could not be exited.', error);
+    });
+  }
+
+  function clearChromeTimer(): void {
+    if (chromeHideTimer !== null) {
+      clearTimeout(chromeHideTimer);
+      chromeHideTimer = null;
+    }
+  }
+
+  /**
+   * Only keep the chrome up for keyboard-driven focus. A button focused by a
+   * mouse click reports `:focus-visible === false`, so it still auto-hides.
+   */
+  function chromeHasKeyboardFocus(): boolean {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) return false;
+    if (!topBarEl?.contains(active) && !transportEl?.contains(active)) return false;
+
+    try {
+      return active.matches(':focus-visible');
+    } catch {
+      // Older engines without :focus-visible get the accessible fallback.
+      return true;
+    }
+  }
+
+  function scheduleChromeHide(): void {
+    clearChromeTimer();
+    if (!isFullscreen) return;
+
+    chromeHideTimer = setTimeout(() => {
+      chromeHideTimer = null;
+      hideChrome();
+    }, CHROME_HIDE_DELAY_MS);
+  }
+
+  function showChrome(): void {
+    chromeVisible = true;
+    scheduleChromeHide();
+  }
+
+  function hideChrome(): void {
+    clearChromeTimer();
+
+    if (!isFullscreen) {
+      chromeVisible = true;
+      return;
+    }
+
+    // Never make the control that currently owns keyboard focus inert.
+    if (chromeHasKeyboardFocus()) return;
+
+    chromeVisible = false;
+  }
+
+  function handleChromePointerActivity(): void {
+    if (!isFullscreen) return;
+    showChrome();
+  }
+
+  function handleChromePointerLeave(): void {
+    if (!isFullscreen) return;
+    hideChrome();
+  }
+
+  function handleChromeFocusIn(): void {
+    if (!isFullscreen) return;
+    showChrome();
+  }
+
+  function handleChromeFocusOut(): void {
+    if (!isFullscreen) return;
+    scheduleChromeHide();
+  }
+
+  function handleGlobalKeydown(): void {
+    if (!isFullscreen) return;
+    showChrome();
+  }
+
+  /**
+   * The transport installs a window-level Space shortcut. Keep it from
+   * swallowing native button activation while fullscreen chrome has focus.
+   */
+  function handleChromeButtonKeydown(event: KeyboardEvent): void {
+    if (event.key === ' ' || event.key === 'Spacebar' || event.key === 'Enter') {
+      event.stopPropagation();
+    }
+  }
+
+  function isPipSupported(el: HTMLVideoElement | null): boolean {
+    return Boolean(
+      el &&
+        document.pictureInPictureEnabled &&
+        typeof el.requestPictureInPicture === 'function',
+    );
+  }
+
+  function detachPipListeners(): void {
+    if (pipVideoEl) {
+      pipVideoEl.removeEventListener('enterpictureinpicture', handleEnterPip);
+      pipVideoEl.removeEventListener('leavepictureinpicture', handleLeavePip);
+    }
+
+    pipVideoEl = null;
+    pipActive = false;
+  }
+
+  function syncPipElement(el: HTMLVideoElement | null): void {
+    if (el === pipVideoEl) {
+      pipSupported = isPipSupported(el);
+      return;
+    }
+
+    detachPipListeners();
+    pipVideoEl = el;
+    pipSupported = isPipSupported(el);
+    pipActive = Boolean(el && document.pictureInPictureElement === el);
+
+    if (!el) return;
+
+    el.addEventListener('enterpictureinpicture', handleEnterPip);
+    el.addEventListener('leavepictureinpicture', handleLeavePip);
+  }
+
+  function handleEnterPip(): void {
+    pipActive = true;
+  }
+
+  function handleLeavePip(): void {
+    pipActive = false;
+  }
+
+  async function togglePip(): Promise<void> {
+    const el = videoEl;
+    if (!el || !pipSupported) return;
+
+    try {
+      if (document.pictureInPictureElement === el) {
+        await document.exitPictureInPicture();
+      } else {
+        await el.requestPictureInPicture();
+      }
+    } catch (error) {
+      console.warn('Picture-in-Picture could not be toggled.', error);
+    }
+  }
+
+  function toggleLibrary(): void {
+    showLibrary = !showLibrary;
+
+    if (showLibrary && isFullscreen) showChrome();
+  }
+
+  function closeLibrary(): void {
+    showLibrary = false;
   }
 
   function showVolumeHud(): void {
@@ -302,8 +498,14 @@
   }
 
   function handleStageWheel(event: WheelEvent): void {
-    // Let the right dock scroll normally instead of hijacking its wheel.
-    if (event.target instanceof Element && event.target.closest('[data-right-dock]')) return;
+    // Let the right dock and the compact library scroll normally instead of
+    // hijacking their wheel events for volume.
+    if (
+      event.target instanceof Element &&
+      event.target.closest('[data-right-dock], [data-compact-library]')
+    ) {
+      return;
+    }
 
     // Keep the page from scrolling while the pointer is over the stage.
     event.preventDefault();
@@ -323,8 +525,21 @@
     showVolumeHud();
   }
 
+  onMount(() => {
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    window.addEventListener('keydown', handleGlobalKeydown);
+    syncFullscreen();
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      window.removeEventListener('keydown', handleGlobalKeydown);
+    };
+  });
+
   onDestroy(() => {
     clearClickTimer();
+    clearChromeTimer();
+    detachPipListeners();
 
     if (volumeHudTimer) {
       clearTimeout(volumeHudTimer);
@@ -346,13 +561,93 @@
     </div>
   {/if}
 
-  <div class="flex min-w-0 flex-1 flex-col">
+  <div
+    bind:this={shellEl}
+    class="player-shell relative flex min-w-0 flex-1 flex-col"
+    class:chrome-hidden={!chromeVisible}
+    on:pointermove={handleChromePointerActivity}
+    on:pointerdown={handleChromePointerActivity}
+    on:pointerleave={handleChromePointerLeave}
+    on:focusin={handleChromeFocusIn}
+    on:focusout={handleChromeFocusOut}
+  >
+    {#if isFullscreen}
+      <div
+        bind:this={topBarEl}
+        class="player-topbar absolute inset-x-0 top-0 z-40 flex items-center gap-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-4 pb-8 pt-3 text-white"
+        role="group"
+        aria-label="Fullscreen player header"
+        aria-hidden={!chromeVisible}
+        inert={!chromeVisible}
+      >
+        <p class="min-w-0 flex-1 truncate text-sm font-medium" title={mediaTitle}>
+          {mediaTitle}
+        </p>
+
+        <div class="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-control text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            title="Browse library"
+            aria-label="Browse library"
+            aria-expanded={showLibrary}
+            aria-controls="compact-library-overlay"
+            on:click={toggleLibrary}
+            on:keydown={handleChromeButtonKeydown}
+          >
+            <Library size={18} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+
+          {#if hasMedia && pipSupported}
+            <button
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-control text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              title={pipActive ? 'Exit picture-in-picture' : 'Picture-in-picture'}
+              aria-label={pipActive ? 'Exit picture-in-picture' : 'Picture-in-picture'}
+              aria-pressed={pipActive}
+              on:click={() => void togglePip()}
+              on:keydown={handleChromeButtonKeydown}
+            >
+              <PictureInPicture size={18} strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          {/if}
+
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-control text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            title="Exit fullscreen"
+            aria-label="Exit fullscreen"
+            on:click={handleExitFullscreen}
+            on:keydown={handleChromeButtonKeydown}
+          >
+            <Minimize size={18} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    {/if}
+
     <div
-      bind:this={stageEl}
-      class="player-stage relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-vlc-app lg:pl-0"
+      class="player-stage group relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-vlc-app lg:pl-0"
       class:pl-[300px]={showPlaylist}
       on:wheel|nonpassive={handleStageWheel}
     >
+      {#if !isFullscreen}
+        <button
+          bind:this={libraryTriggerEl}
+          type="button"
+          class="absolute right-3 top-3 z-20 flex h-8 items-center gap-1.5 rounded-control border border-vlc-border bg-vlc-panel/90 px-2.5 text-[11px] text-vlc-secondary opacity-0 shadow-sm backdrop-blur-sm transition-[opacity,background-color,color] hover:bg-vlc-raised hover:text-vlc-text focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 group-hover:opacity-100"
+          class:opacity-100={showLibrary}
+          title="Browse library"
+          aria-label="Browse library"
+          aria-expanded={showLibrary}
+          aria-controls="compact-library-overlay"
+          on:click={toggleLibrary}
+        >
+          <Library size={15} strokeWidth={1.8} aria-hidden="true" />
+          <span>Library</span>
+        </button>
+      {/if}
+
       {#if hasMedia}
         <!-- svelte-ignore a11y-media-has-caption a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
         <video
@@ -448,29 +743,124 @@
       <RightDock
         onAdvancedSettings={(category) => dispatch('advancedSettings', category ?? 'Subtitles')}
       />
+
+      <CompactLibraryOverlay
+        open={showLibrary}
+        fullscreen={isFullscreen}
+        onClose={closeLibrary}
+        returnFocusTo={libraryTriggerEl}
+      />
     </div>
 
-    <TransportBar
-      {videoEl}
-      mediaAvailable={hasMedia}
-      bufferedRatio={buffered}
-      fullscreenTarget={stageEl}
-      onSettings={() => dispatch('settings')}
-    />
+    <div
+      bind:this={transportEl}
+      class="player-transport relative z-30 shrink-0"
+      aria-hidden={isFullscreen && !chromeVisible}
+      inert={isFullscreen && !chromeVisible}
+    >
+      <TransportBar
+        {videoEl}
+        mediaAvailable={hasMedia}
+        bufferedRatio={buffered}
+        fullscreenTarget={shellEl}
+        onSettings={() => dispatch('settings')}
+      />
+    </div>
   </div>
 </div>
 
 <style>
-  .player-stage:fullscreen {
+  /*
+   * The fullscreen element is the shell, so the stage and the transport both
+   * stay mounted. Fullscreen chrome always sits over black video, therefore the
+   * shell pins the dark palette even when the app itself is in light mode.
+   */
+  .player-shell:fullscreen {
     width: 100vw;
     height: 100vh;
     background-color: #000000;
+    color-scheme: dark;
+
+    --bg-app-rgb: 14 14 14;
+    --bg-panel-rgb: 24 24 24;
+    --bg-panel-alt-rgb: 25 25 25;
+    --bg-card-rgb: 27 27 27;
+    --bg-raised-rgb: 35 35 35;
+    --border-rgb: 55 55 55;
+    --border-subtle-rgb: 38 38 38;
+    --text-primary-rgb: 234 234 234;
+    --text-secondary-rgb: 184 184 184;
+    --text-muted-rgb: 143 143 143;
+    --text-dim-rgb: 107 107 107;
+    --danger-rgb: 232 17 35;
+    --accent-ink: var(--accent);
+    --selection-ink: #0e0e0e;
+    --scrollbar-thumb: #373737;
+    --scrollbar-thumb-hover: #6b6b6b;
+    --shadow-color: rgb(0 0 0 / 0.55);
+  }
+
+  .player-shell:fullscreen .player-stage {
+    padding-left: 0;
+    background-color: #000000;
+  }
+
+  /* Overlay the transport at the bottom of the video on a readable gradient. */
+  .player-shell:fullscreen .player-transport {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    padding-top: 2rem;
+    background: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.92) 0%,
+      rgb(0 0 0 / 0.6) 45%,
+      rgb(0 0 0 / 0) 100%
+    );
+  }
+
+  /* The transport is a child component: strip its opaque surface so the
+     gradient reads through it in both themes. */
+  .player-shell:fullscreen .player-transport > :global(*) {
+    background-color: transparent;
+    border-top-color: rgb(255 255 255 / 0.12);
+  }
+
+  .player-shell:fullscreen .player-topbar,
+  .player-shell:fullscreen .player-transport {
+    transition:
+      opacity 200ms ease,
+      transform 200ms ease;
+  }
+
+  .player-shell:fullscreen.chrome-hidden .player-topbar {
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+  }
+
+  .player-shell:fullscreen.chrome-hidden .player-transport {
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+  }
+
+  /* Keep the volume HUD clear of the overlaid transport. */
+  .player-shell:fullscreen .volume-hud {
+    bottom: 5.5rem;
   }
 
   @media (prefers-reduced-motion: reduce) {
     .volume-hud,
     .volume-hud * {
       transition: none !important;
+    }
+
+    .player-shell:fullscreen .player-topbar,
+    .player-shell:fullscreen .player-transport {
+      transition: none;
     }
   }
 </style>
