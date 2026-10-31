@@ -6,8 +6,11 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ### Added — bilingual documentation
 
-- Added [docs/README.md](../README.md), the English documentation landing page: project summary, feature highlights, documentation index, quick-start commands, layout and status labels.
+- Added [docs/README.md](../README.md), the English documentation landing page: project summary, feature highlights, documentation index, quick-start commands, status labels, tech stack and contributing notes.
 - Added [docs/README.as-twi.md](../README.as-twi.md), the Asante Twi translation of the landing page, with the same structure and links back to the English documentation.
+- Added shields.io badges for the version, platforms, Tauri, Svelte, TypeScript, Tailwind, Bun, GitHub stars, forks, issues, last commit and docs languages, plus a **Project at a glance** statistics grid.
+- Added a **Download** section linking [GitHub Releases](https://github.com/quabynahdavis/vlc-svelte/releases) and a from-source quick start.
+- Added a screenshot gallery under `docs/assets/screenshots/`: player, library, music, settings, layout editor, add-to-playlist, compact library and light theme. The VLC cone mark is copied to `docs/assets/vlc.svg`.
 - Both READMEs carry a language switcher at the top and bottom: **English** · **Asante Twi**.
 - Updated [OVERVIEW.md](OVERVIEW.md) to link the language landing pages, show the new docs tree and clarify that detailed documentation remains English-only while the Asante Twi README is a translated entry point.
 

@@ -29,6 +29,9 @@ The design reference exports (26 files: 25 PNGs + 1 SVG) live in the repository-
 docs/
 ├── README.md
 ├── README.as-twi.md
+├── assets/
+│   ├── vlc.svg
+│   └── screenshots/
 └── en/
     ├── OVERVIEW.md
     ├── CHANGELOG.md
