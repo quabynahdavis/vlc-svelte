@@ -31,6 +31,8 @@ export interface Track {
   albumId: string;
   durationSeconds: number;
   trackNumber: number;
+  /** Primary genre used by the Music browse-by-genre level. */
+  genre: string;
 }
 
 export interface Album {
@@ -149,7 +151,27 @@ const ARTIST_NAMES = [
   'Nirvana', 'Radiohead', 'Tame Impala', 'Fleetwood Mac', 'Beyoncé', 'Kendrick Lamar', 'Ariana Grande', 'The Weeknd', 'Daft Punk', 'Billie Eilish', 'Coldplay', 'Lorde'
 ];
 
-function makeTracks(artistId: string, albumId: string, count: number): Track[] {
+/**
+ * Sensible primary genres for the mock artists. Artists whose catalogue spans
+ * two adjacent styles alternate per album so the Genres level is not a single
+ * bucket per artist. Only the existing genre pool is used.
+ */
+const ARTIST_GENRES: Record<string, string[]> = {
+  Nirvana: ['Rock'],
+  Radiohead: ['Rock', 'Electronic'],
+  'Tame Impala': ['Rock', 'Electronic'],
+  'Fleetwood Mac': ['Rock'],
+  Beyoncé: ['Pop'],
+  'Kendrick Lamar': ['Hip-Hop'],
+  'Ariana Grande': ['Pop'],
+  'The Weeknd': ['Pop'],
+  'Daft Punk': ['Electronic'],
+  'Billie Eilish': ['Pop'],
+  Coldplay: ['Rock', 'Pop'],
+  Lorde: ['Pop'],
+};
+
+function makeTracks(artistId: string, albumId: string, count: number, genre: string): Track[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `${artistId}-${albumId}-${i + 1}`,
     title: `Track ${i + 1}`,
@@ -157,13 +179,15 @@ function makeTracks(artistId: string, albumId: string, count: number): Track[] {
     albumId,
     durationSeconds: 180 + Math.floor(Math.random() * 150),
     trackNumber: i + 1,
+    genre,
   }));
 }
 
-function makeAlbums(artistId: string, artistName: string, numAlbums: number): Album[] {
+function makeAlbums(artistId: string, artistName: string, numAlbums: number, genres: string[]): Album[] {
   return Array.from({ length: numAlbums }, (_, i) => {
     const count = 8 + Math.floor(Math.random() * 5);
-    const tracks = makeTracks(artistId, `${artistId}-a${i + 1}`, count);
+    const genre = genres[i % genres.length] ?? 'Pop';
+    const tracks = makeTracks(artistId, `${artistId}-a${i + 1}`, count, genre);
     const total = tracks.reduce((a, t) => a + t.durationSeconds, 0);
     return {
       id: `${artistId}-a${i + 1}`,
@@ -180,7 +204,7 @@ function makeAlbums(artistId: string, artistName: string, numAlbums: number): Al
 export const artists: Artist[] = ARTIST_NAMES.map((name, i) => {
   const id = `artist-${i + 1}`;
   const numAlbums = 4 + Math.floor(Math.random() * 3);
-  const albums = makeAlbums(id, name, numAlbums);
+  const albums = makeAlbums(id, name, numAlbums, ARTIST_GENRES[name] ?? ['Pop']);
   return { id, name, albumCount: albums.length, albums };
 });
 
