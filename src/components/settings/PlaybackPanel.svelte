@@ -39,41 +39,41 @@
 
 <div class="flex flex-col gap-9 pb-4">
   <Section title="Playback">
-    <SettingRow label="Skip frames" info hint="Skip frames to catch up when playback falls behind.">
+    <SettingRow label="Skip frames" info hint="Lets playback skip frames to catch up when it falls behind.">
       <Toggle bind:value={$settings.skipFrames} label="Skip frames" />
     </SettingRow>
 
-    <SettingRow label="Drop late frames" info hint="Drop frames that are too late to display.">
+    <SettingRow label="Drop late frames">
       <Toggle bind:value={$settings.dropLateFrames} label="Drop late frames" />
     </SettingRow>
 
-    <SettingRow label="Hardware decoding" info hint="Enable or disable hardware decoding.">
+    <SettingRow label="Hardware decoding">
       <Toggle bind:value={$settings.hardwareDecodingEnabled} label="Hardware decoding" />
     </SettingRow>
 
-    <SettingRow label="Hardware decoding mode" info hint="Select the hardware acceleration method for video decoding.">
+    <SettingRow label="Hardware decoding mode" info hint="Which acceleration method to use. Automatic picks the best one for this system.">
       <div class="w-[426px]">
         <Select bind:value={$settings.hardwareDecoding} options={hardwareDecodingOptions} ariaLabel="Hardware decoding" disabled={!$settings.hardwareDecodingEnabled} />
       </div>
     </SettingRow>
 
-    <SettingRow label="Allow speed playback" info hint="Enable playback speed controls.">
+    <SettingRow label="Allow speed playback">
       <Toggle bind:value={$settings.allowSpeedPlayback} label="Allow speed playback" />
     </SettingRow>
 
-    <SettingRow label="Default playback speed" info hint="Set the default playback speed when opening media.">
+    <SettingRow label="Default playback speed">
       <div class="w-[200px]">
         <Select bind:value={$settings.defaultPlaybackSpeed} options={playbackSpeedOptions} ariaLabel="Default playback speed" />
       </div>
     </SettingRow>
 
-    <SettingRow label="Loop mode" info hint="Configure playback looping behavior.">
+    <SettingRow label="Loop mode">
       <div class="w-[300px]">
         <Segmented bind:value={$settings.loopMode} options={loopModeOptions} />
       </div>
     </SettingRow>
 
-    <SettingRow label="Resume playback" info hint="Automatically resume playback from the last position.">
+    <SettingRow label="Resume playback">
       <Toggle bind:value={$settings.resumePlayback} label="Resume playback" />
     </SettingRow>
   </Section>

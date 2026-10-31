@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     AudioLines,
+    Bookmark,
     Captions,
     ChevronLeft,
     ChevronRight,
@@ -14,6 +15,7 @@
   import { dockMode, openDock } from '../stores/ui';
   import type { DockMode } from '../stores/ui';
   import EqPanel from './dock/EqPanel.svelte';
+  import { layout } from '../stores/layout';
 
   export let onAdvancedSettings: (category?: string) => void = () => {};
 
@@ -29,7 +31,13 @@
     { id: 'audio', label: 'Audio', icon: AudioLines },
     { id: 'visualizer', label: 'Visualizer', icon: Activity },
     { id: 'subtitles', label: 'Subtitles', icon: Captions },
+    { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
   ];
+
+  /** Tabs follow the user's saved layout order; unknown ids are ignored. */
+  $: orderedTabs = $layout.dockTabOrder
+    .map((id) => tabs.find((tab) => tab.id === id))
+    .filter((tab): tab is DockTab => Boolean(tab));
 
   const titles: Record<DockMode, string> = {
     closed: '',
@@ -39,6 +47,7 @@
     video: 'Video',
     queue: 'Playing Queue',
     visualizer: 'Visualizer',
+    bookmarks: 'Bookmarks & Chapters',
   };
 
   $: title = titles[$dockMode] ?? 'Panel';
@@ -123,23 +132,23 @@
     let nextIndex: number;
     switch (event.key) {
       case 'ArrowLeft':
-        nextIndex = (index - 1 + tabs.length) % tabs.length;
+        nextIndex = (index - 1 + orderedTabs.length) % orderedTabs.length;
         break;
       case 'ArrowRight':
-        nextIndex = (index + 1) % tabs.length;
+        nextIndex = (index + 1) % orderedTabs.length;
         break;
       case 'Home':
         nextIndex = 0;
         break;
       case 'End':
-        nextIndex = tabs.length - 1;
+        nextIndex = orderedTabs.length - 1;
         break;
       default:
         return;
     }
 
     event.preventDefault();
-    const next = tabs[nextIndex];
+    const next = orderedTabs[nextIndex];
     if (!next) return;
 
     selectTab(next.id);
@@ -156,6 +165,7 @@
   // Lazy-loaded panel components
   let AudioEffectsPanel: ComponentType | null = null;
   let AudioVisualizerPanel: ComponentType | null = null;
+  let BookmarksPanel: ComponentType | null = null;
   let PlaybackPanel: ComponentType | null = null;
   let QueuePanel: ComponentType | null = null;
   let SubtitleDockPanel: ComponentType | null = null;
@@ -173,6 +183,9 @@
   }
   $: if ($dockMode === 'subtitles' && !SubtitleDockPanel) {
     void loadPanel('SubtitleDockPanel').then((mod) => (SubtitleDockPanel = mod));
+  }
+  $: if ($dockMode === 'bookmarks' && !BookmarksPanel) {
+    void loadPanel('BookmarksPanel').then((mod) => (BookmarksPanel = mod));
   }
   $: if ($dockMode === 'video' && !VideoEffectsPanel) {
     void loadPanel('VideoEffectsPanel').then((mod) => (VideoEffectsPanel = mod));
@@ -232,7 +245,7 @@
           use:trackTabOverflow
           on:scroll={updateScrollState}
         >
-          {#each tabs as tab, index (tab.id)}
+          {#each orderedTabs as tab, index (tab.id)}
             {@const active = $dockMode === tab.id}
             <button
               type="button"
@@ -301,6 +314,12 @@
         <div class="p-4 pb-6">
           {#if SubtitleDockPanel}
             <svelte:component this={SubtitleDockPanel} {onAdvancedSettings} />
+          {/if}
+        </div>
+      {:else if $dockMode === 'bookmarks'}
+        <div class="p-4 pb-6">
+          {#if BookmarksPanel}
+            <svelte:component this={BookmarksPanel} />
           {/if}
         </div>
       {:else if $dockMode === 'video'}

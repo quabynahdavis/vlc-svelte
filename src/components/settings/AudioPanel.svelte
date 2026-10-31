@@ -20,10 +20,10 @@
 
 <div class="flex flex-col gap-7 pb-4">
   <Section title="Effects">
-    <SettingRow label="Equalizer" info hint="Enable the built-in graphic equalizer.">
+    <SettingRow label="Equalizer">
       <Toggle bind:value={$settings.equalizer} label="Equalizer" />
     </SettingRow>
-    <SettingRow label="Equalizer preset" info hint="Load a predefined equalizer curve.">
+    <SettingRow label="Equalizer preset">
       <div class="w-[426px]">
         <Select
           bind:value={$settings.equalizerPreset}
@@ -85,13 +85,13 @@
   </Section>
 
   <div class="flex flex-col">
-    <SettingRow label="Two-pass" info hint="Render audio in two passes for higher quality.">
+    <SettingRow label="Two-pass" info hint="Processes audio twice for higher quality, at the cost of speed.">
       <Toggle bind:value={$settings.twoPass} label="Two-pass" />
     </SettingRow>
-    <SettingRow label="Spatial audio" info hint="Enable spatial audio processing.">
+    <SettingRow label="Spatial audio">
       <Toggle bind:value={$settings.spatialAudio} label="Spatial audio" />
     </SettingRow>
-    <SettingRow label="Spatial audio mode" info hint="Select how spatial audio is rendered.">
+    <SettingRow label="Spatial audio mode" info hint="How spatial audio is mixed for your headphones or speakers.">
       <div class="w-[426px]">
         <Select
           bind:value={$settings.spatialAudioMode}
@@ -100,7 +100,7 @@
         />
       </div>
     </SettingRow>
-    <SettingRow label="Stereo widening" info hint="Widen the stereo image of the output.">
+    <SettingRow label="Stereo widening">
       <Toggle bind:value={$settings.stereoWidening} label="Stereo widening" />
     </SettingRow>
   </div>

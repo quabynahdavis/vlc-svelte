@@ -1,8 +1,18 @@
 <script lang="ts">
   import { ChevronDown, Crop } from 'lucide-svelte';
+  import {
+    VIDEO_FILTER_OPTIONS,
+    avPrefs,
+    setVideoFilter,
+    type VideoFilterId,
+  } from '../../stores/avPrefs';
   import Accordion from './Accordion.svelte';
   import DockSlider from './DockSlider.svelte';
   import TogglePill from './TogglePill.svelte';
+
+  function selectFilter(id: VideoFilterId): void {
+    setVideoFilter(id);
+  }
 
   let hue = 0;
   let brightness = 1;
@@ -34,6 +44,51 @@
 </script>
 
 <div class="space-y-3" data-video-effects>
+  <section class="rounded-[12px] border border-vlc-border bg-vlc-card p-4" data-filter-previews>
+    <div class="flex items-baseline justify-between gap-3">
+      <h3 class="text-[13px] font-medium leading-5 text-vlc-secondary">Filter Previews</h3>
+      <span class="text-[11px] leading-4 text-vlc-muted">Preview</span>
+    </div>
+
+    <!--
+      Preview-only selection: these thumbnails show a CSS look, but the media
+      engine has no real video filter pipeline yet. Choosing a card stores the
+      preference only; it does not change playback.
+    -->
+    <div class="mt-3 grid grid-cols-3 gap-2" role="group" aria-label="Video filter preview">
+      {#each VIDEO_FILTER_OPTIONS as option (option.id)}
+        {@const active = $avPrefs.videoFilter === option.id}
+        <button
+          type="button"
+          class="flex flex-col gap-1.5 rounded-[8px] border p-1.5 text-left transition-colors hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+          class:border-vlc-orange={active}
+          class:bg-vlc-raised={active}
+          class:border-vlc-border={!active}
+          aria-pressed={active}
+          on:click={() => selectFilter(option.id)}
+        >
+          <span
+            class="block h-[46px] w-full rounded-[5px]"
+            style={`background: ${option.gradient}; filter: ${option.filter};`}
+            aria-hidden="true"
+          ></span>
+          <span class="flex items-center justify-between gap-1 px-0.5">
+            <span
+              class="truncate text-[11px] leading-4"
+              class:text-vlc-text={active}
+              class:text-vlc-muted={!active}
+            >
+              {option.label}
+            </span>
+            {#if active}
+              <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-vlc-orange" aria-hidden="true"></span>
+            {/if}
+          </span>
+        </button>
+      {/each}
+    </div>
+  </section>
+
   <Accordion title="Image Adjust">
     <DockSlider label="Hue" bind:value={hue} min={-180} max={180} step={1} decimals={0} />
     <DockSlider label="Brightness" bind:value={brightness} min={0} max={2} step={0.01} decimals={2} />

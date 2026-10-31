@@ -25,6 +25,7 @@ export type DockMode =
   | 'subtitles'
   | 'video'
   | 'visualizer'
+  | 'bookmarks'
   | 'queue';
 
 /** Which panel the right-hand dock is showing. */

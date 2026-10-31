@@ -48,27 +48,27 @@
 
 <div class="flex flex-col gap-9 pb-4">
   <Section title="Output">
-    <SettingRow label="Output module" info hint="Select the video output module.">
+    <SettingRow label="Output module" info hint="How video is drawn on screen. Automatic is best unless you have a reason to change it.">
       <div class="w-[426px]">
         <Select bind:value={$settings.outputModule} options={outputModules} ariaLabel="Output module" />
       </div>
     </SettingRow>
 
-    <SettingRow label="Deinterlace mode" info hint="Choose the deinterlacing algorithm.">
+    <SettingRow label="Deinterlace mode" info hint="Method used to smooth interlaced video. Automatic works for most files.">
       <div class="w-[426px]">
         <Select bind:value={$settings.deinterlaceMode} options={deinterlaceModes} ariaLabel="Deinterlace mode" />
       </div>
     </SettingRow>
 
-    <SettingRow label="Deinterlace" info hint="Enable automatic deinterlacing of interlaced video.">
+    <SettingRow label="Deinterlace">
       <Toggle bind:value={$settings.deinterlace} label="Deinterlace" />
     </SettingRow>
 
-    <SettingRow label="Hardware decoding enabled" info hint="Enable hardware-accelerated video decoding.">
+    <SettingRow label="Hardware decoding enabled">
       <Toggle bind:value={$settings.hardwareDecodingEnabled} label="Hardware decoding enabled" ariaLabel="Hardware decoding enabled" />
     </SettingRow>
 
-    <SettingRow label="Post-processing level" info hint="Set the post-processing quality level (0-6).">
+    <SettingRow label="Post-processing level" info hint="Extra smoothing after decoding. Higher values look softer but cost more CPU.">
       <div class="w-[426px]">
         <Slider
           bind:value={$settings.postProcessingLevel}
@@ -160,20 +160,20 @@
     </div>
 
     {#if snapshotsOpen}
-      <SettingRow label="Directory" info hint="Folder where snapshots are saved.">
+      <SettingRow label="Directory">
         <div class="flex w-[426px] items-center gap-3">
           <TextInput bind:value={$settings.snapshotDirectory} ariaLabel="Snapshot directory" placeholder="Choose directory" />
           <button type="button" class="h-9 shrink-0 rounded-[8px] px-2 text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text">Browse</button>
         </div>
       </SettingRow>
 
-      <SettingRow label="Format" info hint="Image format for snapshots.">
+      <SettingRow label="Format">
         <div class="w-[200px]">
           <Select bind:value={$settings.snapshotFormat} options={snapshotFormats} ariaLabel="Snapshot format" />
         </div>
       </SettingRow>
 
-      <SettingRow label="Sequential numbering" info hint="Use sequential numbering for snapshot filenames.">
+      <SettingRow label="Sequential numbering">
         <Toggle bind:value={$settings.snapshotSequential} label="Sequential numbering" />
       </SettingRow>
     {/if}
