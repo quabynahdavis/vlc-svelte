@@ -10,9 +10,45 @@
     Search,
     X,
   } from 'lucide-svelte';
-  import { playAt, player } from '../stores/player';
+  import { isTrackDrag, readTrackDrag } from '../lib/dragTrack';
+  import { addToQueue, playAt, player } from '../stores/player';
 
   const dispatch = createEventDispatcher<{ back: void; close: void }>();
+
+  let dragActive = false;
+
+  function handleDragOver(event: DragEvent): void {
+    if (!isTrackDrag(event)) {
+      // Let unrelated drags (files, text, tabs) fall through untouched.
+      dragActive = false;
+      return;
+    }
+
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    dragActive = true;
+  }
+
+  function handleDragLeave(event: DragEvent): void {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget instanceof Node && event.currentTarget.contains(next)) {
+      return;
+    }
+    dragActive = false;
+  }
+
+  function handleDrop(event: DragEvent): void {
+    if (!isTrackDrag(event)) {
+      dragActive = false;
+      return;
+    }
+
+    event.preventDefault();
+    dragActive = false;
+
+    const track = readTrackDrag(event);
+    if (track) addToQueue(track);
+  }
 
   function formatDuration(seconds: number): string {
     const total = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
@@ -99,7 +135,26 @@
     </div>
   </div>
 
-  <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+  <div
+    class="relative min-h-0 flex-1 overflow-y-auto px-2 py-2 transition-colors {dragActive
+      ? 'bg-vlc-orange/5'
+      : ''}"
+    role="region"
+    aria-label="Queue drop target"
+    on:dragover={handleDragOver}
+    on:dragleave={handleDragLeave}
+    on:drop={handleDrop}
+  >
+    {#if dragActive}
+      <div
+        class="pointer-events-none sticky top-0 z-10 mx-1 mb-1 flex items-center justify-center gap-1.5 rounded-control border border-dashed border-vlc-orange/60 bg-vlc-panel/95 px-2 py-2 text-[11px] text-vlc-orangeText shadow-sm"
+        role="status"
+      >
+        <ListMusic size={13} strokeWidth={2} aria-hidden="true" />
+        Drop to add to the queue
+      </div>
+    {/if}
+
     {#if $player.queue.length === 0}
       <p class="px-3 py-4 text-[12px] text-vlc-muted">
         The queue is empty. Open a video from the library to start playback.

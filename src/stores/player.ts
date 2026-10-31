@@ -105,6 +105,39 @@ export function setQueue(tracks: Track[], startIndex = 0): void {
   });
 }
 
+/** Append a track to the queue without interrupting the current item. */
+export function addToQueue(track: Track): void {
+  player.update((state) => {
+    const queue = [...state.queue, track];
+
+    // An empty queue needs a current index, but adding should not autoplay.
+    if (state.currentIndex < 0) {
+      return {
+        ...state,
+        queue,
+        currentIndex: 0,
+        currentTime: 0,
+        duration: Number.isFinite(track.duration) && track.duration > 0 ? track.duration : 0,
+        isPlaying: false,
+      };
+    }
+
+    return { ...state, queue };
+  });
+}
+
+/** Clear the queue and stop playback. */
+export function clearQueue(): void {
+  player.update((state) => ({
+    ...state,
+    queue: [],
+    currentIndex: -1,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+  }));
+}
+
 /** Stop playback and rewind, keeping the queue and loaded track intact. */
 export function stop(): void {
   player.update((state) => ({ ...state, isPlaying: false, currentTime: 0 }));
