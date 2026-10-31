@@ -1,6 +1,6 @@
 # License scope
 
-This repository carries two licenses with different scopes.
+Kanea carries two licenses with different scopes.
 
 | License | File | Applies to |
 | --- | --- | --- |
@@ -9,7 +9,7 @@ This repository carries two licenses with different scopes.
 
 ## Notes
 
-- The UI redesign is an independent interface. It does not relicense libvlc or any VLC source code.
+- The UI redesign is an independent interface. It does not relicense libvlc or any VLC source code. Kanea is not affiliated with or endorsed by VideoLAN.
 - VLC, the VLC cone logo and libvlc are trademarks or components of the VideoLAN project. Their names, marks and upstream code remain subject to VideoLAN's own terms; this repository does not grant trademark rights.
 - Third-party dependencies keep their own licenses. See `package.json`, `bun.lock` and `src-tauri/Cargo.toml`.
 - The exports in `VLC Redesign (Community)/` are design reference material created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA). They are not covered by the MIT license and remain the creator's work; do not redistribute them as project assets.

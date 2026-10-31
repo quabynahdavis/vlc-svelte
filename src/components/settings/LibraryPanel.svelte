@@ -92,7 +92,7 @@
       </div>
     </SettingRow>
 
-    <SettingRow label="Scan on startup" info hint="Automatically scan library folders when VLC starts.">
+    <SettingRow label="Scan on startup" info hint="Automatically scan library folders when Kanea starts.">
       <Toggle bind:value={$settings.scanOnStartup} label="Scan on startup" />
     </SettingRow>
 

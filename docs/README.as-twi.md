@@ -2,10 +2,10 @@
 
 <img src="assets/vlc.svg" width="72" alt="VLC cone" />
 
-<h1>VLC Redesign (Community)</h1>
+<h1>Kanea</h1>
 
 <p><strong>VLC Media Player desktop interface a mpɔtam hɔ na ɛsii.</strong><br />
-Orange cone, neutral gray surfaces, soft rectangular corners, ne dark/light theme mmienu.</p>
+Kanea kyerɛ “light” wɔ Twi kasa mu. Orange cone, neutral gray surfaces, soft rectangular corners, ne dark/light theme mmienu.</p>
 
 <p>
   <a href="https://github.com/quabynahdavis/vlc-svelte/releases"><img src="https://img.shields.io/badge/version-1.0.0-FF8800?style=flat-square&logo=github&logoColor=white" alt="Version 1.0.0" /></a>
@@ -34,11 +34,11 @@ Orange cone, neutral gray surfaces, soft rectangular corners, ne dark/light them
 
 </div>
 
-![VLC Redesign player a ɛwɔ compact library drawer](assets/screenshots/compact-library.png)
+![Kanea player a ɛwɔ compact library drawer](assets/screenshots/compact-library.png)
 
 ## Ne botae
 
-VLC yɛ media player a ɛyɛ den na ɛwɔ hɔ mfeɛ pii, nanso ne interface no yɛ adeɛ a ɛyɛ den sɛ wɔbɛfa so. Saa project yi bɔ mmɔden sɛ ɛbɛma VLC anya interface foforɔ a ɛyɛ mmerɛw, a ɛkura orange cone ne VLC no su, nanso ɛwɔ neutral gray surfaces, soft rectangular corners ne dark/light theme mmienu.
+VLC yɛ media player a ɛyɛ den na ɛwɔ hɔ mfeɛ pii, nanso ne interface no yɛ adeɛ a ɛyɛ den sɛ wɔbɛfa so. Kanea bɔ mmɔden sɛ ɛbɛma VLC anya interface foforɔ a ɛyɛ mmerɛw, a ɛkura orange cone ne VLC no su, nanso ɛwɔ neutral gray surfaces, soft rectangular corners ne dark/light theme mmienu.
 
 ## Nneɛma a ɛho hia
 

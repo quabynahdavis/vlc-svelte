@@ -1,6 +1,6 @@
 # Setup and Development
 
-This guide covers a local development environment for the Svelte frontend and the Tauri v2 shell. The project uses **bun** exclusively for JavaScript dependencies and scripts.
+This guide covers a local development environment for the Kanea Svelte frontend and the Tauri v2 shell. Kanea uses **bun** exclusively for JavaScript dependencies and scripts.
 
 > **Runtime caveat (2026-10-29).** The Tauri v2 migration is complete, and `src-tauri/capabilities/default.json` grants the main window the six core permissions used by the custom title bar. No plugin crates, `invoke_handler` or native commands exist yet, so file dialogs and media metadata are not available. See [../architecture/03-tauri-backend.md](../architecture/03-tauri-backend.md).
 

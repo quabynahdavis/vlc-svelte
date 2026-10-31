@@ -161,7 +161,7 @@
         <div class="min-w-0 flex-1">
           <p class="text-[11px] uppercase tracking-[0.12em] text-vlc-muted">First run</p>
           <h1 id="welcome-title" class="mt-1 text-[22px] font-medium leading-7 text-vlc-text">
-            Welcome to VLC
+            Welcome to Kanea
           </h1>
           <p id="welcome-description" class="mt-1 max-w-xl text-[13px] leading-5 text-vlc-secondary">
             Choose how the app should look and where your media lives. Everything can be changed
@@ -238,7 +238,7 @@
           <section aria-labelledby="welcome-library">
             <h2 id="welcome-library" class="text-[13px] font-medium text-vlc-text">Library folders</h2>
             <p class="mt-1 text-[11px] leading-4 text-vlc-muted">
-              Add the folders VLC should scan for videos and music.
+              Add the folders Kanea should scan for videos and music.
             </p>
 
             <form class="mt-3 flex gap-1.5" on:submit={handleFolderSubmit}>

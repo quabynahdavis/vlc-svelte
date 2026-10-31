@@ -37,7 +37,7 @@
       <Toggle bind:value={$settings.showSystrayIcon} label="Show systray icon" />
     </SettingRow>
 
-    <SettingRow label="Only one instance" info hint="Prevent multiple VLC windows from opening.">
+    <SettingRow label="Only one instance" info hint="Prevent multiple Kanea windows from opening.">
       <Toggle bind:value={$settings.singleInstance} label="Only one instance" />
     </SettingRow>
 

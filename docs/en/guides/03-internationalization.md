@@ -1,6 +1,6 @@
 # Internationalization and Translation
 
-This guide defines how documentation and UI copy are translated in VLC Redesign (Community). English is the source of truth; translations are maintained alongside it.
+This guide defines how documentation and UI copy are translated in Kanea. English is the source of truth; translations are maintained alongside it.
 
 ## Language tags and files
 

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "vlc-redesign",
+      "name": "kanea",
       "dependencies": {
         "@tauri-apps/api": "^2.0.0",
         "lucide-svelte": "^0.460.0",

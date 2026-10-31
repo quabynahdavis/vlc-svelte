@@ -2,7 +2,7 @@
 
 **Status:** implemented. The semantic token set, dual dark/light themes and runtime accent theming live in `src/app.css`, `tailwind.config.js` and `src/lib/theme.ts`. The PNG exports remain the visual reference for the dark palette and component proportions. Last updated 2026-10-31.
 
-This document is the canonical token reference for the VLC Redesign UI. The source exports are the **25 PNG files** in `VLC Redesign (Community)/` at the repository root. They were created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) for her VLC redesign concept and are used as visual reference only. Rebuild the interface in Svelte and Tailwind; never embed the exports as application UI.
+This document is the canonical token reference for the Kanea UI. The source exports are the **25 PNG files** in `VLC Redesign (Community)/` at the repository root. They were created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) for her VLC redesign concept and are used as visual reference only. Rebuild the interface in Svelte and Tailwind; never embed the exports as application UI.
 
 ## Source of truth
 
@@ -148,7 +148,7 @@ Toggles, slider thumbs, status chips and the volume cone are fully rounded or ge
 
 ### Title bar
 
-40 px bar on `--bg-app` with the VLC cone at the left, a centred `VLC Media Player` label in `--text-secondary`, a menu button and minimise/maximise/close controls at the right. Window buttons are 46 px wide, 40 px tall; close hovers to `--danger`. Source: `Player.png`.
+40 px bar on `--bg-app` with the VLC cone at the left, a centred `Kanea` label in `--text-secondary`, a menu button and minimise/maximise/close controls at the right. Window buttons are 46 px wide, 40 px tall; close hovers to `--danger`. Source: `Player.png`.
 
 The menu button opens the full consolidated menu anchored under it; right-click elsewhere opens the shorter playback menu. Both use the same floating-card styling as the context menu below.
 

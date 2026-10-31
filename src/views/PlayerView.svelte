@@ -61,7 +61,7 @@
   $: videoSrc = $currentTrack?.src ?? src;
   $: hasMedia = Boolean(videoSrc);
   $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}`;
-  $: mediaTitle = $currentTrack?.title?.trim() || 'VLC';
+  $: mediaTitle = $currentTrack?.title?.trim() || 'Kanea';
 
   // Rebind the Picture-in-Picture listeners whenever the media element changes.
   $: syncPipElement(videoEl);

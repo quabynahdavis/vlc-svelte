@@ -98,7 +98,7 @@
    * silhouette, so the strip never reshuffles on unrelated re-renders.
    */
   function buildWaveform(title: string): number[] {
-    let state = hashTitle(title || 'vlc') || 0x9e3779b9;
+    let state = hashTitle(title || 'kanea') || 0x9e3779b9;
 
     return Array.from({ length: waveformBarCount }, (_, index) => {
       state = (Math.imul(state, 1664525) + 1013904223) >>> 0;

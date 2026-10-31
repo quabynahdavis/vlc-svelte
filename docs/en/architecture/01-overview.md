@@ -4,7 +4,7 @@
 
 ## Purpose
 
-The project rebuilds the VLC desktop player UI as a web-technology desktop application. Svelte renders the interface inside a Tauri window; Rust supplies the native shell and, later, local file-system and media metadata access. The application plays a bundled demo clip for mock items, can import local files/folders and stream URLs for the current session, and browses mock library data; persistent media integration is still in progress.
+Kanea is a community redesign that rebuilds the VLC desktop player UI as a web-technology desktop application. Svelte renders the interface inside a Tauri window; Rust supplies the native shell and, later, local file-system and media metadata access. The application plays a bundled demo clip for mock items, can import local files/folders and stream URLs for the current session, and browses mock library data; persistent media integration is still in progress.
 
 ## Tech stack
 

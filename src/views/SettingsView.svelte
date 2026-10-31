@@ -34,6 +34,6 @@
 
   <div class="border-t pt-6 mt-6">
     <h2 class="text-sm font-semibold text-gray-900 mb-4">About</h2>
-    <p class="text-gray-500 text-sm">VLC Redesign (Community) · Tauri + Svelte</p>
+    <p class="text-gray-500 text-sm">Kanea · Tauri + Svelte</p>
   </div>
 </div>

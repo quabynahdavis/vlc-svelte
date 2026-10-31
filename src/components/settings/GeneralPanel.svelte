@@ -55,10 +55,10 @@
   </Section>
 
   <Section title="Startup">
-    <SettingRow label="Show confirmation and error dialogs" info hint="Show a confirmation dialog when closing VLC.">
+    <SettingRow label="Show confirmation and error dialogs" info hint="Show a confirmation dialog when closing Kanea.">
       <Toggle bind:value={$settings.confirmationDialogs} label="Show confirmation and error dialogs" />
     </SettingRow>
-    <SettingRow label="Check for updates automatically" info hint="Look for new releases when VLC starts.">
+    <SettingRow label="Check for updates automatically" info hint="Look for new releases when Kanea starts.">
       <Toggle bind:value={$settings.automaticUpdates} label="Check for updates automatically" />
     </SettingRow>
   </Section>
@@ -70,7 +70,7 @@
     <SettingRow label="Save a log" info hint="Write player activity to a log file.">
       <Toggle bind:value={$settings.saveLog} label="Save a log" />
     </SettingRow>
-    <SettingRow label="Log file" info hint="Location of the VLC log file.">
+    <SettingRow label="Log file" info hint="Location of the Kanea log file.">
       <div class="flex w-[426px] items-center gap-3">
         <TextInput bind:value={$settings.logFile} ariaLabel="Log file" placeholder="Select a log file" />
         <button

@@ -1,6 +1,6 @@
-# Contributing to VLC Redesign (Community)
+# Contributing to Kanea
 
-Thanks for helping improve the project. This guide covers setup, design rules, checks, commit standards, documentation structure, translations and the pull-request flow.
+Thanks for helping improve Kanea, a community-built desktop interface for VLC Media Player. This guide covers setup, design rules, checks, commit standards, documentation structure, translations and the pull-request flow.
 
 **Languages:** **English** · [Asante Twi README](README.as-twi.md)
 
@@ -247,6 +247,7 @@ UI changes should include before/after screenshots and note dark and light theme
 - libvlc and VLC-derived components remain under the [LGPL-2.1-or-later](../LICENSES/LGPL-2.1.txt). See [LICENSES/README.md](../LICENSES/README.md) for scope.
 - By contributing, you agree that your original contributions are licensed under MIT. Do not submit code or assets you cannot license.
 - The design reference exports in `VLC Redesign (Community)/` were created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) and are **not** covered by the MIT license. Do not relicense or redistribute them as project assets.
+- Kanea is an independent community redesign and is not affiliated with or endorsed by VideoLAN.
 - VLC, the VLC cone and libvlc are VideoLAN project marks or components; this repository does not relicense them.
 
 ## Questions

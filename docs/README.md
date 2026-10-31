@@ -2,10 +2,10 @@
 
 <img src="assets/vlc.svg" width="72" alt="VLC cone" />
 
-<h1>VLC Redesign (Community)</h1>
+<h1>Kanea</h1>
 
-<p><strong>A community-built VLC Media Player desktop interface.</strong><br />
-Orange cone, neutral gray surfaces, softened rectangular corners, and a dual dark/light theme.</p>
+<p><strong>A community-built desktop interface for VLC Media Player.</strong><br />
+<em>Kanea</em> means “light” in Twi. Orange cone, neutral gray surfaces, softened rectangular corners, and a dual dark/light theme.</p>
 
 <p>
   <a href="https://github.com/quabynahdavis/vlc-svelte/releases"><img src="https://img.shields.io/badge/version-1.0.0-FF8800?style=flat-square&logo=github&logoColor=white" alt="Version 1.0.0" /></a>
@@ -34,11 +34,11 @@ Orange cone, neutral gray surfaces, softened rectangular corners, and a dual dar
 
 </div>
 
-![VLC Redesign player with the compact library drawer open](assets/screenshots/compact-library.png)
+![Kanea player with the compact library drawer open](assets/screenshots/compact-library.png)
 
 ## Why this exists
 
-VLC is a dependable player with a famously utilitarian interface. This project explores what a calmer, more modern desktop shell could feel like while keeping the orange cone, the media-first workflow and the keyboard-friendly speed people expect from VLC.
+VLC is a dependable player with a famously utilitarian interface. Kanea explores what a calmer, more modern desktop shell could feel like while keeping the orange cone, the media-first workflow and the keyboard-friendly speed people expect from VLC.
 
 ## Highlights
 

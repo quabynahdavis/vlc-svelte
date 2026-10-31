@@ -2,7 +2,7 @@
 
 The folder `VLC Redesign (Community)/` at the repository root contains the exported visual specification: **26 files (25 PNGs + 1 SVG)**. The exports are reference art, not application assets — rebuild the UI with HTML/Svelte/Tailwind rather than embedding screenshots. Canonical colour, typography and radius tokens live in [../design/01-design-system.md](../design/01-design-system.md); the dark palette is extracted from these files, while the light palette is a project extension.
 
-> **Attribution:** these exports were created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) for her VLC redesign concept. They are included as visual reference only, remain her work and are not relicensed under this project's MIT license. The implementation in `src/` is an independent Svelte rebuild.
+> **Attribution:** these exports were created by [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) for her VLC redesign concept. They are included as visual reference only, remain her work and are not relicensed under this project's MIT license. The implementation in `src/` is an independent Svelte rebuild, branded Kanea.
 
 ## Inventory by screen
 

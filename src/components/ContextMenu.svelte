@@ -141,7 +141,7 @@
     { id: 'layout-settings', label: 'Customize Layout', icon: LayoutDashboard, tone: 'neutral' },
     { id: 'show-welcome', label: 'Welcome Screen', icon: Sparkles, tone: 'neutral' },
     { type: 'divider' },
-    { id: 'quit', label: 'Quit VLC', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+    { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
   ];
 
   /**
@@ -185,7 +185,7 @@
     { type: 'divider' },
     { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard, tone: 'neutral' },
     { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
-    { id: 'quit', label: 'Quit VLC', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+    { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
   ];
 
   let menuEl: HTMLDivElement | null = null;
@@ -372,7 +372,7 @@
     style={`left: ${menuLeft}px; top: ${menuTop}px;`}
     role="menu"
     tabindex="-1"
-    aria-label="VLC context menu"
+    aria-label="Kanea context menu"
     data-context-menu
     on:contextmenu={(event) => {
       event.preventDefault();

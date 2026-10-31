@@ -324,7 +324,7 @@ export const defaultSettings: SettingsState = {
   proxyPassword: '',
   cacheSizeMB: 50,
   timeoutMs: '10000',
-  userAgent: 'VLC/3.0',
+  userAgent: 'Kanea/1.0',
   cookies: true,
   preferIPv6: false,
 

@@ -54,7 +54,7 @@
   <Section title="HTTP">
     <SettingRow label="User agent">
       <div class="w-[426px]">
-        <TextInput bind:value={$settings.userAgent} ariaLabel="User agent" placeholder="VLC/3.0" />
+        <TextInput bind:value={$settings.userAgent} ariaLabel="User agent" placeholder="Kanea/1.0" />
       </div>
     </SettingRow>
 

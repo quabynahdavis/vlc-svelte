@@ -4,6 +4,20 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-10-31
 
+### Changed — project name to Kanea
+
+- Renamed the project to **Kanea** — the Twi word for "light" — across the app, configuration, documentation and READMEs.
+- `package.json` / `package-lock.json` / `bun.lock` now use `kanea`.
+- `src-tauri/Cargo.toml` and `Cargo.lock` now use `kanea`.
+- `tauri.conf.json` now uses `productName: "Kanea"`, `identifier: "com.kanea.player"` and `title: "Kanea"`.
+- `index.html` now titles the page `Kanea` and describes it as a community-built desktop interface for VLC Media Player.
+- `src/i18n/en.json` now uses `app.title: "Kanea"`, `context_menu.quit: "Quit Kanea"`, `aria.context_menu: "Kanea context menu"`, and the settings hints reference Kanea instead of VLC.
+- `src/components/WelcomeScreen.svelte` says "Welcome to Kanea"; `src/components/ContextMenu.svelte` says "Quit Kanea"; `src/views/SettingsView.svelte` and `src/views/PlayerView.svelte` now reference Kanea.
+- `src/stores/settings.ts` and `src/components/settings/NetworkPanel.svelte` now use the `Kanea/1.0` user agent.
+- `src/components/settings/ExportImportPanel.svelte` now exports `kanea-settings.json`.
+- Both READMEs, the project overview, the design system, the design reference, the setup guide, the contributing guide and the license scope now brand the project Kanea while keeping the VLC cone, the `VLC Redesign (Community)/` design-reference folder and the VideoLAN boundary intact.
+- The `application/x-vlc-track` drag payload and the `vlc.*.v1` persistence keys are unchanged.
+
 ### Added — design attribution
 
 - Credited [Juxtopposed](https://www.youtube.com/channel/UCa8W2_uf81Ew6gYuw0VPSeA) for the VLC redesign concept and the design exports in `VLC Redesign (Community)/` across both READMEs, the project overview, the design system, the design reference inventory and the license scope.

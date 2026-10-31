@@ -6,7 +6,7 @@
 
 ```toml
 [package]
-name = "vlc-redesign"
+name = "kanea"
 version = "1.0.0"
 edition = "2021"
 
@@ -19,7 +19,7 @@ tauri-build = { version = "2", features = [] }
 
 | Item | Notes |
 | --- | --- |
-| Package | `vlc-redesign`, version `1.0.0`, Rust edition 2021 |
+| Package | `kanea`, version `1.0.0`, Rust edition 2021 |
 | `tauri` | Version 2, no feature flags. The v1 allowlist features (`dialog-all`, `fs-all`, `shell-all`) have been removed; v2 uses plugin crates instead. |
 | `tauri-build` | Version 2, invoked by `build.rs` |
 | Source layout | Desktop-only: only `src/main.rs` exists; there is no `lib.rs` or mobile entry point |
@@ -32,14 +32,14 @@ The file uses the v2 schema. Current keys:
 | Key | Value | Comment |
 | --- | --- | --- |
 | `$schema` | `https://schema.tauri.app/config/2` | v2 schema |
-| `productName` | `VLC Redesign` | Top-level in v2 |
+| `productName` | `Kanea` | Top-level in v2 |
 | `version` | `1.0.0` | Top-level in v2 |
-| `identifier` | `com.vlc-redesign.app` | Top-level in v2 |
+| `identifier` | `com.kanea.player` | Top-level in v2 |
 | `build.beforeDevCommand` | `bun run dev:frontend` | Starts Vite only; no Tauri re-entry |
 | `build.beforeBuildCommand` | `bun x vite build` | Builds the frontend before bundling |
 | `build.devUrl` | `http://localhost:5173` | Matches Vite's fixed port |
 | `build.frontendDist` | `gen/dist` | Resolved relative to `src-tauri/`, i.e. `src-tauri/gen/dist/` |
-| `app.windows[0]` | title `VLC Redesign`, 1200 × 800, resizable, not fullscreen, `decorations: false` | Main window with the in-app title bar |
+| `app.windows[0]` | title `Kanea`, 1200 × 800, resizable, not fullscreen, `decorations: false` | Main window with the in-app title bar |
 | `app.security.csp` | `null` | No CSP; tighten before release |
 | `bundle.active` | `true` | Bundling enabled |
 | `bundle.targets` | `all` | All platform targets |
@@ -101,7 +101,7 @@ Consequences:
 | `icon.ico` | Windows executable icon |
 | `icon.png` | Present but **not** referenced by `bundle.icon` |
 
-Replacing them with a VLC Redesign icon set is **planned**. Keep every size referenced by `bundle.icon`; missing files break bundling.
+Replacing them with a Kanea icon set is **planned**. Keep every size referenced by `bundle.icon`; missing files break bundling.
 
 ## Planned Tauri commands
 

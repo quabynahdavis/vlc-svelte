@@ -120,7 +120,7 @@ A full-window modal with a dimmed `bg-vlc-app/95` backdrop and a `12px` panel on
 
 | Component | File | Notes |
 | --- | --- | --- |
-| `TitleBar` | `src/components/TitleBar.svelte` | VLC cone, centred title, menu/settings button, Tauri window controls, double-click maximize. |
+| `TitleBar` | `src/components/TitleBar.svelte` | VLC cone, centred Kanea title, menu/settings button, Tauri window controls, double-click maximize. |
 | `IconRail` | `src/components/IconRail.svelte` | Nav items from `lib/constants.ts`; collapsible; accent active state. |
 | `PlaylistPanel` | `src/components/PlaylistPanel.svelte` | Queue header, count, search/sort/grid actions, live queue rows. |
 | `TransportBar` | `src/components/TransportBar.svelte` | Left transport, thick seek with hover previews, cone volume, compact next button, right-side dock/settings/fullscreen controls. |
