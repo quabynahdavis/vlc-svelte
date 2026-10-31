@@ -1,6 +1,6 @@
 # Tauri Backend
 
-**Status:** the Tauri **v2 migration is complete** for the configuration schema and the Rust webview API (commit `9d6fa1a`). Runtime integration — plugins, commands, capabilities and CSP — is still **planned**. Last updated 2026-10-26.
+**Status:** the Tauri **v2 migration is complete** for the configuration schema and the Rust webview API (commit `9d6fa1a`). Window capabilities and custom/system decorations are implemented; plugin crates, native commands and a Content Security Policy are still **planned**. Last updated 2026-10-29.
 
 ## `Cargo.toml`
 
@@ -39,7 +39,7 @@ The file uses the v2 schema. Current keys:
 | `build.beforeBuildCommand` | `bun x vite build` | Builds the frontend before bundling |
 | `build.devUrl` | `http://localhost:5173` | Matches Vite's fixed port |
 | `build.frontendDist` | `gen/dist` | Resolved relative to `src-tauri/`, i.e. `src-tauri/gen/dist/` |
-| `app.windows[0]` | title `VLC Redesign`, 1200 × 800, resizable, not fullscreen | Main window |
+| `app.windows[0]` | title `VLC Redesign`, 1200 × 800, resizable, not fullscreen, `decorations: false` | Main window with the in-app title bar |
 | `app.security.csp` | `null` | No CSP; tighten before release |
 | `bundle.active` | `true` | Bundling enabled |
 | `bundle.targets` | `all` | All platform targets |
@@ -58,7 +58,7 @@ Current flow:
 3. `.run(tauri::generate_context!())`
 4. `.expect("error while running tauri application")`
 
-No commands are registered (`.invoke_handler(...)` is absent), no plugins are registered (`.plugin(...)` is absent), and no capability files exist. `build.rs` contains only `fn main() { tauri_build::build() }`.
+No commands are registered (`.invoke_handler(...)` is absent) and no plugins are registered (`.plugin(...)` is absent). `src-tauri/capabilities/default.json` exists, but it grants only core window permissions for the custom title bar. `build.rs` contains only `fn main() { tauri_build::build() }`.
 
 ## Frontend build integration
 
@@ -73,17 +73,20 @@ No commands are registered (`.invoke_handler(...)` is absent), no plugins are re
 
 | Script | Command | Effect |
 | --- | --- | --- |
+| `dev` | `bun run dev:tauri` | Default desktop workflow |
 | `dev:frontend` | `vite` | Browser-only dev server on 5173 |
 | `dev:tauri` | `tauri dev` | Tauri starts Vite through `beforeDevCommand`, then opens the window |
-| `dev` | `bun run dev:frontend & bun run dev:tauri` | Starts Vite **and** Tauri, which starts Vite again |
-| `build` | `vite build && tauri build` | Builds the frontend, then Tauri builds it again through `beforeBuildCommand` |
+| `build` | `bunx tauri build` | Tauri builds the frontend once through `beforeBuildCommand`, then bundles |
+| `check` | `svelte-check --tsconfig ./tsconfig.json` | Type-check `.svelte` and TypeScript files |
+| `preview` | `vite preview` | Serve the built frontend on 4173 |
+| `tauri` | `tauri` | Pass-through to the Tauri CLI |
 
 Consequences:
 
-- **Use `bun run dev:tauri` for desktop development.** Do not also run `dev:frontend`; the second Vite instance cannot bind port 5173 because `strictPort` is enabled.
-- **`bun run dev` currently starts two Vite processes** and is expected to fail with a port-in-use error. Fix the script before documenting it as the default (for example, make `dev` equal to `bun run dev:tauri`).
-- **Prefer `bun run tauri build`** (or `bunx tauri build`) for release builds; the `beforeBuildCommand` builds the frontend once. `bun run build` works but runs `vite build` twice.
-- **Frontend-only build:** `bunx vite build` writes `src-tauri/gen/dist/`.
+- **Use `bun run dev` (or `bun run dev:tauri`) for desktop development.** Do not also run `dev:frontend`; the second Vite instance cannot bind port 5173 because `strictPort` is enabled.
+- **`bun run build` is a single Tauri build.** It does not run Vite separately before `tauri build`, so the frontend is built once.
+- **Frontend-only build:** `bunx vite build` writes `src-tauri/gen/dist/`. Run `bun run preview` to serve that output on port 4173.
+- **Type checking:** `bun run check` is separate from both Vite and Tauri builds.
 
 ## Icons
 
@@ -102,7 +105,7 @@ Replacing them with a VLC Redesign icon set is **planned**. Keep every size refe
 
 ## Planned Tauri commands
 
-None of these exist yet. Signatures are indicative and should be finalised with the frontend types.
+None of these exist yet. Signatures are indicative and should be finalised with the frontend types. The current library add flow uses HTML file/folder inputs and object URLs, so it does not call Rust.
 
 | Command | Purpose | Planned implementation | Status |
 | --- | --- | --- | --- |
@@ -120,11 +123,25 @@ Design notes for future commands:
 
 ## Permissions and security
 
-- The v1 allowlist is gone. Tauri v2 uses **capabilities** in `src-tauri/capabilities/`; no capability file exists yet.
+- The v1 allowlist is gone. Tauri v2 uses **capabilities** in `src-tauri/capabilities/`.
+- `capabilities/default.json` targets the `main` window and grants exactly six core permissions:
+  - `core:window:allow-minimize`
+  - `core:window:allow-toggle-maximize`
+  - `core:window:allow-close`
+  - `core:window:allow-start-dragging`
+  - `core:window:allow-internal-toggle-maximize`
+  - `core:window:allow-set-decorations`
+- These permissions back the custom title bar: minimise, maximise/restore, close, dragging, double-click-to-maximise and the `useSystemTitleBar` runtime switch.
 - No plugin permissions are declared because no plugins are installed.
 - `app.security.csp` is `null`. Set a restrictive policy before release.
 - Planned least-privilege policy: grant only the dialog open, directory read and metadata commands the UI actually calls; do not enable shell execution.
 - Plugin crates still to add: `tauri-plugin-dialog`, `tauri-plugin-fs` (and `tauri-plugin-shell` only if external launching is genuinely required).
+
+## Window chrome
+
+- `app.windows[0].decorations` is `false`, so the window opens without native chrome and the Svelte `TitleBar` provides the controls.
+- Interface settings expose `useSystemTitleBar`. `src/lib/windowChrome.ts` calls `setDecorations(!useSystem)` when the setting changes, and `App.svelte` hides the in-app title bar when native decorations are enabled.
+- The runtime toggle depends on `core:window:allow-set-decorations`; removing that permission breaks the setting.
 
 ## Migration checklist
 
@@ -137,8 +154,9 @@ Design notes for future commands:
 | Replace `get_window` with `get_webview_window` | Done (commit `9d6fa1a`) |
 | Point `beforeDevCommand` / `beforeBuildCommand` at bun frontend-only scripts | Done |
 | Fix Vite `outDir` to resolve inside the project | Done (commit `b6c72c0`) |
+| Add `capabilities/` with least-privilege window permissions | Done (`capabilities/default.json`) |
+| Disable native decorations and add the custom/system title bar toggle | Done |
 | Install the required v2 plugin crates | Planned |
 | Register plugins and an `invoke_handler` | Planned |
-| Add `capabilities/` with least-privilege permissions | Planned |
 | Replace placeholder icons with project branding | Planned |
 | Set a Content Security Policy | Planned |

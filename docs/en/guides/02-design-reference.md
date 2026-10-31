@@ -1,6 +1,6 @@
 # Design Reference Inventory
 
-The folder `VLC Redesign (Community)/` at the repository root contains the exported visual specification: **26 files (25 PNGs + 1 SVG)**. The exports are reference art, not application assets — rebuild the UI with HTML/Svelte/Tailwind rather than embedding screenshots. Canonical colour, typography and radius tokens extracted from these files live in [../design/01-design-system.md](../design/01-design-system.md).
+The folder `VLC Redesign (Community)/` at the repository root contains the exported visual specification: **26 files (25 PNGs + 1 SVG)**. The exports are reference art, not application assets — rebuild the UI with HTML/Svelte/Tailwind rather than embedding screenshots. Canonical colour, typography and radius tokens live in [../design/01-design-system.md](../design/01-design-system.md); the dark palette is extracted from these files, while the light palette is a project extension.
 
 ## Inventory by screen
 
@@ -27,7 +27,7 @@ The player is a dark, custom-chrome window with rounded corners. A `#0E0E0E` tit
 9. a settings gear;
 10. a fullscreen button.
 
-Use `Player.png` / `Player-1.png` for proportions and spacing; use `Player-2..4` for accent theming. The implemented `PlayerView.svelte` follows this chrome with a media stage, playlist panel and transport bar.
+Use `Player.png` / `Player-1.png` for proportions and spacing; use `Player-2..4` for accent theming. The implemented `PlayerView.svelte` follows this chrome with a media stage, playlist panel, right dock and transport bar; current control details are documented in [../design/01-design-system.md](../design/01-design-system.md).
 
 ### Right-click menu — 1 file
 
@@ -100,56 +100,57 @@ These are component/asset exports for theme and icon states, not full screens.
 
 ## Canonical design tokens
 
-The palette is defined once in [../design/01-design-system.md](../design/01-design-system.md). Use those tokens rather than sampling individual pixels: the PNGs composite translucent surfaces, so direct sampling produces slightly different values depending on the layer beneath.
+The palette is defined once in `src/app.css` and documented in [../design/01-design-system.md](../design/01-design-system.md). Use those tokens rather than sampling individual pixels: the PNGs composite translucent surfaces, so direct sampling produces slightly different values depending on the layer beneath. The dark values below are the measured export palette; the light values are the project's warm-neutral extension.
 
-| Role | Token | Value |
-| --- | --- | --- |
-| App background | `--bg-app` | `#0E0E0E` |
-| Panel | `--bg-panel` | `#181818` |
-| Panel alt | `--bg-panel-alt` | `#191919` |
-| Card | `--bg-card` | `#1B1B1B` |
-| Raised / hover | `--bg-raised` | `#232323` |
-| Accent (VLC orange) | `--accent` | `#D37918` |
-| Accent pressed / icon dark | `--accent-pressed` | `#AB6314` |
-| Fill start (deepest) | `--accent-deepest` | `#371F06` |
-| Primary text | `--text-primary` | `#EAEAEA` |
-| Secondary text | `--text-secondary` | `#B8B8B8` |
-| Muted text | `--text-muted` | `#8F8F8F` |
-| Dim text | `--text-dim` | `#6B6B6B` |
-| Border | `--border` | `#373737` |
-| Border subtle | `--border-subtle` | `#262626` |
+| Role | Token | Dark | Light |
+| --- | --- | --- | --- |
+| App background | `--bg-app` | `#0E0E0E` | `#F4F4F1` |
+| Panel | `--bg-panel` | `#181818` | `#FFFFFF` |
+| Panel alt | `--bg-panel-alt` | `#191919` | `#FAFAF8` |
+| Card | `--bg-card` | `#1B1B1B` | `#FFFFFF` |
+| Raised / hover | `--bg-raised` | `#232323` | `#ECECE8` |
+| Accent (VLC orange) | `--accent` | `#D37918` | `#D37918` |
+| Accent pressed | `--accent-pressed` | `#AB6314` | `#AB6314` |
+| Fill start (deepest) | `--accent-deepest` | `#371F06` | `#371F06` |
+| Accent text / icons | `--accent-ink` | `#D37918` | `#A0520B` |
+| Primary text | `--text-primary` | `#EAEAEA` | `#1B1B19` |
+| Secondary text | `--text-secondary` | `#B8B8B8` | `#4B4B47` |
+| Muted text | `--text-muted` | `#8F8F8F` | `#6F6F69` |
+| Dim text | `--text-dim` | `#6B6B6B` | `#8C8C86` |
+| Border | `--border` | `#373737` | `#D6D6D0` |
+| Border subtle | `--border-subtle` | `#262626` | `#E6E6E1` |
 
-Alternate accents appear in `Player-2.png` (purple), `Player-3.png` (pink) and `Player-4.png` (blue); the swatch row in `Settings - global.png` is the observed set. Only the orange value is canonical today; sample the others when alternate theming is implemented.
+Alternate accents appear in `Player-2.png` (purple), `Player-3.png` (pink) and `Player-4.png` (blue); the swatch row in `Settings - global.png` is the observed set. Ten accent swatches are implemented in `src/stores/settings.ts`, and `src/lib/theme.ts` derives the pressed, deepest and gradient values at runtime. Only the default orange has been contrast-audited in light mode.
 
 ## Screen-to-code mapping
 
 | Reference | Implemented file(s) | Status |
 | --- | --- | --- |
-| Player frames | `src/views/PlayerView.svelte`, `components/TitleBar.svelte`, `IconRail.svelte`, `PlaylistPanel.svelte`, `TransportBar.svelte` | Shell implemented; media/library wiring pending |
-| Library grid | `src/views/LibraryView.svelte`, `LibraryToolbar.svelte`, `MediaCard.svelte` | Implemented; card selection not wired |
-| Right-click menu | `src/components/ContextMenu.svelte` | Implemented, including submenus |
-| Settings modal | `src/components/SettingsModal.svelte` + `components/settings/*` | Modal, General, Audio and Subtitles implemented; other categories placeholders |
+| Player frames | `src/views/PlayerView.svelte`, `components/TitleBar.svelte`, `IconRail.svelte`, `PlaylistPanel.svelte`, `RightDock.svelte`, `TransportBar.svelte` | Shell, playlist, dock, transport and gestures implemented; fullscreen chrome auto-hide and PiP are in the working tree; native media sources pending |
+| Library grid | `src/views/LibraryView.svelte`, `LibraryToolbar.svelte`, `LibraryAddMenu.svelte`, `MediaCard.svelte`, `MediaListRow.svelte` | Implemented with grid/list/compact, sorting, watched filter, clickable breadcrumbs and session file/folder/stream imports (working tree) |
+| Menus | `src/components/ContextMenu.svelte` | Full title-bar menu plus a shorter right-click menu, including hover submenus and **Hide UI** |
+| Settings modal | `src/components/SettingsModal.svelte` + `components/settings/*` | Sixteen categories implemented, including Layout and Profiles, with search, reset, persistence and JSON import/export |
 | Property/effect panels | `components/PropertyPanel.svelte`, `PropertySlider.svelte` | Implemented; docked from `App.svelte` |
-| Frames, disc and UI icons | Theme tokens and icon slots | Documented; not wired |
-| Accent swatches and theme variants | Tokens in [../design/01-design-system.md](../design/01-design-system.md) | Documented; not wired |
+| Frames, disc and UI icons | Theme tokens and icon slots | Theme surfaces and icon slots implemented; the frame/disc exports are not shipped and two-tone menu glyphs are not rendered |
+| Accent swatches and theme variants | `src/stores/settings.ts`, `src/lib/theme.ts`, `src/app.css` | Implemented: dark/light/system themes and ten runtime accent swatches |
 
 ## Using the exports as an implementation spec
 
 1. **Pick one master per screen.** Player: `Player.png` or `Player-1.png`. Settings: `Settings - global.png` / `Settings - audio.png`. Subtitles: `Subtitles.png`. Menu: `right-click menu.png`.
 2. **Fix a comparison viewport.** The app window is 1200 × 800 (`tauri.conf.json`). The player variants are 1056 × 594; compare proportionally rather than pixel-for-pixel across different sizes.
 3. **Extract layout before styling.** Note the window chrome, the control-strip height, the order and spacing of controls, the sidebar width, and the modal padding. Translate them into Tailwind spacing rather than absolute positioning.
-4. **Extract tokens.** Use the canonical palette in [../design/01-design-system.md](../design/01-design-system.md); define each value once in `tailwind.config.js` (`theme.extend`) or as a CSS custom property instead of scattering hex values.
+4. **Extract tokens.** Use the canonical palette in [../design/01-design-system.md](../design/01-design-system.md). Tokens are already defined once in `src/app.css` and mapped in `tailwind.config.js`; extend those layers instead of scattering hex values.
 5. **Map to components.** Follow the table above; do not grow the view files further.
-6. **Cover states.** Default, hover, focus, active, disabled; toggles on/off; slider at min/mid/max; menu submenu open; active tab; accent variants (orange, purple, pink, blue).
+6. **Cover states.** Default, hover, focus, active, disabled; toggles on/off; slider at min/mid/max; menu submenu open; active tab; light and dark themes; accent variants (orange, purple, pink, blue and the other implemented swatches).
 7. **Recreate, do not embed.** Screenshots are raster references. The 25 PNGs are the source of truth; the 30 MB SVG is a collage of the same 21 screen images, not extra vector data. Do not ship it as the app UI.
 8. **Check accessibility.** Icon-only buttons need accessible names, focus rings must remain visible on dark surfaces, and text must keep sufficient contrast (`#6B6B6B` on `#181818` / `#1B1B1B` is low-contrast for body text — reserve it for secondary labels, shortcuts and placeholders).
 9. **Visual acceptance.** At 1200 × 800, compare the player window, open menu, settings modal and subtitles panel side by side with the references. Document intentional deviations.
 
 ## Current gaps
 
-- Design tokens are implemented with interim approximations in `tailwind.config.js`; several components also use literal hex values instead of tokens.
-- The library card selection is inert and no media is queued at startup.
-- Ten settings categories render `PlaceholderPanel`; only General, Audio and Subtitles are implemented.
-- Settings and playback state have no persistence layer.
-- Accent-colour theming and self-hosted Inter are not wired up.
-- No local-media picker or Tauri command integration exists yet.
+- Library, music, playlist, recent and network content is mock data. Mock items use `public/demo/sample.mp4`; imported files and stream URLs are session-only and are not persisted.
+- The player queue is not persisted, and no media is queued at startup.
+- The full next-episode prompt, subtitle timeline, audio track/output-device selection, video filter previews, bookmarks/chapters, saved network streams, editable address bar, details view and add actions in the library empty state are planned. See [../design/02-redesign-vision.md](../design/02-redesign-vision.md).
+- Recent and network selections are inert; create-playlist and per-track playlist menus are present but no-ops.
+- True two-tone menu glyphs are not rendered, Inter is loaded from Google Fonts rather than self-hosted, and `src-tauri/icons/` still contains placeholder Tauri icons.
+- There is no URL router and no automated test suite.
