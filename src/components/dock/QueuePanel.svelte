@@ -1,6 +1,9 @@
 <script lang="ts">
   import { ListMusic } from 'lucide-svelte';
-  import { playAt, player } from '../../stores/player';
+  import { isTrackDrag, readTrackDrag } from '../../lib/dragTrack';
+  import { addToQueue, playAt, player } from '../../stores/player';
+
+  let dragActive = false;
 
   function pad(value: number): string {
     return String(value).padStart(2, '0');
@@ -16,9 +19,54 @@
 
     return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
   }
+
+  function handleDragOver(event: DragEvent): void {
+    if (!isTrackDrag(event)) {
+      dragActive = false;
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    dragActive = true;
+  }
+
+  function handleDragLeave(event: DragEvent): void {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget instanceof Node && event.currentTarget.contains(next)) {
+      return;
+    }
+    dragActive = false;
+  }
+
+  function handleDrop(event: DragEvent): void {
+    if (!isTrackDrag(event)) {
+      dragActive = false;
+      return;
+    }
+    event.preventDefault();
+    dragActive = false;
+
+    const track = readTrackDrag(event);
+    if (track) addToQueue(track);
+  }
 </script>
 
-<div class="flex min-h-full flex-col" data-queue-panel>
+<div
+  class="flex min-h-full flex-col"
+  data-queue-panel
+  on:dragover={handleDragOver}
+  on:dragleave={handleDragLeave}
+  on:drop={handleDrop}
+>
+  {#if dragActive}
+    <div
+      class="pointer-events-none sticky top-0 z-10 mx-2 mb-2 flex items-center justify-center gap-1.5 rounded-control border border-dashed border-vlc-orange/60 bg-vlc-panel/95 px-2 py-2 text-[11px] text-vlc-orangeText shadow-sm"
+      role="status"
+    >
+      <ListMusic size={13} strokeWidth={2} aria-hidden="true" />
+      Drop to add to the queue
+    </div>
+  {/if}
   {#if $player.queue.length === 0}
     <div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
       <ListMusic size={28} strokeWidth={1.4} class="text-vlc-muted/60" aria-hidden="true" />
