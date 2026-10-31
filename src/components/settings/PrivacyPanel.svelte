@@ -13,15 +13,15 @@
 
 <div class="flex flex-col gap-9 pb-4">
   <Section title="Privacy">
-    <SettingRow label="Allow network access" info hint="Allow VLC to access the internet for metadata, updates, and streaming.">
+    <SettingRow label="Allow network access">
       <Toggle bind:value={$settings.allowNetworkAccess} label="Allow network access" />
     </SettingRow>
 
-    <SettingRow label="Send anonymous usage statistics" info hint="Help improve VLC by sending anonymous usage data.">
+    <SettingRow label="Send anonymous usage statistics" info hint="Shares anonymous playback and feature counts. File names and personal data are never sent.">
       <Toggle bind:value={$settings.sendUsageStats} label="Send anonymous usage statistics" />
     </SettingRow>
 
-    <SettingRow label="Check for updates automatically" info hint="Automatically check for new VLC releases on startup.">
+    <SettingRow label="Check for updates automatically">
       <Toggle bind:value={$settings.checkUpdatesAutomatically} label="Check for updates automatically" />
     </SettingRow>
 

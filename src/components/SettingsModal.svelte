@@ -7,6 +7,8 @@
     FolderOpen,
     Gauge,
     Keyboard,
+    Layers,
+    LayoutDashboard,
     MousePointer2,
     Play,
     Puzzle,
@@ -21,10 +23,12 @@
   import ExtensionsPanel from './settings/ExtensionsPanel.svelte';
   import GeneralPanel from './settings/GeneralPanel.svelte';
   import InterfacePanel from './settings/InterfacePanel.svelte';
+  import LayoutPanel from './settings/LayoutPanel.svelte';
   import LibraryPanel from './settings/LibraryPanel.svelte';
   import NetworkPanel from './settings/NetworkPanel.svelte';
   import PerformancePanel from './settings/PerformancePanel.svelte';
   import PlaceholderPanel from './settings/PlaceholderPanel.svelte';
+  import ProfilesPanel from './settings/ProfilesPanel.svelte';
   import PlaybackPanel from './settings/PlaybackPanel.svelte';
   import PrivacyPanel from './settings/PrivacyPanel.svelte';
   import RecordingPanel from './settings/RecordingPanel.svelte';
@@ -35,6 +39,8 @@
 
   export let open = false;
   export let onClose: () => void = () => {};
+  /** Opens the separate shortcuts window; wired up by the app shell. */
+  export let onOpenHotkeys: () => void = () => {};
 
   interface SettingsItem {
     id: string;
@@ -55,6 +61,8 @@
         { id: 'interface', label: 'Interface', icon: MousePointer2 },
         { id: 'privacy', label: 'Privacy', icon: Shield },
         { id: 'controls', label: 'Controls', icon: Keyboard },
+        { id: 'layout', label: 'Layout', icon: LayoutDashboard },
+        { id: 'profiles', label: 'Profiles', icon: Layers },
       ],
     },
     {
@@ -116,7 +124,39 @@
       'update check',
       'reset preferences',
     ],
-    controls: ['hotkeys', 'keyboard shortcuts', 'shortcut', 'reset hotkeys'],
+    controls: [
+      'hotkeys',
+      'keyboard shortcuts',
+      'shortcut',
+      'reset hotkeys',
+      'open keyboard shortcuts',
+    ],
+    layout: [
+      'layout',
+      'customize',
+      'customisation',
+      'customization',
+      'reorder',
+      'drag and drop',
+      'sidebar tabs',
+      'navigation rail',
+      'player controls',
+      'reset layout',
+    ],
+    profiles: [
+      'profiles',
+      'profile',
+      'preset',
+      'settings profile',
+      'save settings',
+      'save current settings',
+      'apply profile',
+      'rename profile',
+      'delete profile',
+      'default profile',
+      'backup',
+      'restore settings',
+    ],
     playback: [
       'skip frames',
       'drop late frames',
@@ -153,6 +193,13 @@
       'text color',
       'outline color',
       'embedded subtitle',
+      'subtitle matching',
+      'match subtitles by filename',
+      'prefer forced subtitles',
+      'auto-load subtitles',
+      'media folder',
+      'language priority',
+      'subtitle formats',
     ],
     library: [
       'media library',
@@ -224,7 +271,9 @@
         ? 'Audio Defaults'
         : category === 'subtitles'
           ? 'Subtitle Defaults'
-          : `${activeItem?.label ?? 'Global'} Settings`;
+          : category === 'profiles'
+            ? 'Settings Profiles'
+            : `${activeItem?.label ?? 'Global'} Settings`;
 
   function close(): void {
     open = false;
@@ -359,7 +408,9 @@
           {:else if category === 'privacy'}
             <PrivacyPanel />
           {:else if category === 'controls'}
-            <ControlsPanel />
+            <ControlsPanel on:openHotkeys={() => onOpenHotkeys()} />
+          {:else if category === 'layout'}
+            <LayoutPanel />
           {:else if category === 'playback'}
             <PlaybackPanel />
           {:else if category === 'video'}
@@ -380,6 +431,8 @@
             <ExtensionsPanel />
           {:else if category === 'exportimport'}
             <ExportImportPanel />
+          {:else if category === 'profiles'}
+            <ProfilesPanel />
           {:else}
             <PlaceholderPanel title={activeItem?.label ?? 'Settings'} />
           {/if}

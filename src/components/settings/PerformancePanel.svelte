@@ -21,27 +21,27 @@
 
 <div class="flex flex-col gap-9 pb-4">
   <Section title="Threading">
-    <SettingRow label="Thread count" info hint="Number of decoder threads (Auto detects CPU cores).">
+    <SettingRow label="Thread count">
       <div class="w-[200px]">
         <Select bind:value={$settings.threadCount} options={threadCountOptions} ariaLabel="Thread count" />
       </div>
     </SettingRow>
 
-    <SettingRow label="Real-time priority" info hint="Run decoding threads at real-time priority.">
+    <SettingRow label="Real-time priority" info hint="Asks the system to prioritize decoding. Can make the desktop feel less responsive.">
       <Toggle bind:value={$settings.realTimePriority} label="Real-time priority" />
     </SettingRow>
 
-    <SettingRow label="Memory copy optimization" info hint="Optimize memory copies for better performance.">
+    <SettingRow label="Memory copy optimization">
       <Toggle bind:value={$settings.memoryCopyOptimization} label="Memory copy optimization" />
     </SettingRow>
   </Section>
 
   <Section title="GPU & HDR">
-    <SettingRow label="GPU acceleration" info hint="Use GPU for video decoding and rendering.">
+    <SettingRow label="GPU acceleration">
       <Toggle bind:value={$settings.gpuAcceleration} label="GPU acceleration" />
     </SettingRow>
 
-    <SettingRow label="HDR tonemapping" info hint="Select the HDR to SDR tonemapping algorithm.">
+    <SettingRow label="HDR tonemapping">
       <div class="w-[200px]">
         <Select bind:value={$settings.hdrTonemapping} options={hdrTonemappingOptions} ariaLabel="HDR tonemapping" />
       </div>
@@ -49,7 +49,7 @@
   </Section>
 
   <Section title="Frame Dropping">
-    <SettingRow label="Frame drop threshold" info hint="Threshold for dropping frames under heavy load (0-100).">
+    <SettingRow label="Frame drop threshold" info hint="Drop frames only after this much delay. Lower keeps sync, higher keeps motion smooth.">
       <div class="w-[426px]">
         <Slider
           bind:value={$settings.frameDropThreshold}

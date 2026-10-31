@@ -1,132 +1,121 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { settings, DEFAULT_HOTKEYS, resetHotkeysToDefault, updateHotkey } from '../../stores/settings';
+  import { AlertTriangle, ExternalLink, Keyboard } from 'lucide-svelte';
+  import { resetHotkeysToDefault, settings } from '../../stores/settings';
   import Section from './Section.svelte';
-  import SettingRow from './SettingRow.svelte';
-  import TextInput from './TextInput.svelte';
 
-  const dispatch = createEventDispatcher<{ navigate: string }>();
+  const dispatch = createEventDispatcher<{ openHotkeys: void }>();
 
-  let editingIndex: number | null = null;
-  let captureKey = '';
-  let captureModifiers = { ctrl: false, shift: false, alt: false, meta: false };
-
-  function formatShortcut(modifiers: typeof captureModifiers, key: string): string {
-    const parts: string[] = [];
-    if (modifiers.ctrl) parts.push('Ctrl');
-    if (modifiers.shift) parts.push('Shift');
-    if (modifiers.alt) parts.push('Alt');
-    if (modifiers.meta) parts.push('Meta');
-    if (key) parts.push(key.length === 1 ? key.toUpperCase() : key);
-    return parts.join('+');
+  function normalizeShortcut(shortcut: string): string {
+    return shortcut.replace(/\s+/g, '').toLowerCase();
   }
 
-  function handleKeydown(event: KeyboardEvent): void {
-    if (editingIndex === null) return;
-    event.preventDefault();
-    if (event.key === 'Escape') {
-      editingIndex = null;
-      captureKey = '';
-      captureModifiers = { ctrl: false, shift: false, alt: false, meta: false };
-      return;
+  $: conflictIndexes = (() => {
+    const byShortcut = new Map<string, number[]>();
+    $settings.hotkeys.forEach((hotkey, index) => {
+      const key = normalizeShortcut(hotkey.shortcut);
+      if (!key) return;
+      const indexes = byShortcut.get(key) ?? [];
+      indexes.push(index);
+      byShortcut.set(key, indexes);
+    });
+
+    const conflicts = new Set<number>();
+    for (const indexes of byShortcut.values()) {
+      if (indexes.length > 1) indexes.forEach((index) => conflicts.add(index));
     }
-    if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return;
-
-    captureKey = event.key;
-    captureModifiers = { ctrl: event.ctrlKey, shift: event.shiftKey, alt: event.altKey, meta: event.metaKey };
-    const shortcut = formatShortcut(captureModifiers, captureKey);
-    updateHotkey(editingIndex, shortcut);
-    editingIndex = null;
-    captureKey = '';
-    captureModifiers = { ctrl: false, shift: false, alt: false, meta: false };
-  }
-
-  function startEdit(index: number): void {
-    editingIndex = index;
-    captureKey = '';
-    captureModifiers = { ctrl: false, shift: false, alt: false, meta: false };
-  }
-
-  function handleGlobalKeydown(event: KeyboardEvent): void {
-    if (editingIndex !== null) {
-      handleKeydown(event);
-    }
-  }
-
-  let cleanup: (() => void) | null = null;
-
-  $: {
-    if (editingIndex !== null && !cleanup) {
-      document.addEventListener('keydown', handleGlobalKeydown, true);
-      cleanup = () => document.removeEventListener('keydown', handleGlobalKeydown, true);
-    } else if (editingIndex === null && cleanup) {
-      cleanup();
-      cleanup = null;
-    }
-  }
+    return conflicts;
+  })();
 </script>
 
 <div class="flex flex-col gap-9 pb-4">
-  <Section title="Hotkeys">
-    <div class="overflow-x-auto">
-      <table class="w-full text-left" role="grid">
-        <thead>
-          <tr class="border-b border-vlc-border">
-            <th class="pb-2 text-[13px] font-medium text-vlc-secondary">Action</th>
-            <th class="pb-2 text-[13px] font-medium text-vlc-secondary w-[200px]">Shortcut</th>
-            <th class="pb-2 text-[13px] font-medium text-vlc-secondary w-12"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each $settings.hotkeys as hotkey, index (hotkey.action)}
-            <tr class="border-b border-vlc-border/50 last:border-b-0">
-              <td class="py-2.5 text-[13px] text-vlc-text">{hotkey.action}</td>
-              <td class="py-2.5">
-                {#if editingIndex === index}
-                  <div class="flex items-center gap-2">
-                    <kbd class="px-3 py-1.5 rounded-[6px] bg-vlc-orange/20 border border-vlc-orange/50 text-vlc-orange text-[12px] font-mono min-w-[160px] text-center animate-pulse">
-                      Press key combination...
-                    </kbd>
-                    <button
-                      type="button"
-                      class="h-8 w-8 rounded-[6px] bg-vlc-raised text-vlc-dim hover:bg-vlc-orange/20 hover:text-vlc-orange transition-colors"
-                      aria-label="Cancel"
-                      on:click={() => (editingIndex = null)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                {:else}
-                  <button
-                    type="button"
-                    class="flex items-center justify-center w-full h-9 px-3 rounded-[6px] bg-vlc-card border border-vlc-border text-[12px] font-mono text-vlc-text transition-colors hover:border-vlc-orange/50 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
-                    on:click={() => startEdit(index)}
-                  >
-                    {hotkey.shortcut || '—'}
-                  </button>
-                {/if}
-              </td>
-              <td class="py-2.5 text-center">
-                {#if editingIndex !== index}
-                  <button
-                    type="button"
-                    class="h-8 w-8 rounded-[6px] bg-transparent text-vlc-dim hover:text-vlc-text hover:bg-vlc-raised transition-colors"
-                    aria-label="Edit shortcut"
-                    on:click={() => startEdit(index)}
-                  >
-                    ✎
-                  </button>
-                {/if}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+  <section
+    class="flex flex-col gap-4 rounded-[12px] border border-vlc-border bg-vlc-card p-5 sm:flex-row sm:items-center"
+    aria-labelledby="keyboard-shortcuts-card-title"
+  >
+    <div
+      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-vlc-orange/15 text-vlc-orangeText"
+      aria-hidden="true"
+    >
+      <Keyboard size={21} strokeWidth={1.7} />
     </div>
-    <div class="flex justify-end gap-3 mt-4">
+
+    <div class="min-w-0 flex-1">
+      <h2 id="keyboard-shortcuts-card-title" class="text-[15px] font-medium text-vlc-text">
+        Keyboard Shortcuts
+      </h2>
+      <p class="mt-1 max-w-[460px] text-[12px] leading-5 text-vlc-muted">
+        Record, search, and reset shortcuts in a dedicated window. Changes apply immediately.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-vlc-orange px-4 text-[13px] font-medium text-vlc-app transition-colors hover:bg-vlc-orangeDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-card"
+      on:click={() => dispatch('openHotkeys')}
+    >
+      Open Keyboard Shortcuts
+      <ExternalLink size={14} strokeWidth={2} aria-hidden="true" />
+    </button>
+  </section>
+
+  <Section title="Current shortcuts">
+    <p class="mb-3 text-[12px] leading-5 text-vlc-muted">
+      This is a read-only summary. Use the window above to change a shortcut.
+    </p>
+
+    <div class="overflow-hidden rounded-[10px] border border-vlc-border">
+      <div class="max-h-[360px] overflow-y-auto">
+        <table class="w-full text-left" aria-label="Current keyboard shortcuts">
+          <thead class="sticky top-0 bg-vlc-card">
+            <tr class="border-b border-vlc-border">
+              <th scope="col" class="px-3 py-2 text-[12px] font-medium text-vlc-secondary">Action</th>
+              <th scope="col" class="w-[190px] px-3 py-2 text-[12px] font-medium text-vlc-secondary">
+                Shortcut
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each $settings.hotkeys as hotkey, index (index)}
+              {@const conflict = conflictIndexes.has(index)}
+              <tr class="border-b border-vlc-border/60 last:border-b-0">
+                <td class="px-3 py-2 text-[13px] text-vlc-text">{hotkey.action}</td>
+                <td class="px-3 py-2">
+                  <span class="flex items-center gap-2">
+                    <kbd
+                      class="inline-flex h-7 min-w-[86px] items-center justify-center rounded-[5px] border border-vlc-border bg-vlc-raised px-2 font-mono text-[11px] text-vlc-secondary"
+                    >
+                      {hotkey.shortcut || 'Unassigned'}
+                    </kbd>
+                    {#if conflict}
+                      <span
+                        class="inline-flex items-center gap-1 rounded-full bg-vlc-orange/15 px-1.5 py-0.5 text-[10px] text-vlc-orangeText"
+                        title="This shortcut is used by more than one action"
+                      >
+                        <AlertTriangle size={11} strokeWidth={2} aria-hidden="true" />
+                        Conflict
+                      </span>
+                    {/if}
+                  </span>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {#if $settings.hotkeys.length === 0}
+      <p class="py-6 text-center text-[13px] text-vlc-muted">No shortcuts are configured.</p>
+    {/if}
+
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <p class="text-[12px] text-vlc-muted">
+        {$settings.hotkeys.length} actions · Shortcuts apply immediately
+      </p>
       <button
         type="button"
-        class="h-9 px-4 rounded-[8px] bg-vlc-raised border border-vlc-border text-[13px] text-vlc-secondary transition-colors hover:border-vlc-orange/50 hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+        class="h-9 rounded-[8px] border border-vlc-border bg-vlc-raised px-4 text-[13px] text-vlc-secondary transition-colors hover:border-vlc-orange/50 hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
         on:click={resetHotkeysToDefault}
       >
         Reset to defaults

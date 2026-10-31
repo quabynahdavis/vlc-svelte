@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CircleHelp } from 'lucide-svelte';
+  import InfoTip from './InfoTip.svelte';
 
   export let label = '';
   export let info = false;
@@ -11,10 +11,8 @@
     <span class="truncate text-[14px] leading-5 text-vlc-secondary">
       <slot name="label">{label}</slot>
     </span>
-    {#if info}
-      <span class="shrink-0 text-vlc-muted" title={hint} aria-label={hint}>
-        <CircleHelp size={14} strokeWidth={1.7} />
-      </span>
+    {#if info && hint}
+      <InfoTip text={hint} label={`About ${label || 'this setting'}`} />
     {/if}
   </div>
   <div class="flex shrink-0 items-center justify-end gap-3">
