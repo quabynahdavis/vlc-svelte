@@ -91,7 +91,7 @@
 
 ## Settings and personalisation
 
-- **10+ settings categories**, grouped as App, Media and System.
+- **Sixteen settings categories**, grouped as App, Media and System.
 - A **separate hotkeys window** rather than a table buried in a settings pane.
 - **Human-readable subtitle matching** rules (language, title, forced/default) instead of numeric track ids.
 - **Info icons** with short explanations next to non-obvious settings.
@@ -145,6 +145,14 @@ This section separates what exists in `src/` from the target above.
 | Network | Saved streams with add, edit, play and remove flows, persisted under `vlc.network.streams.v1`; the saved list replaces the redundant Custom URL category. |
 | Settings | Sixteen categories including Layout and Profiles, a separate hotkeys window, info tips, human-readable subtitle matching and JSON export/import. |
 | Profiles | Named settings profiles can be saved, applied and deleted. |
+
+### Completed — partial features finished
+
+| Area | State |
+| --- | --- |
+| Ctrl+B bookmark | `Ctrl + B` now creates a bookmark at the current playback position and shows a transient confirmation HUD; the Bookmarks panel remains in the right dock. |
+| Subtitle add flow | The add action opens a three-option dialog: **this file**, **this folder**, **this playlist**. Folder and playlist modes run filename matching (extension and episode markers stripped, stems compared) and present the matched pairs for manual accept/reject, with a "save for future episodes" toggle that calls `rememberShowDefaults`. |
+| Per-show subtitle presets | Show presets bundle delay, formatting, default subtitle track and default subtitle language. They are listed in the Subtitles dock, applied in one click, saved from the current look, and **auto-applied** when an episode of a known show starts. |
 
 ### Planned — not implemented
 

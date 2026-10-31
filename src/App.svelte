@@ -3,6 +3,7 @@
   import { tick } from 'svelte';
   import AddToPlaylistDialog from './components/AddToPlaylistDialog.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
+  import SubtitleAddDialog from './components/SubtitleAddDialog.svelte';
   import IconRail from './components/IconRail.svelte';
   import PropertyPanel, {
     compressorPreset,
@@ -18,6 +19,7 @@
   import { applyWindowDecorations } from './lib/windowChrome';
   import {
     clearQueue,
+    currentTrack,
     next as nextTrack,
     player,
     prev as prevTrack,
@@ -38,6 +40,7 @@
     openDock,
     propertiesPanel,
   } from './stores/ui';
+  import { openSubtitleAdd } from './stores/subtitleAdd';
   import LibraryView from './views/LibraryView.svelte';
   import PlayerView from './views/PlayerView.svelte';
   import MusicView from './views/MusicView.svelte';
@@ -216,6 +219,8 @@
         openDock('audio');
         break;
       case 'subtitle-add-file':
+        openSubtitleAdd('file', get(currentTrack), null);
+        break;
       case 'subtitle-track':
       case 'subtitle-delay':
         openDock('subtitles');
@@ -347,6 +352,8 @@
   />
 
   <AddToPlaylistDialog />
+
+  <SubtitleAddDialog />
 
   {#if showHotkeys}
     <HotkeysWindow returnFocus={hotkeysOpener} onClose={closeHotkeys} />

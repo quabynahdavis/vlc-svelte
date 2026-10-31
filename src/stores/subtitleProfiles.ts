@@ -53,10 +53,21 @@ export interface ShowSubtitleDefaults {
   updatedAt: number;
 }
 
+export interface ShowSubtitlePreset {
+  showKey: string;
+  name: string;
+  profile: SubtitleProfileSnapshot;
+  defaultTrack: string;
+  defaultLanguage: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface SubtitleProfilesState {
   formatting: SubtitleFormatting;
   customPresets: SubtitlePreset[];
   shows: Record<string, ShowSubtitleDefaults>;
+  showPresets: Record<string, ShowSubtitlePreset[]>;
 }
 
 /** Bump the version suffix when the persisted shape changes. */
@@ -105,6 +116,8 @@ const MAX_SHOWS = 100;
 const MAX_SHOW_KEY_LENGTH = 120;
 const MAX_TRACK_LENGTH = 120;
 const MAX_LANGUAGE_LENGTH = 40;
+const MAX_SHOW_PRESET_NAME_LENGTH = 40;
+const MAX_SHOW_PRESETS_PER_SHOW = 20;
 const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const BUILTIN_PRESET_IDS = new Set(['builtin:default', 'builtin:large', 'builtin:cinema']);
@@ -409,11 +422,62 @@ function sanitizeShows(value: unknown): Record<string, ShowSubtitleDefaults> {
   return shows;
 }
 
+function sanitizeShowPresets(value: unknown): Record<string, ShowSubtitlePreset[]> {
+  const presets: Record<string, ShowSubtitlePreset[]> = {};
+  if (!isRecord(value)) return presets;
+
+  for (const [rawKey, candidate] of Object.entries(value)) {
+    const key = sanitizeShowKey(rawKey);
+    if (!key || !Array.isArray(candidate)) continue;
+    if (Object.prototype.hasOwnProperty.call(presets, key)) continue;
+
+    const showPresets: ShowSubtitlePreset[] = [];
+    const names = new Set<string>();
+
+    for (const preset of candidate) {
+      if (!isRecord(preset)) continue;
+
+      const name = sanitizeText(preset.name, MAX_SHOW_PRESET_NAME_LENGTH);
+      if (!name) continue;
+
+      const nameKey = name.toLocaleLowerCase();
+      if (names.has(nameKey)) continue;
+      names.add(nameKey);
+
+      const now = Date.now();
+      showPresets.push({
+        showKey: sanitizeShowKey(typeof preset.showKey === 'string' ? preset.showKey : key) || key,
+        name,
+        profile: sanitizeSubtitleProfile(preset.profile),
+        defaultTrack: sanitizeText(preset.defaultTrack, MAX_TRACK_LENGTH),
+        defaultLanguage: sanitizeText(preset.defaultLanguage, MAX_LANGUAGE_LENGTH),
+        createdAt:
+          typeof preset.createdAt === 'number' && Number.isFinite(preset.createdAt)
+            ? preset.createdAt
+            : now,
+        updatedAt:
+          typeof preset.updatedAt === 'number' && Number.isFinite(preset.updatedAt)
+            ? preset.updatedAt
+            : now,
+      });
+
+      if (showPresets.length >= MAX_SHOW_PRESETS_PER_SHOW) break;
+    }
+
+    if (showPresets.length > 0) {
+      presets[key] = showPresets;
+    }
+  }
+
+  return presets;
+}
+
 function createDefaultState(): SubtitleProfilesState {
   return {
     formatting: defaultFormatting(),
     customPresets: [],
     shows: {},
+    showPresets: {},
   };
 }
 
@@ -430,6 +494,7 @@ function sanitizeState(value: unknown): SubtitleProfilesState {
       : [];
   state.customPresets = sanitizeCustomPresets(presetSource);
   state.shows = sanitizeShows(value.shows);
+  state.showPresets = sanitizeShowPresets(value.showPresets);
 
   return state;
 }
@@ -477,6 +542,7 @@ function persistState(state: SubtitleProfilesState): void {
         formatting: state.formatting,
         presets: state.customPresets,
         shows: state.shows,
+        showPresets: state.showPresets,
       }),
     );
   } catch {
@@ -638,3 +704,116 @@ export function forgetShowDefaults(showKey: string): boolean {
   commit({ ...current, shows });
   return true;
 }
+
+/**
+ * List all show presets for a given show key.
+ */
+export function listShowPresets(showKey: string): ShowSubtitlePreset[] {
+  const key = sanitizeShowKey(showKey);
+  if (!key) return [];
+
+  const state = get(subtitleProfiles);
+  return [...(state.showPresets[key] ?? [])].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/**
+ * Save a per-show preset. Creates or updates a preset by name for the given show.
+ */
+export function saveShowPreset(showKey: string, name: string, payload: {
+  profile: SubtitleProfileSnapshot;
+  defaultTrack: string;
+  defaultLanguage: string;
+}): ShowSubtitlePreset | null {
+  const key = sanitizeShowKey(showKey);
+  if (!key) return null;
+
+  const trimmed = name.trim().slice(0, MAX_SHOW_PRESET_NAME_LENGTH).trim();
+  if (!trimmed) return null;
+
+  const current = get(subtitleProfiles);
+  const presets = [...(current.showPresets[key] ?? [])];
+  const now = Date.now();
+  const nameKey = trimmed.toLocaleLowerCase();
+
+  const existingIndex = presets.findIndex(
+    (p) => p.name.toLocaleLowerCase() === nameKey
+  );
+
+  let saved: ShowSubtitlePreset;
+  if (existingIndex >= 0) {
+    saved = {
+      ...presets[existingIndex],
+      name: trimmed,
+      profile: sanitizeSubtitleProfile(payload.profile),
+      defaultTrack: sanitizeText(payload.defaultTrack, MAX_TRACK_LENGTH),
+      defaultLanguage: sanitizeText(payload.defaultLanguage, MAX_LANGUAGE_LENGTH),
+      updatedAt: now,
+    };
+    presets[existingIndex] = saved;
+  } else {
+    saved = {
+      showKey: key,
+      name: trimmed,
+      profile: sanitizeSubtitleProfile(payload.profile),
+      defaultTrack: sanitizeText(payload.defaultTrack, MAX_TRACK_LENGTH),
+      defaultLanguage: sanitizeText(payload.defaultLanguage, MAX_LANGUAGE_LENGTH),
+      createdAt: now,
+      updatedAt: now,
+    };
+    presets.push(saved);
+  }
+
+  const showPresets = {
+    ...current.showPresets,
+    [key]: presets.slice(0, MAX_SHOW_PRESETS_PER_SHOW),
+  };
+
+  commit({ ...current, showPresets });
+  return saved;
+}
+
+/**
+ * Delete a specific show preset by name.
+ */
+export function deleteShowPreset(showKey: string, presetName: string): boolean {
+  const key = sanitizeShowKey(showKey);
+  if (!key) return false;
+
+  const current = get(subtitleProfiles);
+  const presets = current.showPresets[key];
+  if (!presets || presets.length === 0) return false;
+
+  const nameKey = presetName.trim().toLocaleLowerCase();
+  const filtered = presets.filter((p) => p.name.toLocaleLowerCase() !== nameKey);
+
+  if (filtered.length === presets.length) return false;
+
+  const showPresets = { ...current.showPresets };
+  if (filtered.length === 0) {
+    delete showPresets[key];
+  } else {
+    showPresets[key] = filtered;
+  }
+
+  commit({ ...current, showPresets });
+  return true;
+}
+
+/**
+ * Apply a show preset by name, returning the applied preset.
+ */
+export function applyShowPreset(showKey: string, presetName: string): ShowSubtitlePreset | null {
+  const key = sanitizeShowKey(showKey);
+  if (!key) return null;
+
+  const state = get(subtitleProfiles);
+  const presets = state.showPresets[key];
+  if (!presets) return null;
+
+  const nameKey = presetName.trim().toLocaleLowerCase();
+  const preset = presets.find((p) => p.name.toLocaleLowerCase() === nameKey);
+  if (!preset) return null;
+
+  return preset;
+}
+

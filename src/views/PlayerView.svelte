@@ -15,6 +15,7 @@
     wheelNotches,
   } from '../lib/gestures';
   import { currentTrack, next, player, setVolume, toggle } from '../stores/player';
+import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
 
   const dispatch = createEventDispatcher<{ settings: void; advancedSettings: string }>();
@@ -46,10 +47,14 @@
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
   /** Pending volume-HUD hide timer. */
   let volumeHudTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Pending bookmark-HUD hide timer. */
+  let bookmarkHudTimer: ReturnType<typeof setTimeout> | null = null;
   /** Fractional wheel notches carried across trackpad events. */
   let wheelRemainder = 0;
   let volumeHudVisible = false;
   let volumeHudVolume = 0;
+  let bookmarkHudVisible = false;
+  let bookmarkHudMessage = '';
 
   /** Key of the source currently applied to the element. */
   let syncedMediaKey = '';
@@ -403,7 +408,15 @@
     scheduleChromeHide();
   }
 
-  function handleGlobalKeydown(): void {
+  function handleGlobalKeydown(event: KeyboardEvent): void {
+    // Ctrl+B: add bookmark at current position (works in any mode)
+    if (event.ctrlKey && (event.key === 'b' || event.key === 'B')) {
+      event.preventDefault();
+      handleAddBookmark();
+      return;
+    }
+
+    // Fullscreen chrome handling (only when in fullscreen)
     if (!isFullscreen) return;
     showChrome();
   }
@@ -497,6 +510,33 @@
     }, VOLUME_HUD_DURATION_MS);
   }
 
+  function showBookmarkHud(message: string): void {
+    bookmarkHudMessage = message;
+    bookmarkHudVisible = true;
+
+    if (bookmarkHudTimer) clearTimeout(bookmarkHudTimer);
+    bookmarkHudTimer = setTimeout(() => {
+      bookmarkHudTimer = null;
+      bookmarkHudVisible = false;
+    }, VOLUME_HUD_DURATION_MS);
+  }
+
+  function handleAddBookmark(): void {
+    const track = get(currentTrack);
+    const key = mediaKeyFor(track);
+    const time = get(player).currentTime;
+    const duration = get(player).duration;
+
+    if (!key || !Number.isFinite(time) || time < 0 || !Number.isFinite(duration) || duration <= 0) {
+      return;
+    }
+
+    const bookmark = addBookmark(key, time, '');
+    if (bookmark) {
+      showBookmarkHud(`Bookmark added at ${formatTimestamp(time)}`);
+    }
+  }
+
   function handleStageWheel(event: WheelEvent): void {
     // Let the right dock and the compact library scroll normally instead of
     // hijacking their wheel events for volume.
@@ -544,6 +584,11 @@
     if (volumeHudTimer) {
       clearTimeout(volumeHudTimer);
       volumeHudTimer = null;
+    }
+
+    if (bookmarkHudTimer) {
+      clearTimeout(bookmarkHudTimer);
+      bookmarkHudTimer = null;
     }
   });
 </script>
@@ -737,6 +782,19 @@
             class="block h-full rounded-full bg-vlc-orange transition-[width] duration-150"
             style={`width: ${volumeHudVolume}%`}
           ></span>
+        </span>
+      </div>
+
+      <div
+        class="bookmark-hud pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/10 bg-black/80 px-3.5 py-2 shadow-lg backdrop-blur-sm transition-opacity duration-200"
+        style:opacity={bookmarkHudVisible ? 1 : 0}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-hidden={!bookmarkHudVisible}
+      >
+        <span class="font-mono text-xs tabular-nums text-white">
+          {bookmarkHudMessage}
         </span>
       </div>
 

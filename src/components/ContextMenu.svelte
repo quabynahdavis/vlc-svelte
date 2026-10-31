@@ -178,6 +178,7 @@
       icon: Captions,
       tone: 'neutral',
       children: [
+        { id: 'subtitle-add-file', label: 'Add Subtitle File' },
         { id: 'subtitle-track', label: 'Subtitle Track' },
         { id: 'subtitle-delay', label: 'Subtitle Delay' },
       ],

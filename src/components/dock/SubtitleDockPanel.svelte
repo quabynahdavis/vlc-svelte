@@ -3,15 +3,20 @@
   import { Bookmark, ChevronDown, Settings as SettingsIcon, Trash2 } from 'lucide-svelte';
   import { currentTrack } from '../../stores/player';
   import { settings } from '../../stores/settings';
+  import { openSubtitleAdd } from '../../stores/subtitleAdd';
   import {
     BUILTIN_SUBTITLE_PRESETS,
     SUBTITLE_FONTS,
     SUBTITLE_VERTICAL_POSITION_OPTIONS,
+    applyShowPreset,
     deleteCustomPreset,
+    deleteShowPreset,
     findShowDefaults,
     hasPersistedSubtitleFormatting,
+    listShowPresets,
     rememberShowDefaults,
     saveCustomPreset,
+    saveShowPreset,
     showKeyFromTitle,
     snapSubtitleDelay,
     subtitleProfiles,
@@ -29,8 +34,10 @@
   let embeddedSubFormat = $settings.embeddedSubFormat;
   let presetOpen = $settings.subtitlePresetOpen;
   let presetName = '';
+  let showPresetName = '';
   let statusMessage = '';
   let statusTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastAppliedShowKey = '';
 
   $: delayValue = clamp(numericValue($settings.subtitleDelay), -10, 10);
   $: speedValue = clamp(numericValue($settings.subtitleSpeed), 1, 2);
@@ -41,6 +48,8 @@
   $: sizeSuffix = formatting.sizeMode === 'relative' ? '%' : 'px';
   $: showKey = showKeyFromTitle($currentTrack?.title);
   $: savedShowDefaults = findShowDefaults($subtitleProfiles, showKey);
+  $: showPresets = listShowPresets(showKey);
+  $: currentProfileSnapshot = { formatting: { ...formatting }, delay: delayValue };  // reactive
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -183,6 +192,54 @@
     }
   }
 
+  function applyShowPresetByName(presetName: string): void {
+    const preset = applyShowPreset(showKey, presetName);
+    if (!preset) return;
+
+    const nextFormatting = updateFormatting(preset.profile.formatting);
+    const nextDelay = snapSubtitleDelay(preset.profile.delay);
+
+    settings.update((state) => ({
+      ...state,
+      subtitleTrack: preset.defaultTrack || state.subtitleTrack,
+      subtitleLanguage: preset.defaultLanguage || state.subtitleLanguage,
+      subtitleDelay: `${nextDelay.toFixed(3)} s`,
+      subtitleFont: nextFormatting.font,
+      subtitleTextColor: nextFormatting.textColor,
+      subtitleOutlineColor: nextFormatting.outlineColor,
+    }));
+
+    announce(`Applied show preset '${preset.name}'.`);
+  }
+
+  function deleteShowPresetByName(presetName: string): void {
+    if (deleteShowPreset(showKey, presetName)) {
+      announce(`Deleted show preset "${presetName}".`);
+    }
+  }
+
+  function saveShowPresetForCurrent(): void {
+    if (!showKey) {
+      announce('Load media to save a show preset.');
+      return;
+    }
+
+    const name = showPresetName.trim() || showKey;
+    const saved = saveShowPreset(showKey, name, {
+      profile: currentProfileSnapshot,
+      defaultTrack: $settings.subtitleTrack,
+      defaultLanguage: $settings.subtitleLanguage,
+    });
+
+    if (!saved) {
+      announce('Could not save show preset.');
+      return;
+    }
+
+    showPresetName = '';
+    announce(`Saved show preset "${saved.name}".`);
+  }
+
   function rememberShow(): void {
     if (!$currentTrack) return;
 
@@ -227,6 +284,33 @@
     }
   });
 
+  $: if ($currentTrack && showKey && showKey !== lastAppliedShowKey) {
+    const presets = listShowPresets(showKey);
+    if (presets.length > 0) {
+      const preset = presets[0];
+      const applied = applyShowPreset(showKey, preset.name);
+      if (applied) {
+        const nextFormatting = updateFormatting(applied.profile.formatting);
+        const nextDelay = snapSubtitleDelay(applied.profile.delay);
+
+        settings.update((state) => ({
+          ...state,
+          subtitleTrack: applied.defaultTrack || state.subtitleTrack,
+          subtitleLanguage: applied.defaultLanguage || state.subtitleLanguage,
+          subtitleDelay: `${nextDelay.toFixed(3)} s`,
+          subtitleFont: nextFormatting.font,
+          subtitleTextColor: nextFormatting.textColor,
+          subtitleOutlineColor: nextFormatting.outlineColor,
+        }));
+
+        announce(`Applied show preset '${applied.name}'`);
+        lastAppliedShowKey = showKey;
+      }
+    } else {
+      lastAppliedShowKey = showKey;
+    }
+  }
+
   onDestroy(() => {
     if (statusTimer !== null) clearTimeout(statusTimer);
   });
@@ -260,6 +344,17 @@
         </div>
       </section>
     {/if}
+
+    <section class="px-4 py-3">
+      <button
+        type="button"
+        class="flex h-9 w-full items-center justify-center gap-2 rounded-[6px] border border-vlc-border/70 bg-vlc-app px-3 text-[12px] text-vlc-secondary transition-colors hover:border-vlc-orange/50 hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50 disabled:cursor-not-allowed disabled:opacity-45"
+        disabled={!$currentTrack}
+        on:click={() => openSubtitleAdd('file', $currentTrack)}
+      >
+        Add subtitles
+      </button>
+    </section>
 
     <section class="px-4 py-4">
       <h3 class="text-[15px] leading-5 text-vlc-text">Defaults</h3>
@@ -633,6 +728,75 @@
           <p class="text-[11px] leading-4 text-vlc-muted">
             Presets include formatting and delay. Built-in presets cannot be deleted.
           </p>
+
+          <div>
+            <p class="text-[11px] font-medium uppercase tracking-[0.08em] text-vlc-muted">
+              Show presets
+            </p>
+
+            {#if showPresets.length === 0}
+              <p
+                class="mt-2 rounded-[6px] border border-dashed border-vlc-border/70 px-2.5 py-3 text-center text-[11px] leading-4 text-vlc-muted"
+              >
+                No presets for this show yet. Save the current settings below.
+              </p>
+            {:else}
+              <ul class="mt-2 space-y-1">
+                {#each showPresets as preset (preset.name)}
+                  <li
+                    class="flex items-center gap-1 rounded-[6px] border border-vlc-border/60 bg-vlc-app/60 pl-2.5"
+                  >
+                    <button
+                      type="button"
+                      class="flex min-w-0 flex-1 items-center justify-between gap-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+                      aria-label={`Apply show preset ${preset.name}`}
+                      on:click={() => applyShowPresetByName(preset.name)}
+                    >
+                      <span class="truncate text-[12px] text-vlc-secondary">{preset.name}</span>
+                      <span class="shrink-0 text-[10px] tabular-nums text-vlc-muted">
+                        {preset.profile.delay > 0 ? '+' : ''}{preset.profile.delay.toFixed(3)} s
+                        {preset.defaultTrack || preset.defaultLanguage ? ' • ' : ''}
+                        {preset.defaultTrack || ''}
+                        {preset.defaultLanguage ? ` / ${preset.defaultLanguage}` : ''}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[5px] text-vlc-muted transition-colors hover:bg-vlc-danger/10 hover:text-vlc-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+                      aria-label={`Delete show preset ${preset.name}`}
+                      title={`Delete show preset ${preset.name}`}
+                      on:click={() => deleteShowPresetByName(preset.name)}
+                    >
+                      <Trash2 size={13} strokeWidth={1.7} aria-hidden="true" />
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+
+            <form class="mt-3 flex items-center gap-1.5" on:submit|preventDefault={saveShowPresetForCurrent}>
+              <input
+                type="text"
+                bind:value={showPresetName}
+                maxlength={40}
+                placeholder={`Preset name • ${showKey}`}
+                aria-label="New show preset name"
+                class="h-8 min-w-0 flex-1 rounded-[6px] border border-vlc-border/70 bg-vlc-app px-2.5 text-[12px] text-vlc-secondary outline-none transition-colors placeholder:text-vlc-muted focus:border-vlc-orange/60 focus-visible:ring-2 focus-visible:ring-vlc-orange/40"
+              />
+              <button
+                type="submit"
+                disabled={!$currentTrack}
+                class="h-8 shrink-0 rounded-[6px] border border-vlc-border/70 bg-vlc-raised px-3 text-[11px] font-medium text-vlc-secondary transition-colors hover:border-vlc-orange/50 hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                Save show preset
+              </button>
+            </form>
+
+            <p class="mt-2 text-[11px] leading-4 text-vlc-muted">
+              Show presets bundle delay, formatting, default track and language for a specific show.
+              They auto-apply when you open an episode.
+            </p>
+          </div>
         </div>
       </Accordion>
 
