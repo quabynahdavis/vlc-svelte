@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import { Library, Minimize, PictureInPicture, Volume2, VolumeX } from 'lucide-svelte';
+  import { ChevronLeft, ChevronRight, Library, Minimize, PictureInPicture, Volume2, VolumeX } from 'lucide-svelte';
   import CompactLibraryOverlay from '../components/CompactLibraryOverlay.svelte';
   import RightDock from '../components/RightDock.svelte';
   import TransportBar from '../components/TransportBar.svelte';
@@ -13,6 +13,7 @@
     toggleFullscreen,
     wheelNotches,
   } from '../lib/gestures';
+  import { handleHorizontalWheel, scrollRailBy } from '../lib/horizontalScroll';
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
   import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
@@ -32,6 +33,9 @@
   let topBarEl: HTMLDivElement | null = null;
   let transportEl: HTMLDivElement | null = null;
   let libraryTriggerEl: HTMLButtonElement | null = null;
+  let videoRailEl: HTMLDivElement | null = null;
+  let musicRailEl: HTMLDivElement | null = null;
+  let streamRailEl: HTMLDivElement | null = null;
   let showLibrary = false;
   let buffered = 0;
 
@@ -579,11 +583,11 @@
   }
 
   function handleStageWheel(event: WheelEvent): void {
-    // Let the right dock and the compact library scroll normally instead of
-    // hijacking their wheel events for volume.
+    // Let the right dock, the compact library and horizontal rails scroll
+    // normally instead of hijacking their wheel events for volume.
     if (
       event.target instanceof Element &&
-      event.target.closest('[data-right-dock], [data-compact-library]')
+      event.target.closest('[data-right-dock], [data-compact-library], [data-hscroll]')
     ) {
       return;
     }
@@ -766,9 +770,31 @@
             <section class="w-full max-w-5xl">
               <div class="flex items-center justify-between mb-3">
                 <h2 class="text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue watching</h2>
-                <p class="text-[10px] text-vlc-muted hidden lg:block">Shift + scroll or drag to scroll</p>
+                <div class="flex items-center gap-2">
+                  <p class="text-[10px] text-vlc-muted hidden lg:block">Scroll or use arrows</p>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 items-center justify-center rounded-control border border-vlc-border bg-vlc-panel text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+                      title="Scroll continue watching left"
+                      aria-label="Scroll continue watching left"
+                      on:click={() => scrollRailBy(videoRailEl, -1)}
+                    >
+                      <ChevronLeft size={16} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 items-center justify-center rounded-control border border-vlc-border bg-vlc-panel text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+                      title="Scroll continue watching right"
+                      aria-label="Scroll continue watching right"
+                      on:click={() => scrollRailBy(videoRailEl, 1)}
+                    >
+                      <ChevronRight size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue watching">
+              <div bind:this={videoRailEl} data-hscroll on:wheel|nonpassive={handleHorizontalWheel} class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue watching">
                 {#each continueVideoItems as item}
                   <button class="min-w-[180px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
                     if (item.src) {
@@ -795,9 +821,31 @@
             <section class="w-full max-w-5xl">
               <div class="flex items-center justify-between mb-3">
                 <h2 class="text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue playing</h2>
-                <p class="text-[10px] text-vlc-muted hidden lg:block">Shift + scroll or drag to scroll</p>
+                <div class="flex items-center gap-2">
+                  <p class="text-[10px] text-vlc-muted hidden lg:block">Scroll or use arrows</p>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 items-center justify-center rounded-control border border-vlc-border bg-vlc-panel text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+                      title="Scroll continue playing left"
+                      aria-label="Scroll continue playing left"
+                      on:click={() => scrollRailBy(musicRailEl, -1)}
+                    >
+                      <ChevronLeft size={16} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 items-center justify-center rounded-control border border-vlc-border bg-vlc-panel text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+                      title="Scroll continue playing right"
+                      aria-label="Scroll continue playing right"
+                      on:click={() => scrollRailBy(musicRailEl, 1)}
+                    >
+                      <ChevronRight size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue playing">
+              <div bind:this={musicRailEl} data-hscroll on:wheel|nonpassive={handleHorizontalWheel} class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue playing">
                 {#each continueMusicItems as item}
                   <button class="min-w-[140px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
                     if (item.src) {
@@ -822,9 +870,31 @@
             <section class="w-full max-w-5xl">
               <div class="flex items-center justify-between mb-3">
                 <h2 class="text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue streaming</h2>
-                <p class="text-[10px] text-vlc-muted hidden lg:block">Shift + scroll or drag to scroll</p>
+                <div class="flex items-center gap-2">
+                  <p class="text-[10px] text-vlc-muted hidden lg:block">Scroll or use arrows</p>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 items-center justify-center rounded-control border border-vlc-border bg-vlc-panel text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+                      title="Scroll continue streaming left"
+                      aria-label="Scroll continue streaming left"
+                      on:click={() => scrollRailBy(streamRailEl, -1)}
+                    >
+                      <ChevronLeft size={16} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 items-center justify-center rounded-control border border-vlc-border bg-vlc-panel text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+                      title="Scroll continue streaming right"
+                      aria-label="Scroll continue streaming right"
+                      on:click={() => scrollRailBy(streamRailEl, 1)}
+                    >
+                      <ChevronRight size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue streaming">
+              <div bind:this={streamRailEl} data-hscroll on:wheel|nonpassive={handleHorizontalWheel} class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue streaming">
                 {#each continueStreamItems as item}
                   <button class="min-w-[180px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
                     if (item.src) {

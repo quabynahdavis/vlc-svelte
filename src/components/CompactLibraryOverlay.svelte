@@ -3,6 +3,7 @@
   import { ArrowDown, ArrowUp, ChevronRight, Eye, EyeOff, Play, Search, X } from 'lucide-svelte';
   import LibraryAddMenu from './LibraryAddMenu.svelte';
   import { startTrackDrag } from '../lib/dragTrack';
+  import { handleHorizontalWheel } from '../lib/horizontalScroll';
   import type { MediaItem } from '../lib/mock';
   import {
     breadcrumb,
@@ -192,7 +193,7 @@
 
     <div class="shrink-0 space-y-2 border-b border-vlc-border px-3 py-2.5">
       {#if $watchEntries.length > 0}
-        <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised">
+        <div data-hscroll on:wheel|nonpassive={handleHorizontalWheel} class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised">
           {#each $watchEntries.filter(e => e.type === 'video' && !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02).slice(0, 3) as item}
             <button class="min-w-[120px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-1.5 text-left hover:bg-vlc-raised" on:click={() => {
               if (item.src) {
