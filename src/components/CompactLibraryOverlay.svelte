@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { ArrowDown, ArrowUp, ChevronRight, Eye, EyeOff, Play, Search, X } from 'lucide-svelte';
+  import { ArrowDown, ArrowUp, ChevronRight, Eye, EyeOff, Film, Music, Play, Radio, Search, X } from 'lucide-svelte';
   import LibraryAddMenu from './LibraryAddMenu.svelte';
   import { startTrackDrag } from '../lib/dragTrack';
   import { handleHorizontalWheel } from '../lib/horizontalScroll';
@@ -48,6 +48,10 @@
   $: sortLabel = sortOptions.find((option) => option.key === $librarySortKey)?.label ?? 'Episode';
   $: emptyFilterLabel = $libraryWatchFilter === 'watched' ? 'watched' : 'unwatched';
   $: visibleCount = $sortedItems.length;
+  $: miniContinueItems = $watchEntries
+    .filter(e => !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
+    .sort((a, b) => b.lastWatchedAt - a.lastWatchedAt)
+    .slice(0, 3);
 
   $: if (open) {
     void focusSearch();
@@ -192,19 +196,28 @@
     </header>
 
     <div class="shrink-0 space-y-2 border-b border-vlc-border px-3 py-2.5">
-      {#if $watchEntries.length > 0}
+      {#if miniContinueItems.length > 0}
         <div data-hscroll on:wheel|nonpassive={handleHorizontalWheel} class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised">
-          {#each $watchEntries.filter(e => e.type === 'video' && !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02).slice(0, 3) as item}
+          {#each miniContinueItems as item}
             <button class="min-w-[120px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-1.5 text-left hover:bg-vlc-raised" on:click={() => {
               if (item.src) {
                 requestSeek(item.position);
-                setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
+                setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
               }
             }}>
-              <div class="aspect-video w-full overflow-hidden rounded bg-vlc-app">
+              <div class="relative aspect-video w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center">
                 {#if item.thumbnail}
                   <img src={item.thumbnail} alt="" class="h-full w-full object-cover" />
+                {:else if item.type === 'music'}
+                  <Music size={20} class="text-vlc-muted" aria-hidden="true" />
+                {:else if item.type === 'stream'}
+                  <Radio size={20} class="text-vlc-muted" aria-hidden="true" />
+                {:else}
+                  <Film size={20} class="text-vlc-muted" aria-hidden="true" />
                 {/if}
+                <span class="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-white/80">
+                  {item.type === 'music' ? 'Music' : item.type === 'stream' ? 'Stream' : 'Video'}
+                </span>
               </div>
               <p class="mt-1 truncate text-[10px] text-vlc-text">{item.title}</p>
               <div class="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-vlc-raised">
