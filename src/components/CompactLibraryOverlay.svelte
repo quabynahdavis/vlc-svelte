@@ -17,7 +17,7 @@
     type LibrarySortKey,
     type LibraryWatchFilter,
   } from '../stores/library';
-  import { player, setQueue, type Track } from '../stores/player';
+  import { player, requestSeek, setQueue, type Track } from '../stores/player';
   import { watchEntries } from '../stores/watch';
 
   export let open = false;
@@ -195,7 +195,10 @@
         <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised">
           {#each $watchEntries.filter(e => e.type === 'video' && !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02).slice(0, 3) as item}
             <button class="min-w-[120px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-1.5 text-left hover:bg-vlc-raised" on:click={() => {
-              if (item.src) setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
+              if (item.src) {
+                requestSeek(item.position);
+                setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
+              }
             }}>
               <div class="aspect-video w-full overflow-hidden rounded bg-vlc-app">
                 {#if item.thumbnail}

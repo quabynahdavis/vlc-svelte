@@ -13,10 +13,10 @@
     toggleFullscreen,
     wheelNotches,
   } from '../lib/gestures';
-  import { currentTrack, next, player, setQueue, setVolume, toggle } from '../stores/player';
-import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
+  import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
+  import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
-  import { getContinueByType, upsertWatch, type WatchEntry } from '../stores/watch';
+  import { watchEntries, upsertWatch } from '../stores/watch';
 
   const dispatch = createEventDispatcher<{ settings: void; advancedSettings: string }>();
 
@@ -67,7 +67,6 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}`;
   $: mediaTitle = $currentTrack?.title?.trim() || 'Kanea';
 
-  import { watchEntries } from '../stores/watch';
   $: continueVideoItems = $watchEntries
     .filter(e => e.type === 'video' && !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
     .sort((a, b) => b.lastWatchedAt - a.lastWatchedAt)
@@ -188,14 +187,20 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
     const mediaDuration =
       Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0;
 
+    const resumeAt = consumePendingSeek();
+    const targetTime =
+      resumeAt !== null && mediaDuration > 0
+        ? Math.min(Math.max(0, resumeAt), Math.max(0, mediaDuration - 1))
+        : 0;
+
     player.update((state) => ({
       ...state,
       duration: mediaDuration || state.duration,
-      currentTime: 0,
+      currentTime: targetTime,
     }));
 
     try {
-      el.currentTime = 0;
+      el.currentTime = targetTime;
     } catch {
       // Ignore: some platforms reject a seek until the first frame is decoded.
     }
@@ -767,6 +772,7 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
                 {#each continueVideoItems as item}
                   <button class="min-w-[180px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
                     if (item.src) {
+                      requestSeek(item.position);
                       setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
                     }
                   }}>
@@ -794,7 +800,10 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
               <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue playing">
                 {#each continueMusicItems as item}
                   <button class="min-w-[140px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
-                    if (item.src) setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
+                    if (item.src) {
+                      requestSeek(item.position);
+                      setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
+                    }
                   }}>
                     <div class="aspect-square w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center">
                       {#if item.thumbnail}
@@ -818,7 +827,10 @@ import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
               <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue streaming">
                 {#each continueStreamItems as item}
                   <button class="min-w-[180px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
-                    if (item.src) setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
+                    if (item.src) {
+                      requestSeek(item.position);
+                      setQueue([{ id: item.mediaKey, title: item.title, duration: item.duration, src: item.src }], 0);
+                    }
                   }}>
                     <div class="aspect-video w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center text-vlc-muted">
                       Stream

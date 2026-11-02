@@ -36,6 +36,22 @@ const initialState: PlayerState = {
 
 export const player = writable<PlayerState>(initialState);
 
+/** One-shot seek applied after the next media load (used by Continue cards). */
+export const pendingSeek = writable<number | null>(null);
+
+export function requestSeek(position: number): void {
+  pendingSeek.set(Number.isFinite(position) && position > 0 ? position : null);
+}
+
+export function consumePendingSeek(): number | null {
+  let value: number | null = null;
+  pendingSeek.update((current) => {
+    value = current;
+    return null;
+  });
+  return value;
+}
+
 export const currentTrack = derived(player, ($player) =>
   $player.currentIndex >= 0 ? ($player.queue[$player.currentIndex] ?? null) : null,
 );
