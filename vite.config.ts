@@ -26,6 +26,18 @@ export default defineConfig({
   build: {
     outDir: 'src-tauri/gen/dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/lucide-svelte')) {
+            return 'lucide-icons';
+          }
+          if (id.includes('node_modules/fuse.js')) {
+            return 'fuse';
+          }
+        },
+      },
+    },
   },
   server: {
     port: 5173,
