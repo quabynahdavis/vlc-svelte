@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { ListMusic, ListPlus, Play } from 'lucide-svelte';
+  import { createEventDispatcher } from 'svelte';
+  import { Info, ListMusic, ListPlus, Play } from 'lucide-svelte';
   import { startTrackDrag } from '../lib/dragTrack';
   import type { MediaItem } from '../lib/mock';
   import { libraryImportLog } from '../stores/library';
@@ -10,6 +11,8 @@
   export let mode: 'list' | 'compact' = 'list';
   export let onSelect: (item: MediaItem) => void = () => {};
   export let selected = false;
+
+  const dispatch = createEventDispatcher<{ info: MediaItem }>();
 
   $: progress = Math.min(Math.max(item.progress, 0), 1);
   $: hasProgress = progress > 0;
@@ -64,6 +67,11 @@
       trackFromItem(),
       event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
     );
+  }
+
+  function showInfo(event: MouseEvent): void {
+    event.stopPropagation();
+    dispatch('info', item);
   }
 </script>
 
@@ -187,6 +195,16 @@
       on:click={addToPlaylist}
     >
       <ListPlus size={13} strokeWidth={1.9} aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class={actionClass}
+      data-media-info={item.id}
+      title="Details"
+      aria-label={`View details for ${item.title}`}
+      on:click={showInfo}
+    >
+      <Info size={13} strokeWidth={1.9} aria-hidden="true" />
     </button>
   </div>
 </div>

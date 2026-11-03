@@ -10,6 +10,64 @@ export const libraryItems: Writable<MediaItem[]> = writable([...showsItems]);
 /** Raw search box contents, shared so later phases can layer on other filters. */
 export const searchQuery: Writable<string> = writable('');
 
+/* ---------- Address bar ---------- */
+
+/**
+ * Canonical folder trail exposed by the mock library. The editable address bar
+ * resolves typed paths against this list, so navigation stays inside the mock
+ * hierarchy and returns the canonical casing for each segment.
+ */
+export const libraryPath: readonly string[] = Object.freeze([...showsBreadcrumb]);
+
+/** Folder shown when the address bar is submitted empty. */
+export const libraryRoot = libraryPath[0] ?? 'Videos';
+
+export type LibraryPathResolution =
+  | { ok: true; segments: string[] }
+  | { ok: false; segment: string };
+
+/**
+ * Resolve a `/`-separated path typed into the library address bar.
+ *
+ * Segments are trimmed and empty segments are ignored, so `Videos / Shows` and
+ * `videos//shows` resolve to the same folder. Matching is case-insensitive and
+ * the canonical casing from the mock hierarchy is returned. Empty input resolves
+ * to the root folder. The whole path must exist; the first unknown segment is
+ * reported so the caller can show an error without navigating.
+ */
+export function resolveLibraryPath(input: string): LibraryPathResolution {
+  const requested = input
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  if (requested.length === 0) return { ok: true, segments: [libraryRoot] };
+
+  const segments: string[] = [];
+
+  for (let index = 0; index < requested.length; index += 1) {
+    const canonical = libraryPath[index];
+
+    if (!canonical || canonical.toLowerCase() !== requested[index].toLowerCase()) {
+      return { ok: false, segment: requested[index] };
+    }
+
+    segments.push(canonical);
+  }
+
+  return { ok: true, segments };
+}
+
+/**
+ * Navigate the breadcrumb to a typed path. Returns the resolution so callers
+ * can render an error state; the breadcrumb only changes on success.
+ */
+export function navigateToLibraryPath(input: string): LibraryPathResolution {
+  const result = resolveLibraryPath(input);
+  if (result.ok) breadcrumb.set(result.segments);
+  return result;
+}
+
 /** Latest human-readable import status shown under the toolbar. */
 export const libraryImportLog: Writable<string> = writable('');
 
@@ -27,6 +85,19 @@ export const libraryWatchFilter: Writable<LibraryWatchFilter> = writable('all');
 /** True when an item has any playback progress. Shared by filtering and sorting. */
 export function isItemWatched(item: MediaItem): boolean {
   return item.progress > 0;
+}
+
+/**
+ * Flip an item's watched state using the same progress-based definition as
+ * {@link isItemWatched}: watched items drop back to zero progress, unwatched
+ * items are marked as fully watched. Unknown ids are ignored.
+ */
+export function toggleItemWatched(id: string): void {
+  libraryItems.update((items) =>
+    items.map((item) =>
+      item.id === id ? { ...item, progress: isItemWatched(item) ? 0 : 1 } : item,
+    ),
+  );
 }
 
 /**
