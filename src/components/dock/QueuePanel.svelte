@@ -1,11 +1,24 @@
 <script lang="ts">
   import { ListMusic, Search, Trash2, GripVertical, MoreHorizontal, CheckSquare, Square, ArrowUpDown, Save } from 'lucide-svelte';
   import { isTrackDrag, readTrackDrag } from '../../lib/dragTrack';
-  import { addToQueue, clearQueue, moveQueueItem, playAt, player, removeFromQueue, removeFromQueueMany } from '../../stores/player';
+  import {
+    addToQueue,
+    clearQueue,
+    moveQueueItem,
+    playAt,
+    player,
+    removeFromQueue,
+    removeFromQueueMany,
+    restoreQueue,
+    snapshotQueue,
+    type QueueSnapshot,
+  } from '../../stores/player';
   import { createPlaylistFromTracks } from '../../stores/playlists';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy, tick } from 'svelte';
 
   const dispatch = createEventDispatcher();
+
+  const UNDO_TIMEOUT_MS = 5000;
 
   let dragActive = false;
   let search = '';
@@ -14,6 +27,15 @@
   let selected = new Set<number>();
   let dragIndex: number | null = null;
   let showContextFor: number | null = null;
+  let contextMenuEl: HTMLDivElement | null = null;
+  let contextTrigger: HTMLElement | null = null;
+  let clearConfirm = false;
+  let undoSnapshot: QueueSnapshot | null = null;
+  let undoMessage = '';
+  let undoTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // The confirmation prompt is only meaningful while there is something to clear.
+  $: if (clearConfirm && queue.length === 0) clearConfirm = false;
 
   function pad(value: number): string {
     return String(value).padStart(2, '0');
@@ -109,9 +131,92 @@
   }
 
   function removeSelected() {
-    const indices = Array.from(selected).sort((a, b) => b - a);
+    const indices = Array.from(selected)
+      .filter((i) => i >= 0 && i < queue.length)
+      .sort((a, b) => b - a);
+    if (indices.length === 0) {
+      clearSelection();
+      return;
+    }
+    const snapshot = snapshotQueue();
     removeFromQueueMany(indices);
     clearSelection();
+    showUndo(
+      snapshot,
+      `Removed ${indices.length} ${indices.length === 1 ? 'item' : 'items'}`,
+    );
+  }
+
+  function removeItem(index: number) {
+    if (index < 0 || index >= queue.length) return;
+    const snapshot = snapshotQueue();
+    const title = queue[index]?.title ?? 'item';
+    removeFromQueue(index);
+
+    // Keep selection aligned with the shifted queue.
+    if (selected.size > 0) {
+      const next = new Set<number>();
+      for (const i of selected) {
+        if (i === index) continue;
+        next.add(i > index ? i - 1 : i);
+      }
+      selected = next;
+    }
+
+    showUndo(snapshot, `Removed ${title}`);
+  }
+
+  function cancelUndoTimer() {
+    if (undoTimer !== null) {
+      clearTimeout(undoTimer);
+      undoTimer = null;
+    }
+  }
+
+  function dismissUndo() {
+    cancelUndoTimer();
+    undoSnapshot = null;
+    undoMessage = '';
+  }
+
+  function showUndo(snapshot: QueueSnapshot, message: string) {
+    cancelUndoTimer();
+    undoSnapshot = snapshot;
+    undoMessage = message;
+    undoTimer = setTimeout(() => {
+      undoTimer = null;
+      undoSnapshot = null;
+      undoMessage = '';
+    }, UNDO_TIMEOUT_MS);
+  }
+
+  function handleUndo() {
+    const snapshot = undoSnapshot;
+    dismissUndo();
+    if (snapshot) restoreQueue(snapshot);
+  }
+
+  function requestClearQueue() {
+    if (queue.length === 0) return;
+    clearConfirm = true;
+  }
+
+  function cancelClearQueue() {
+    clearConfirm = false;
+  }
+
+  function confirmClearQueue() {
+    if (!clearConfirm || queue.length === 0) {
+      clearConfirm = false;
+      return;
+    }
+
+    const count = queue.length;
+    clearConfirm = false;
+    const snapshot = snapshotQueue();
+    clearQueue();
+    clearSelection();
+    showUndo(snapshot, `Cleared ${count} ${count === 1 ? 'item' : 'items'}`);
   }
 
   function handleDragStart(event: DragEvent, index: number) {
@@ -139,13 +244,73 @@
     dragIndex = null;
   }
 
-  function openContext(index: number) {
+  function openContext(index: number, event: MouseEvent) {
+    contextTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     showContextFor = index;
+    void tick().then(() => {
+      if (showContextFor !== index) return;
+      menuItems()[0]?.focus();
+    });
   }
 
-  function closeContext() {
+  function closeContext(restoreFocus = false) {
     showContextFor = null;
+    const trigger = contextTrigger;
+    contextTrigger = null;
+    if (restoreFocus && trigger && trigger.isConnected) trigger.focus();
   }
+
+  function menuItems(): HTMLElement[] {
+    if (!contextMenuEl) return [];
+    return Array.from(contextMenuEl.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+  }
+
+  function handleContextKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeContext(true);
+      return;
+    }
+
+    const items = menuItems();
+    if (items.length === 0) return;
+    const activeIndex = items.indexOf(document.activeElement as HTMLElement);
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      items[(activeIndex + 1 + items.length) % items.length]?.focus();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(activeIndex - 1 + items.length) % items.length]?.focus();
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      items[0]?.focus();
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+    } else if (event.key === 'Tab') {
+      // Let focus move on, but never leave an orphaned menu behind.
+      closeContext();
+    }
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return;
+    if (clearConfirm) {
+      event.preventDefault();
+      cancelClearQueue();
+      return;
+    }
+    if (showContextFor !== null) {
+      event.preventDefault();
+      closeContext(true);
+    }
+  }
+
+  onDestroy(() => {
+    cancelUndoTimer();
+  });
 
   function saveQueueAsPlaylist() {
     if (queue.length === 0) return;
@@ -162,9 +327,13 @@
   }
 </script>
 
+<svelte:window on:keydown={handleWindowKeydown} />
+
 <div
   class="flex min-h-full flex-col"
   data-queue-panel
+  role="region"
+  aria-label="Playing queue"
   on:dragover={handleDragOver}
   on:dragleave={handleDragLeave}
   on:drop={handleDrop}
@@ -214,9 +383,12 @@
         <Save size={14} strokeWidth={1.8} />
       </button>
       <button
+        type="button"
         class="flex h-8 w-8 items-center justify-center rounded-control border border-vlc-border bg-vlc-app text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text"
         title="Clear queue"
-        on:click={clearQueue}
+        aria-label="Clear queue"
+        aria-expanded={clearConfirm}
+        on:click={requestClearQueue}
       >
         <Trash2 size={14} strokeWidth={1.8} />
       </button>
@@ -242,6 +414,31 @@
         </button>
       {/if}
     </div>
+    {#if clearConfirm}
+      <div
+        class="flex items-center gap-2 rounded-control border border-vlc-orange/40 bg-vlc-app px-2 py-1.5"
+        role="group"
+        aria-label="Confirm clearing the queue"
+      >
+        <span class="min-w-0 flex-1 text-[11px] text-vlc-text">
+          Clear {queue.length} {queue.length === 1 ? 'item' : 'items'}?
+        </span>
+        <button
+          type="button"
+          class="shrink-0 rounded-control border border-vlc-border px-2 py-1 text-[11px] text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text"
+          on:click={cancelClearQueue}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="shrink-0 rounded-control bg-vlc-orange px-2 py-1 text-[11px] font-medium text-vlc-app hover:brightness-110"
+          on:click={confirmClearQueue}
+        >
+          Clear
+        </button>
+      </div>
+    {/if}
   </div>
 
   {#if queue.length === 0}
@@ -254,7 +451,7 @@
       No matches
     </div>
   {:else}
-    <ul class="py-1" aria-label="Playing queue">
+    <ul class="py-1" aria-label="Queue tracks">
       {#each filtered as { t, i } (t.id)}
         {@const active = $player.currentIndex === i}
         {@const isSelected = selected.has(i)}
@@ -312,25 +509,37 @@
             <button
               type="button"
               class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-muted hover:bg-vlc-raised hover:text-vlc-text"
-              on:click={() => openContext(i)}
+              on:click={(event) => openContext(i, event)}
               aria-label="More"
+              aria-haspopup="menu"
+              aria-expanded={showContextFor === i}
             >
               <MoreHorizontal size={16} strokeWidth={1.8} />
             </button>
 
             {#if showContextFor === i}
               <div
-                class="absolute right-3 top-12 z-20 w-48 rounded-control border border-vlc-border bg-vlc-panel p-1 shadow-xl"
+                bind:this={contextMenuEl}
+                class="absolute right-3 top-12 z-20 w-48 rounded-control border border-vlc-border bg-vlc-panel p-1 shadow-xl focus:outline-none"
                 role="menu"
-                on:mouseleave={closeContext}
+                tabindex="-1"
+                aria-label={`Actions for ${t.title}`}
+                on:mouseleave={() => closeContext()}
+                on:keydown={handleContextKeydown}
               >
                 <button
-                  class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12px] text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text"
-                  on:click={() => { playAt(i); closeContext(); }}
+                  type="button"
+                  role="menuitem"
+                  tabindex="-1"
+                  class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12px] text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text focus:bg-vlc-raised focus:text-vlc-text focus:outline-none"
+                  on:click={() => { playAt(i); closeContext(true); }}
                 >Play</button>
                 <button
-                  class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12px] text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text"
-                  on:click={() => { removeFromQueue(i); closeContext(); }}
+                  type="button"
+                  role="menuitem"
+                  tabindex="-1"
+                  class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12px] text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text focus:bg-vlc-raised focus:text-vlc-text focus:outline-none"
+                  on:click={() => { removeItem(i); closeContext(true); }}
                 >Remove</button>
               </div>
             {/if}
@@ -339,4 +548,32 @@
       {/each}
     </ul>
   {/if}
+
+  <div
+    class="sticky bottom-2 z-20 flex items-center gap-2 {undoSnapshot
+      ? 'mx-2 mb-2 mt-auto rounded-control border border-vlc-border bg-vlc-raised px-3 py-2 text-[11px] text-vlc-text shadow-lg'
+      : 'sr-only'}"
+    role="status"
+    aria-live="polite"
+  >
+    {#if undoSnapshot}
+      <span class="min-w-0 flex-1 truncate">{undoMessage}</span>
+      <button
+        type="button"
+        class="shrink-0 rounded-control bg-vlc-orange px-2 py-1 text-[11px] font-medium text-vlc-app hover:brightness-110 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60"
+        on:click={handleUndo}
+        aria-label={`Undo: ${undoMessage}`}
+      >
+        Undo
+      </button>
+      <button
+        type="button"
+        class="shrink-0 rounded-control px-2 py-1 text-[11px] text-vlc-secondary hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60"
+        on:click={dismissUndo}
+        aria-label="Dismiss undo notification"
+      >
+        Dismiss
+      </button>
+    {/if}
+  </div>
 </div>

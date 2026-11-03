@@ -1,4 +1,4 @@
-import { derived, writable } from 'svelte/store';
+import { derived, get, writable } from 'svelte/store';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -152,6 +152,81 @@ export function clearQueue(): void {
     currentTime: 0,
     duration: 0,
   }));
+}
+
+/**
+ * A restorable copy of the playback-related queue state.
+ * Volume, mute, repeat and shuffle are intentionally excluded: undo should not
+ * clobber preferences the user changed after the destructive action.
+ */
+export type QueueSnapshot = {
+  queue: Track[];
+  currentIndex: number;
+  currentTime: number;
+  duration: number;
+  isPlaying: boolean;
+};
+
+/** Capture the current queue and playback position for a later restore. */
+export function snapshotQueue(): QueueSnapshot {
+  const state = get(player);
+  return {
+    queue: state.queue.map((track) => ({ ...track })),
+    currentIndex: state.currentIndex,
+    currentTime: state.currentTime,
+    duration: state.duration,
+    isPlaying: state.isPlaying,
+  };
+}
+
+/**
+ * Restore a queue snapshot produced by {@link snapshotQueue}.
+ * The snapshot is sanitised against the queue length so a stale undo action
+ * can never point outside the restored queue. Volume, mute, repeat and shuffle
+ * are kept from the live state.
+ */
+export function restoreQueue(snapshot: QueueSnapshot): void {
+  if (!snapshot) return;
+
+  player.update((state) => {
+    const queue = Array.isArray(snapshot.queue)
+      ? snapshot.queue.map((track) => ({ ...track }))
+      : [];
+
+    if (queue.length === 0) {
+      return {
+        ...state,
+        queue,
+        currentIndex: -1,
+        currentTime: 0,
+        duration: 0,
+        isPlaying: false,
+      };
+    }
+
+    const requestedIndex = Number.isFinite(snapshot.currentIndex)
+      ? Math.trunc(snapshot.currentIndex)
+      : -1;
+    const currentIndex = clamp(requestedIndex, 0, queue.length - 1);
+    const track = queue[currentIndex];
+    const duration = Number.isFinite(snapshot.duration) && snapshot.duration > 0
+      ? snapshot.duration
+      : track && Number.isFinite(track.duration) && track.duration > 0
+        ? track.duration
+        : 0;
+    const currentTime = Number.isFinite(snapshot.currentTime) && snapshot.currentTime > 0
+      ? Math.min(snapshot.currentTime, duration > 0 ? duration : snapshot.currentTime)
+      : 0;
+
+    return {
+      ...state,
+      queue,
+      currentIndex,
+      currentTime,
+      duration,
+      isPlaying: Boolean(snapshot.isPlaying),
+    };
+  });
 }
 
 /** Remove a single track from the queue by index. */
