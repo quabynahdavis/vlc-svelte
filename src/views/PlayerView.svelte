@@ -1,8 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import { ChevronLeft, ChevronRight, Film, Library, Minimize, Music, PictureInPicture, Radio, Volume2, VolumeX } from 'lucide-svelte';
+  import { Check, ChevronLeft, ChevronRight, Film, Library, Minimize, Music, PictureInPicture, Radio, Volume2, VolumeX, X } from 'lucide-svelte';
   import CompactLibraryOverlay from '../components/CompactLibraryOverlay.svelte';
+  import NextEpisodePrompt from '../components/NextEpisodePrompt.svelte';
   import RightDock from '../components/RightDock.svelte';
   import TransportBar from '../components/TransportBar.svelte';
   import {
@@ -17,7 +18,7 @@
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
   import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
-  import { watchEntries, upsertWatch } from '../stores/watch';
+  import { markWatched, removeWatch, watchEntries, upsertWatch, type WatchEntry } from '../stores/watch';
 
   const dispatch = createEventDispatcher<{ settings: void; advancedSettings: string }>();
 
@@ -264,6 +265,11 @@
   }
 
   function handleEnded(): void {
+    // A source swap triggered by the up-next prompt can leave a stale `ended`
+    // event queued for the previous element. Ignore it so a track is never
+    // skipped twice.
+    if (pendingLoad) return;
+
     const track = $currentTrack;
     if (track && videoSrc) {
       upsertWatch({
@@ -572,6 +578,23 @@
     }
   }
 
+  function handleContinueAction(
+    event: MouseEvent,
+    action: 'watched' | 'remove',
+    item: WatchEntry,
+  ): void {
+    // The action buttons sit inside the play card; never let the card start
+    // playback when one of them is used.
+    event.stopPropagation();
+    event.preventDefault();
+
+    if (action === 'watched') {
+      markWatched(item.mediaKey, item.type);
+    } else {
+      removeWatch(item.mediaKey, item.type);
+    }
+  }
+
   function handleStageWheel(event: WheelEvent): void {
     // Let the right dock, the compact library and horizontal rails scroll
     // normally instead of hijacking their wheel events for volume.
@@ -696,14 +719,14 @@
     {/if}
 
     <div
-      class="player-stage group relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-vlc-app lg:pl-0"
+      class="player-stage group/stage relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-vlc-app lg:pl-0"
       on:wheel|nonpassive={handleStageWheel}
     >
       {#if !isFullscreen}
         <button
           bind:this={libraryTriggerEl}
           type="button"
-          class="absolute right-3 top-3 z-20 flex h-8 items-center gap-1.5 rounded-control border border-vlc-border bg-vlc-panel/90 px-2.5 text-[11px] text-vlc-secondary opacity-0 shadow-sm backdrop-blur-sm transition-[opacity,background-color,color] hover:bg-vlc-raised hover:text-vlc-text focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 group-hover:opacity-100"
+          class="absolute right-3 top-3 z-20 flex h-8 items-center gap-1.5 rounded-control border border-vlc-border bg-vlc-panel/90 px-2.5 text-[11px] text-vlc-secondary opacity-0 shadow-sm backdrop-blur-sm transition-[opacity,background-color,color] hover:bg-vlc-raised hover:text-vlc-text focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 group-hover/stage:opacity-100"
           class:opacity-100={showLibrary}
           title="Browse library"
           aria-label="Browse library"
@@ -786,12 +809,17 @@
               </div>
               <div bind:this={continueRailEl} data-hscroll on:wheel|nonpassive={handleHorizontalWheel} class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised" role="region" aria-label="Continue">
                 {#each continueItems as item}
-                  <button class="min-w-[180px] w-[180px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised" on:click={() => {
-                    if (item.src) {
-                      requestSeek(item.position);
-                      setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
-                    }
-                  }}>
+                  <button
+                    type="button"
+                    class="group min-w-[180px] w-[180px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-2 text-left hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+                    aria-label={`Resume ${item.title}`}
+                    on:click={() => {
+                      if (item.src) {
+                        requestSeek(item.position);
+                        setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
+                      }
+                    }}
+                  >
                     <div class="relative aspect-video w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center">
                       {#if item.thumbnail}
                         <img src={item.thumbnail} alt="" class="h-full w-full object-cover" />
@@ -805,6 +833,27 @@
                       <span class="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-white/80">
                         {item.type === 'music' ? 'Music' : item.type === 'stream' ? 'Stream' : 'Video'}
                       </span>
+
+                      <div class="absolute right-1 top-1 z-10 flex items-center gap-1">
+                        <button
+                          type="button"
+                          class="flex h-6 w-6 items-center justify-center rounded border border-white/10 bg-black/70 text-white/85 opacity-100 shadow-sm backdrop-blur-sm transition-[opacity,background-color,color] hover:bg-vlc-orange hover:text-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange focus-visible:ring-offset-1 focus-visible:ring-offset-black md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                          title="Mark as watched"
+                          aria-label={`Mark ${item.title} as watched`}
+                          on:click={(event) => handleContinueAction(event, 'watched', item)}
+                        >
+                          <Check size={13} strokeWidth={2.4} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          class="flex h-6 w-6 items-center justify-center rounded border border-white/10 bg-black/70 text-white/85 opacity-100 shadow-sm backdrop-blur-sm transition-[opacity,background-color,color] hover:bg-vlc-orange hover:text-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange focus-visible:ring-offset-1 focus-visible:ring-offset-black md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                          title="Remove from Continue"
+                          aria-label={`Remove ${item.title} from Continue`}
+                          on:click={(event) => handleContinueAction(event, 'remove', item)}
+                        >
+                          <X size={13} strokeWidth={2.4} aria-hidden="true" />
+                        </button>
+                      </div>
                     </div>
                     <p class="mt-1 truncate text-[12px] text-vlc-text">{item.title}</p>
                     {#if item.type === 'music'}
@@ -820,6 +869,8 @@
           {/if}
         </div>
       {/if}
+
+      <NextEpisodePrompt hasMedia={hasMedia} />
 
       <div
         class="volume-hud pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/10 bg-black/80 px-3.5 py-2 shadow-lg backdrop-blur-sm transition-opacity duration-200"

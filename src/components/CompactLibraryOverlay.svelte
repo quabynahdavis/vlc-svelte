@@ -19,7 +19,7 @@
     type LibraryWatchFilter,
   } from '../stores/library';
   import { player, requestSeek, setQueue, type Track } from '../stores/player';
-  import { watchEntries } from '../stores/watch';
+  import { removeWatch, watchEntries } from '../stores/watch';
 
   export let open = false;
   export let fullscreen = false;
@@ -199,12 +199,17 @@
       {#if miniContinueItems.length > 0}
         <div data-hscroll on:wheel|nonpassive={handleHorizontalWheel} class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised">
           {#each miniContinueItems as item}
-            <button class="min-w-[120px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-1.5 text-left hover:bg-vlc-raised" on:click={() => {
-              if (item.src) {
-                requestSeek(item.position);
-                setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
-              }
-            }}>
+            <button
+              type="button"
+              class="group min-w-[120px] shrink-0 rounded-control border border-vlc-border bg-vlc-panel p-1.5 text-left hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+              aria-label={`Resume ${item.title}`}
+              on:click={() => {
+                if (item.src) {
+                  requestSeek(item.position);
+                  setQueue([{ id: item.mediaKey, title: item.title, artist: item.artist, duration: item.duration, src: item.src }], 0);
+                }
+              }}
+            >
               <div class="relative aspect-video w-full overflow-hidden rounded bg-vlc-app flex items-center justify-center">
                 {#if item.thumbnail}
                   <img src={item.thumbnail} alt="" class="h-full w-full object-cover" />
@@ -218,6 +223,20 @@
                 <span class="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-white/80">
                   {item.type === 'music' ? 'Music' : item.type === 'stream' ? 'Stream' : 'Video'}
                 </span>
+
+                <button
+                  type="button"
+                  class="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded border border-white/10 bg-black/70 text-white/85 opacity-100 shadow-sm backdrop-blur-sm transition-[opacity,background-color,color] hover:bg-vlc-orange hover:text-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange focus-visible:ring-offset-1 focus-visible:ring-offset-black md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                  title="Remove from Continue"
+                  aria-label={`Remove ${item.title} from Continue`}
+                  on:click={(event) => {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    removeWatch(item.mediaKey, item.type);
+                  }}
+                >
+                  <X size={11} strokeWidth={2.4} aria-hidden="true" />
+                </button>
               </div>
               <p class="mt-1 truncate text-[10px] text-vlc-text">{item.title}</p>
               <div class="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-vlc-raised">
