@@ -1,9 +1,9 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { X, Music, Radio, Film, Play } from 'lucide-svelte';
+  import { X, Music, Radio, Film, Play, Search } from 'lucide-svelte';
   import { handleHorizontalWheel } from '../lib/horizontalScroll';
   import { bookmarks, removeBookmark, formatTimestamp } from '../stores/bookmarks';
-  import { watchLater, removeWatchLater } from '../stores/watchLater';
+  import { watchLater, removeWatchLater, toggleWatchLater } from '../stores/watchLater';
   import { history, removeHistory, clearHistory } from '../stores/history';
   import { player, requestSeek, setQueue, type Track } from '../stores/player';
   import { watchEntries, removeWatch } from '../stores/watch';
@@ -13,10 +13,29 @@
   export let onClose: () => void = () => {};
   export let returnFocusTo: HTMLElement | null = null;
 
+  // ---- active tab & focus trap ----
   let activeTab = 0; // 0=Bookmarks,1=Watch Later,2=History
   let panelEl: HTMLDivElement | null = null;
+  let searchQueries = [ '', '', '' ];
 
-  // Mini Continue strip (unchanged)
+  // Search inputs per tab
+  $: filteredBookmarks = $bookmarks.filter(b => {
+    const q = searchQueries[0].trim().toLowerCase();
+    return q === '' || (b.label && b.label.toLowerCase().includes(q)) || formatTimestamp(b.time).includes(q);
+  });
+
+  $: filteredWatchLater = $watchLater.filter(wl => {
+    const q = searchQueries[1].trim().toLowerCase();
+    return q === '' || wl.title.toLowerCase().includes(q) || (wl.artist && wl.artist.toLowerCase().includes(q));
+  });
+
+  $: filteredHistory = $history.filter(h => {
+    const q = searchQueries[2].trim().toLowerCase();
+    return q === '' || h.title.toLowerCase().includes(q) || (h.artist && h.artist.toLowerCase().includes(q));
+  });
+
+
+  // ---- Mini Continue strip (unchanged) ----
   $: miniContinueItems = $watchEntries
     .filter(e => !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
     .sort((a, b) => b.lastWatchedAt - a.lastWatchedAt)
@@ -55,6 +74,7 @@
       first.focus();
     }
   }
+
 
   function handleTabKey(event: KeyboardEvent): void {
     if (event.key === 'ArrowRight') {
@@ -167,7 +187,7 @@
         aria-controls="panel-0"
         aria-selected={activeTab === 0}
         tabindex={activeTab === 0 ? 0 : -1}
-        class="flex-1 py-2 px-3 text-center {activeTab === 0 ? 'bg-vlc-card' : ''}"
+        class="flex-1 py-1.5 px-2 text-[11px] font-medium text-center transition-colors {activeTab === 0 ? 'bg-vlc-card text-vlc-text' : 'text-vlc-muted hover:text-vlc-text hover:bg-vlc-raised'}"
         on:click={() => (activeTab = 0)}
       >Bookmarks</button>
       <button
@@ -177,7 +197,7 @@
         aria-controls="panel-1"
         aria-selected={activeTab === 1}
         tabindex={activeTab === 1 ? 0 : -1}
-        class="flex-1 py-2 px-3 text-center {activeTab === 1 ? 'bg-vlc-card' : ''}"
+        class="flex-1 py-1.5 px-2 text-[11px] font-medium text-center transition-colors {activeTab === 1 ? 'bg-vlc-card text-vlc-text' : 'text-vlc-muted hover:text-vlc-text hover:bg-vlc-raised'}"
         on:click={() => (activeTab = 1)}
       >Watch Later</button>
       <button
@@ -187,7 +207,7 @@
         aria-controls="panel-2"
         aria-selected={activeTab === 2}
         tabindex={activeTab === 2 ? 0 : -1}
-        class="flex-1 py-2 px-3 text-center {activeTab === 2 ? 'bg-vlc-card' : ''}"
+        class="flex-1 py-1.5 px-2 text-[11px] font-medium text-center transition-colors {activeTab === 2 ? 'bg-vlc-card text-vlc-text' : 'text-vlc-muted hover:text-vlc-text hover:bg-vlc-raised'}"
         on:click={() => (activeTab = 2)}
       >History</button>
     </div>
@@ -195,7 +215,16 @@
     <!-- Panels -->
     {#if activeTab === 0}
       <div role="tabpanel" id="panel-0" aria-labelledby="tab-0" class="flex-1 overflow-y-auto px-3 py-2">
-        {#each $bookmarks as bm (bm.id)}
+        <label class="flex h-8 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5 mb-2" aria-label="Search bookmarks">
+          <Search size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
+          <input
+            type="search"
+            placeholder="Search bookmarks..."
+            class="flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
+            bind:value={searchQueries[0]}
+          />
+        </label>
+        {#each filteredBookmarks as bm (bm.id)}
           <div class="flex items-center justify-between py-1 border-b border-vlc-border">
             <div class="flex-1">
               <p class="text-sm text-vlc-text">{bm.label || formatTimestamp(bm.time)}</p>
@@ -223,13 +252,22 @@
             </button>
           </div>
         {/each}
-        {#if $bookmarks.length === 0}
+        {#if filteredBookmarks.length === 0}
           <p class="text-center text-vlc-muted py-4">No bookmarks</p>
         {/if}
       </div>
     {:else if activeTab === 1}
       <div role="tabpanel" id="panel-1" aria-labelledby="tab-1" class="flex-1 overflow-y-auto px-3 py-2">
-        {#each $watchLater as wl (wl.id)}
+        <label class="flex h-8 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5 mb-2" aria-label="Search watch later">
+          <Search size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
+          <input
+            type="search"
+            placeholder="Search watch later..."
+            class="flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
+            bind:value={searchQueries[1]}
+          />
+        </label>
+        {#each filteredWatchLater as wl (wl.id)}
           <div class="flex items-center gap-2 py-1 border-b border-vlc-border">
             <div class="w-12 h-12 flex-shrink-0 bg-vlc-app flex items-center justify-center">
               {#if wl.thumbnail}
@@ -269,13 +307,22 @@
             </button>
           </div>
         {/each}
-        {#if $watchLater.length === 0}
+        {#if filteredWatchLater.length === 0}
           <p class="text-center text-vlc-muted py-4">Watch later list empty</p>
         {/if}
       </div>
     {:else}
       <div role="tabpanel" id="panel-2" aria-labelledby="tab-2" class="flex-1 overflow-y-auto px-3 py-2">
-        {#each $history as h (h.id)}
+        <label class="flex h-8 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5 mb-2" aria-label="Search history">
+          <Search size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
+          <input
+            type="search"
+            placeholder="Search history..."
+            class="flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
+            bind:value={searchQueries[2]}
+          />
+        </label>
+        {#each filteredHistory as h (h.id)}
           <div class="flex items-center gap-2 py-1 border-b border-vlc-border">
             <div class="w-12 h-12 flex-shrink-0 bg-vlc-app flex items-center justify-center">
               {#if h.thumbnail}
@@ -315,7 +362,7 @@
             </button>
           </div>
         {/each}
-        {#if $history.length === 0}
+        {#if filteredHistory.length === 0}
           <p class="text-center text-vlc-muted py-4">History empty</p>
         {/if}
         <div class="flex justify-center py-2">
