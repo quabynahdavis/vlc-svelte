@@ -70,6 +70,61 @@ export function addTrackToPlaylist(playlistId: string, track: PlaylistTrack): bo
   return added;
 }
 
+/**
+ * Move a track inside a playlist.
+ *
+ * `toIndex` is the final index in the reordered array, after the track has been
+ * removed from its old slot. Returns the updated playlist, or `null` when the
+ * playlist does not exist. Invalid indexes and no-op moves leave the store
+ * untouched.
+ */
+export function movePlaylistTrack(
+  playlistId: string,
+  fromIndex: number,
+  toIndex: number,
+): Playlist | null {
+  let result: Playlist | null = null;
+
+  playlistsData.update((items) =>
+    items.map((playlist) => {
+      if (playlist.id !== playlistId) return playlist;
+
+      result = playlist;
+
+      const count = playlist.tracks.length;
+      if (
+        !Number.isInteger(fromIndex) ||
+        !Number.isInteger(toIndex) ||
+        fromIndex < 0 ||
+        fromIndex >= count ||
+        toIndex < 0 ||
+        toIndex >= count ||
+        fromIndex === toIndex
+      ) {
+        return playlist;
+      }
+
+      const tracks = [...playlist.tracks];
+      const [moved] = tracks.splice(fromIndex, 1);
+      tracks.splice(toIndex, 0, moved);
+
+      const updated: Playlist = {
+        ...playlist,
+        tracks,
+        trackCount: tracks.length,
+        // Reordering cannot change the total runtime.
+        totalDurationSeconds: playlist.totalDurationSeconds,
+        lastModified: Date.now(),
+      };
+
+      result = updated;
+      return updated;
+    }),
+  );
+
+  return result;
+}
+
 /** Create a session-only playlist that starts with the supplied track. */
 export function createPlaylistWithTrack(name: string, track: PlaylistTrack): Playlist {
   const entry = trackFromPayload(track);
