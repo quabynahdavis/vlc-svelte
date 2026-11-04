@@ -768,7 +768,7 @@
                   <stop offset="1" stop-color="var(--accent-pressed)" />
                 </linearGradient>
               </defs>
-              <path d="M48 8 28 72H68L48 8Z" fill="url(#vlc-empty-cone-gradient)" />
+              <path d="M48 8 68 72H28L48 8Z" fill="url(#vlc-empty-cone-gradient)" />
               <path d="M38.9 34h18.2l2.6 10H36.3l2.6-10Z" fill="var(--selection-ink)" fill-opacity=".18" />
               <path d="M35.2 50h25.6l2.2 8.5H33l2.2-8.5Z" fill="var(--selection-ink)" fill-opacity=".12" />
               <rect x="18" y="72" width="60" height="13" rx="5" fill="url(#vlc-empty-cone-gradient)" />

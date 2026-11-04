@@ -763,7 +763,7 @@
       on:keydown={handleVolumeKeydown}
     >
       <div bind:this={volumeTrack} class="absolute inset-0" aria-hidden="true">
-        <div class="absolute inset-0 [clip-path:polygon(0_0,100%_50%,0_100%)]">
+        <div class="absolute inset-0 [clip-path:polygon(0_0,0_100%,100%_0)]">
           <div class="absolute inset-0 bg-vlc-secondary/35 transition-colors group-hover:bg-vlc-secondary/50 group-focus-visible:bg-vlc-secondary/50"></div>
           <div
             class="absolute inset-y-0 left-0 bg-vlc-orange"
