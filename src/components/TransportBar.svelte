@@ -763,14 +763,12 @@
       on:keydown={handleVolumeKeydown}
     >
       <div bind:this={volumeTrack} class="absolute inset-0" aria-hidden="true">
-        <div class="absolute inset-0 transform rotate-180">
-          <div class="absolute inset-0 [clip-path:polygon(0_0,0_100%,100%_0)]">
-            <div class="absolute inset-0 bg-vlc-secondary/35 transition-colors group-hover:bg-vlc-secondary/50 group-focus-visible:bg-vlc-secondary/50"></div>
-            <div
-              class="absolute inset-y-0 left-0 bg-vlc-orange"
-              style={`width: ${$player.volume}%`}
-            ></div>
-          </div>
+        <div class="absolute inset-0 [clip-path:polygon(0_0,0_100%,100%_0)]">
+          <div class="absolute inset-0 bg-vlc-secondary/35 transition-colors group-hover:bg-vlc-secondary/50 group-focus-visible:bg-vlc-secondary/50"></div>
+          <div
+            class="absolute inset-y-0 left-0 bg-vlc-orange"
+            style={`width: ${$player.volume}%`}
+          ></div>
         </div>
         <span
           class="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-vlc-app bg-vlc-text transition-transform group-hover:scale-110 group-focus-visible:scale-110"
