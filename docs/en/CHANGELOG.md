@@ -2,6 +2,12 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-04
+
+### Fixed — transport volume cone
+
+- Restored original left‑pointing volume cone orientation in `TransportBar.svelte` while preserving correct fill behavior (fill grows left→right as volume increases, thumb tracks correctly).
+
 ## 2026-10-31
 
 ### Changed — project name to Kanea
