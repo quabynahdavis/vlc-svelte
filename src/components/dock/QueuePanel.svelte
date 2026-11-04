@@ -12,9 +12,18 @@
     restoreQueue,
     snapshotQueue,
     type QueueSnapshot,
+    type RepeatMode,
+    setRepeat,
+    setShuffle,
   } from '../../stores/player';
   import { createPlaylistFromTracks } from '../../stores/playlists';
   import { createEventDispatcher, onDestroy, tick } from 'svelte';
+
+  const repeatModes: { id: RepeatMode; label: string }[] = [
+    { id: 'off', label: 'Off' },
+    { id: 'all', label: 'All' },
+    { id: 'one', label: 'One' },
+  ];
 
   const dispatch = createEventDispatcher();
 

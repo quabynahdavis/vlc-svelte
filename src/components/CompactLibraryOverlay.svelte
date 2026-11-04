@@ -117,12 +117,12 @@
     bind:this={panelEl}
     class="compact-library absolute inset-y-0 left-0 z-30 flex w-[420px] max-w-[calc(100%-16px)] flex-col border-r border-vlc-border bg-vlc-panel/95 shadow-2xl backdrop-blur-md"
     role="dialog"
-    aria-label="Saved items"
+    aria-label="Library"
     data-compact-library
   >
     <header class="flex shrink-0 items-start gap-2 border-b border-vlc-border px-3 py-2.5">
       <div class="min-w-0 flex-1">
-        <h2 class="text-[13px] font-medium leading-5 text-vlc-text">Saved items</h2>
+        <h2 class="text-[13px] font-medium leading-5 text-vlc-text">Library</h2>
       </div>
       <div class="flex shrink-0 items-center gap-1">
         <button
