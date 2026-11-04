@@ -147,13 +147,13 @@
         <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] bg-vlc-orange/12">
           <svg class="h-9 w-9" viewBox="0 0 96 96" fill="none" aria-hidden="true">
             <defs>
-              <linearGradient id="welcome-cone" x1="48" y1="8" x2="48" y2="85" gradientUnits="userSpaceOnUse">
+              <linearGradient id="welcome-cone" x1="85" y1="48" x2="11" y2="48" gradientUnits="userSpaceOnUse">
                 <stop stop-color="var(--accent)" />
                 <stop offset="1" stop-color="var(--accent-pressed)" />
               </linearGradient>
             </defs>
-            <path d="M48 8 68 72H28L48 8Z" fill="url(#welcome-cone)" />
-            <path d="M38.9 34h18.2l2.6 10H36.3l2.6-10Z" fill="var(--selection-ink)" fill-opacity=".18" />
+            <path d="M85 8l-20 64H45L85 8Z" fill="url(#welcome-cone)" />
+            <path d="M55.1 34h18.2l2.6 10H46.9l2.6-10Z" fill="var(--selection-ink)" fill-opacity=".18" />
             <rect x="18" y="72" width="60" height="13" rx="5" fill="url(#welcome-cone)" />
           </svg>
         </div>

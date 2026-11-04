@@ -78,17 +78,17 @@
         <defs>
           <linearGradient
             id="vlc-title-cone-gradient"
-            x1="12"
-            y1="2"
-            x2="12"
-            y2="22"
+            x1="2"
+            y1="12"
+            x2="22"
+            y2="12"
             gradientUnits="userSpaceOnUse"
           >
             <stop stop-color="#D37918" />
             <stop offset="1" stop-color="#AB6314" />
           </linearGradient>
         </defs>
-        <path d="M12 2.4 17.1 18.2H6.9L12 2.4Z" fill="url(#vlc-title-cone-gradient)" />
+        <path d="M21.6 12 5.8 6.9 5.8 17.1Z" fill="url(#vlc-title-cone-gradient)" />
         <path
           d="M9.55 9.9h4.9l.62 2.5H8.93l.62-2.5Z"
           fill="#0E0E0E"
