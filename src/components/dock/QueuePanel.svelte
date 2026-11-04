@@ -13,9 +13,8 @@
     snapshotQueue,
     type QueueSnapshot,
     type RepeatMode,
-    setRepeat,
-    setShuffle,
   } from '../../stores/player';
+  import TogglePill from './TogglePill.svelte';
   import { createPlaylistFromTracks } from '../../stores/playlists';
   import { createEventDispatcher, onDestroy, tick } from 'svelte';
 
@@ -24,6 +23,14 @@
     { id: 'all', label: 'All' },
     { id: 'one', label: 'One' },
   ];
+
+  function setRepeat(mode: RepeatMode): void {
+    player.update((state) => ({ ...state, repeat: mode }));
+  }
+
+  function setShuffle(value: boolean): void {
+    player.update((state) => ({ ...state, shuffle: value }));
+  }
 
   const dispatch = createEventDispatcher();
 
@@ -402,6 +409,36 @@
         <Trash2 size={14} strokeWidth={1.8} />
       </button>
     </div>
+
+    <!-- Repeat / Shuffle controls -->
+    <div class="mt-3">
+      <div class="grid grid-cols-3 gap-1 rounded-[8px] bg-vlc-app p-1" role="group" aria-label="Repeat mode">
+        {#each repeatModes as mode (mode.id)}
+          {@const active = $player.repeat === mode.id}
+          <button
+            type="button"
+            class="flex h-8 items-center justify-center rounded-[6px] text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/40"
+            class:bg-vlc-orangeDeep={active}
+            class:text-vlc-orange={active}
+            class:text-vlc-dim={!active}
+            class:hover:text-vlc-text={!active}
+            aria-pressed={active}
+            on:click={() => setRepeat(mode.id)}
+          >
+            {mode.label}
+          </button>
+        {/each}
+      </div>
+      <div class="mt-2 flex items-center justify-between">
+        <span class="text-[13px] text-vlc-dim">Shuffle</span>
+        <TogglePill
+          value={$player.shuffle}
+          ariaLabel="Shuffle"
+          on:change={(event) => setShuffle(event.detail)}
+        />
+      </div>
+    </div>
+
     <div class="flex items-center gap-2">
       <button
         class="flex h-6 items-center gap-1 rounded-control text-[11px] text-vlc-secondary hover:text-vlc-text"
