@@ -9,7 +9,6 @@
   import { watchEntries, removeWatch } from '../stores/watch';
 
   export let open = false;
-  export let fullscreen = false;
   export let onClose: () => void = () => {};
   export let returnFocusTo: HTMLElement | null = null;
 

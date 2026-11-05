@@ -915,7 +915,6 @@
 
       <CompactLibraryOverlay
         open={showLibrary}
-        fullscreen={isFullscreen}
         onClose={closeLibrary}
         returnFocusTo={libraryTriggerEl}
       />
