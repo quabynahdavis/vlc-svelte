@@ -167,7 +167,7 @@ The menu button opens the full consolidated menu anchored under it; right-click 
 - The seek bar is a thick 6 px track that grows to 8 px on hover/focus, with a buffered segment and an accent progress fill. Hovering shows a 128 px-wide frame preview card backed by a 160 × 90 canvas, plus a timestamp.
 - Volume is a 92 px triangular cone: the accent fill follows the volume level and a small thumb marks the position.
 - Timers use 11 px monospace tabular figures in `--text-secondary`.
-- In the last 20 seconds of a playable queue item, a compact **Next** button appears before the volume group. A full next-episode prompt is still a vision item.
+- In the last 20 seconds of a playable queue item, a compact **Next** button appears before the volume group, and a countdown prompt (`NextEpisodePrompt.svelte`) offers **Play now** / **Cancel** with auto-advance.
 
 ### Fullscreen player
 

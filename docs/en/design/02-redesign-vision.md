@@ -1,6 +1,6 @@
 # Redesign Vision
 
-**Status:** target document. This file records the intended direction for the next redesign pass. Items under **Planned** are **not implemented**; do not treat them as current behaviour. Implemented and in-progress items are called out in [Current status](#current-status). Last updated 2026-10-29.
+**Status:** target document. This file records the intended direction for the next redesign pass. Items under **Planned** are **not implemented**; do not treat them as current behaviour. Implemented and in-progress items are called out in [Current status](#current-status). Last updated 2026-11-05.
 
 ## Direction
 
@@ -121,12 +121,13 @@ This section separates what exists in `src/` from the target above.
 
 | Area | State |
 | --- | --- |
-| Transport detail | Larger play button, cone volume control and a thicker seek bar (`TransportBar.svelte`). |
+| Transport detail | Larger play button, left-pointing cone volume control with left→right accent fill and a tracking thumb, and a thicker seek bar (`TransportBar.svelte`). |
 | Seek previews | Hover thumbnail card backed by a 160 × 90 canvas plus a timestamp; the card stays inside the viewport. |
-| Next episode | A compact **Next** button appears in the last 20 seconds when another queue item is available. A full prompt with countdown and cancel is still planned. |
+| Next episode | A compact **Next** button appears in the last 20 seconds when another queue item is available (`TransportBar.svelte`), and a full countdown overlay offers **Play now** / **Cancel** with auto-advance and per-track dismissal (`src/components/NextEpisodePrompt.svelte`). |
 | Fullscreen | Fullscreen targets a shell containing the stage and transport. A top bar carries the title, library, picture-in-picture and exit controls; top/bottom chrome auto-hide after 2.5 seconds and return on pointer, focus or key activity. |
 | Consolidated menu | The title-bar menu button opens the full application menu (playback, video, audio, subtitle, playlist, open media, settings, layout, welcome, quit). Right-click opens a shorter playback-focused menu that keeps **Hide UI**. |
-| Compact library overlay | The player can open a 420 px library drawer in windowed and fullscreen modes, with search, watched/unwatched filter, sorting, progress rows, add-media menu and drag-to-queue. Escape closes it and focus returns to the trigger. |
+| Compact library overlay | The player can open a 420 px saved-items drawer in windowed and fullscreen modes: a mini continue strip plus tabbed **Bookmarks / Watch Later / History** panels, each with per-tab search and newest/oldest sorting and the standardized `Select` control. Escape closes it and focus returns to the trigger. |
+| Queue management | Search, sort, drag-reorder, per-item context menu, select-all/clear with a 5-second undo toast, **repeat mode (off/all/one)** and **shuffle** toggles (`src/components/dock/QueuePanel.svelte`). Save the current queue as a playlist. Drag files from the OS onto the queue; `application/x-vlc-track` payload is unchanged. |
 | Welcome screen | First-run dialog for theme, accent, interface language and library folders, persisted under `vlc.onboarding.v1`; it can be reopened from the menu. |
 | Layout editor | Settings → Layout reorders the navigation rail and right-dock tabs by drag or arrow buttons, toggles secondary player controls, and resets to defaults. Persisted under `vlc.layout.v1`. |
 
@@ -153,13 +154,12 @@ This section separates what exists in `src/` from the target above.
 | Ctrl+B bookmark | `Ctrl + B` now creates a bookmark at the current playback position and shows a transient confirmation HUD; the Bookmarks panel remains in the right dock. |
 | Subtitle add flow | The add action opens a three-option dialog: **this file**, **this folder**, **this playlist**. Folder and playlist modes run filename matching (extension and episode markers stripped, stems compared) and present the matched pairs for manual accept/reject, with a "save for future episodes" toggle that calls `rememberShowDefaults`. |
 | Per-show subtitle presets | Show presets bundle delay, formatting, default subtitle track and default subtitle language. They are listed in the Subtitles dock, applied in one click, saved from the current look, and **auto-applied** when an episode of a known show starts. |
+| Library address bar and details | The library address bar is editable for direct path jumps, and a dedicated details panel shows full metadata for a selected item (`src/views/LibraryView.svelte`, `src/components/LibraryDetails.svelte`). |
+| Playlist reordering and drop | Playlist tracks support drag-reordering inside a saved playlist, and library tracks can be dragged onto playlists to append (`src/views/PlaylistsView.svelte`, `movePlaylistTrack`, `addTrackToPlaylist`). |
 
 ### Planned — not implemented
 
-- A full next-episode prompt with countdown and cancel action (the compact Next button is the current step).
-- An editable library address bar, a dedicated details view and native filesystem pickers inside the Tauri shell.
 - Real media-library scanning, metadata extraction and artwork; the current library is mock data plus session imports.
 - Persistent imported media and playlist tracks whose sources are `blob:` URLs; these remain session-only by design.
-- Playlist drag-reordering and drag-to-playlist (drag currently targets the queue).
 - Native Tauri playback, disc playback and OS media-key integration; the browser `<video>` element remains the playback engine.
 - Full keyboard remapping beyond the hotkeys window, and per-profile hotkey sets.

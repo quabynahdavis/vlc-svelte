@@ -2,6 +2,19 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-05
+
+### Fixed — checks and volume cone
+
+- Removed the unused `fullscreen` export from `CompactLibraryOverlay.svelte` and the matching prop from `PlayerView.svelte`; `bun run check` now reports **0 errors and 0 warnings**.
+- Verified the restored left-pointing volume cone orientation and left→right accent fill in `TransportBar.svelte`.
+
+### Changed — documentation
+
+- Status tables in `README.md` and `README.as-twi.md` now mark the next-episode countdown, editable library address bar, details view, saved-items tabs and queue repeat/shuffle as implemented.
+- [design/02-redesign-vision.md](en/design/02-redesign-vision.md) moved finished items out of **Planned** and refreshed the current-status tables (next-episode prompt, address bar and details, playlist reordering and drop, saved-items overlay, queue management).
+- [design/01-design-system.md](en/design/01-design-system.md) documents the countdown prompt alongside the compact **Next** button.
+
 ## 2026-11-04
 
 ### Fixed — transport volume cone
