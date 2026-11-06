@@ -2,11 +2,15 @@
   import { tick } from 'svelte';
   import { X, Music, Radio, Film, Play, Search } from 'lucide-svelte';
   import { handleHorizontalWheel } from '../lib/horizontalScroll';
+  import { startTrackDrag } from '../lib/dragTrack';
   import { bookmarks, removeBookmark, formatTimestamp } from '../stores/bookmarks';
   import { watchLater, removeWatchLater, toggleWatchLater } from '../stores/watchLater';
   import { history, removeHistory, clearHistory } from '../stores/history';
   import { player, requestSeek, setQueue, type Track } from '../stores/player';
   import { watchEntries, removeWatch } from '../stores/watch';
+  import type { ViewMode } from '../stores/viewModes';
+  import SortMenu from './SortMenu.svelte';
+  import ViewModeToggle from './ViewModeToggle.svelte';
 
   export let open = false;
   export let onClose: () => void = () => {};
@@ -17,7 +21,14 @@
   let panelEl: HTMLDivElement | null = null;
   let searchQueries = [ '', '', '' ];
   // sort option per tab: 'new' descending / 'old' ascending
-  let sortOptions = ['new', 'new', 'new'];
+  let sortOptions = [ 'new', 'new', 'new' ];
+  // layout per tab, like the grid/list switcher on the browse pages
+  let tabViewModes: ViewMode[] = [ 'list', 'list', 'list' ];
+
+  const dateSortOptions = [
+    { key: 'new', label: 'Newest' },
+    { key: 'old', label: 'Oldest' },
+  ];
 
   // Search and sort per tab
   $: filteredBookmarks = $bookmarks
@@ -55,6 +66,40 @@
     void tick();
   }
 
+  type FlatEntry = { mediaKey: string; title: string; artist?: string; duration: number; src?: string };
+
+  /** Build the queue payload for a stored entry. */
+  function makeTrack(entry: FlatEntry): Track {
+    return {
+      id: entry.mediaKey,
+      title: entry.title,
+      artist: entry.artist || undefined,
+      duration: entry.duration,
+      src: entry.src ?? '',
+    };
+  }
+
+  function startEntryDrag(event: DragEvent, entry: FlatEntry): void {
+    startTrackDrag(event, makeTrack(entry));
+  }
+
+  function playEntry(entry: FlatEntry): void {
+    if (!entry.src) return;
+    setQueue([makeTrack(entry)], 0);
+  }
+
+  /** Bookmarks double as positions in the earlier media: resume there. */
+  function playBookmark(bm: { mediaKey: string; time: number }): void {
+    const entry = $watchEntries.find(e => e.mediaKey === bm.mediaKey);
+    if (!entry || !entry.src) return;
+    requestSeek(bm.time);
+    setQueue([makeTrack(entry)], 0);
+  }
+
+  // Hover action buttons shared by the grid cards, mirroring MediaCard.
+  const cardActionClass =
+    'flex h-6 w-6 items-center justify-center rounded-[4px] bg-black/65 text-white/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-vlc-orange hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70';
+
   function close(): void {
     onClose();
     requestAnimationFrame(() => returnFocusTo?.focus());
@@ -62,7 +107,8 @@
 
   function handleKeydown(event: KeyboardEvent): void {
     if (!open) return;
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && !event.defaultPrevented) {
+      // Sort menus and the like mark Escape as handled first.
       event.preventDefault();
       close();
       return;
@@ -136,7 +182,7 @@
       </div>
     </header>
 
-    <!-- Mini Continue strip (unchanged) -->
+    <!-- Mini Continue strip -->
     {#if miniContinueItems.length > 0}
       <div data-hscroll on:wheel|nonpassive={handleHorizontalWheel} class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-vlc-orange/40 scrollbar-track-vlc-raised px-3">
         {#each miniContinueItems as item}
@@ -224,176 +270,384 @@
       >History</button>
     </div>
 
-    <!-- Panels -->
+    <!-- Panel 0: Bookmarks -->
     {#if activeTab === 0}
       <div role="tabpanel" id="panel-0" aria-labelledby="tab-0" class="flex-1 px-3 py-2">
-        <div class="flex items-center gap-2 mb-2">
-          <label class="flex h-8 flex-1 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5" aria-label="Search bookmarks">
+        <div class="mb-2 flex items-center gap-1.5">
+          <label class="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5" aria-label="Search bookmarks">
             <Search size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
             <input
               type="search"
               placeholder="Search bookmarks..."
-              class="flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
+              class="min-w-0 flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
               bind:value={searchQueries[0]}
             />
           </label>
-          <select bind:value={sortOptions[0]} class="rounded-control border border-vlc-border bg-vlc-card px-2 py-1 text-[12px] text-vlc-text">
-            <option value="new">Newest</option>
-            <option value="old">Oldest</option>
-          </select>
+          <SortMenu
+            options={dateSortOptions}
+            value={sortOptions[0]}
+            onValueChange={(key) => (sortOptions[0] = key)}
+            label="Sort bookmarks"
+          />
+          <ViewModeToggle
+            value={tabViewModes[0]}
+            onChange={(mode) => (tabViewModes[0] = mode)}
+            options={['grid', 'list']}
+            label="Bookmarks view mode"
+          />
         </div>
-        {#each filteredBookmarks as bm (bm.id)}
-          <div class="flex items-center justify-between py-1 border-b border-vlc-border">
-            <div class="flex-1">
-              <p class="text-sm text-vlc-text">{bm.label || formatTimestamp(bm.time)}</p>
-            </div>
-            <button
-              type="button"
-              class="mr-2 text-vlc-muted hover:text-vlc-text"
-              on:click={() => {
-                const entry = $watchEntries.find(e => e.mediaKey === bm.mediaKey);
-                if (entry) {
-                  setQueue([
-                    { id: entry.mediaKey, title: entry.title, duration: entry.duration, src: entry.src },
-                  ], 0);
-                }
-              }}
-            >
-              <Play size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              class="text-vlc-muted hover:text-vlc-text"
-              on:click={() => removeBookmark(bm.id)}
-            >
-              <X size={12} aria-hidden="true" />
-            </button>
+
+        {#if tabViewModes[0] === 'grid'}
+          <div class="grid grid-cols-2 gap-x-3 gap-y-3 pb-2" role="group" aria-label="Bookmarks, grid view">
+            {#each filteredBookmarks as bm (bm.id)}
+              <div class="group relative">
+                <button
+                  type="button"
+                  class="block w-full text-left focus:outline-none"
+                  aria-label={`Play ${bm.label || formatTimestamp(bm.time)}`}
+                  on:click={() => playBookmark(bm)}
+                >
+                  <div class="rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] px-3 py-3 transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105 group-focus-within:border-vlc-orange/70">
+                    <p class="font-mono text-[15px] leading-5 tabular-nums text-vlc-orangeText">{formatTimestamp(bm.time)}</p>
+                    <p class="mt-1 truncate text-[11px] leading-4 text-vlc-secondary">{bm.label || 'Bookmark'}</p>
+                  </div>
+                </button>
+                <div class="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <button
+                    type="button"
+                    class={cardActionClass}
+                    title="Play bookmark"
+                    aria-label={`Play ${bm.label || formatTimestamp(bm.time)}`}
+                    on:click={() => playBookmark(bm)}
+                  >
+                    <Play size={12} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    class={cardActionClass}
+                    title="Remove bookmark"
+                    aria-label={`Remove ${bm.label || formatTimestamp(bm.time)}`}
+                    on:click={() => removeBookmark(bm.id)}
+                  >
+                    <X size={12} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            {/each}
           </div>
-        {/each}
+        {:else}
+          <div class="mb-2 overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel" role="group" aria-label="Bookmarks, list view">
+            {#each filteredBookmarks as bm (bm.id)}
+              <div class="group flex items-center gap-1 border-b border-vlc-border px-2 py-1.5 transition-colors last:border-b-0 hover:bg-vlc-raised">
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-[13px] text-vlc-text">{bm.label || formatTimestamp(bm.time)}</p>
+                  <p class="font-mono text-[10px] tabular-nums text-vlc-muted">{formatTimestamp(bm.time)}</p>
+                </div>
+                <button
+                  type="button"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+                  title="Play bookmark"
+                  aria-label={`Play ${bm.label || formatTimestamp(bm.time)}`}
+                  on:click={() => playBookmark(bm)}
+                >
+                  <Play size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+                  title="Remove bookmark"
+                  aria-label={`Remove ${bm.label || formatTimestamp(bm.time)}`}
+                  on:click={() => removeBookmark(bm.id)}
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
         {#if filteredBookmarks.length === 0}
-          <p class="text-center text-vlc-muted py-4">No bookmarks</p>
+          <p class="py-4 text-center text-vlc-muted">No bookmarks</p>
         {/if}
       </div>
     {:else if activeTab === 1}
+    <!-- Panel 1: Watch Later -->
       <div role="tabpanel" id="panel-1" aria-labelledby="tab-1" class="flex-1 px-3 py-2">
-        <div class="flex items-center gap-2 mb-2">
-          <label class="flex h-8 flex-1 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5" aria-label="Search watch later">
+        <div class="mb-2 flex items-center gap-1.5">
+          <label class="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5" aria-label="Search watch later">
             <Search size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
             <input
               type="search"
               placeholder="Search watch later..."
-              class="flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
+              class="min-w-0 flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
               bind:value={searchQueries[1]}
             />
           </label>
-          <select bind:value={sortOptions[1]} class="rounded-control border border-vlc-border bg-vlc-card px-2 py-1 text-[12px] text-vlc-text">
-            <option value="new">Newest</option>
-            <option value="old">Oldest</option>
-          </select>
+          <SortMenu
+            options={dateSortOptions}
+            value={sortOptions[1]}
+            onValueChange={(key) => (sortOptions[1] = key)}
+            label="Sort watch later"
+          />
+          <ViewModeToggle
+            value={tabViewModes[1]}
+            onChange={(mode) => (tabViewModes[1] = mode)}
+            options={['grid', 'list']}
+            label="Watch later view mode"
+          />
         </div>
-        {#each filteredWatchLater as wl (wl.id)}
-          <div class="flex items-center gap-2 py-1 border-b border-vlc-border">
-            <div class="w-12 h-12 flex-shrink-0 bg-vlc-app flex items-center justify-center">
-              {#if wl.thumbnail}
-                <img src={wl.thumbnail} alt="" class="h-full w-full object-cover" />
-              {:else if wl.type === 'music'}
-                <Music size={20} class="text-vlc-muted" aria-hidden="true" />
-              {:else if wl.type === 'stream'}
-                <Radio size={20} class="text-vlc-muted" aria-hidden="true" />
-              {:else}
-                <Film size={20} class="text-vlc-muted" aria-hidden="true" />
-              {/if}
-            </div>
-            <div class="flex-1">
-              <p class="text-sm text-vlc-text truncate">{wl.title}</p>
-              {#if wl.artist}
-                <p class="text-xs text-vlc-muted">{wl.artist}</p>
-              {/if}
-              <p class="text-xs text-vlc-muted">{formatDuration(wl.duration)}</p>
-            </div>
-            <button
-              type="button"
-              class="text-vlc-muted hover:text-vlc-text"
-              on:click={() => {
-                setQueue([
-                  { id: wl.mediaKey, title: wl.title, artist: wl.artist, duration: wl.duration, src: wl.src },
-                ], 0);
-              }}
-            >
-              <Play size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              class="text-vlc-muted hover:text-vlc-text"
-              on:click={() => removeWatchLater(wl.id)}
-            >
-              <X size={12} aria-hidden="true" />
-            </button>
+
+        {#if tabViewModes[1] === 'grid'}
+          <div class="grid grid-cols-2 gap-x-3 gap-y-3 pb-2" role="group" aria-label="Watch later, grid view">
+            {#each filteredWatchLater as wl (wl.id)}
+              <div
+                class="group relative"
+                role="group"
+                draggable={Boolean(wl.src)}
+                title={`${wl.title} — drag to the queue`}
+                on:dragstart={(event) => startEntryDrag(event, wl)}
+              >
+                <button
+                  type="button"
+                  class="block w-full text-left focus:outline-none"
+                  aria-label={`Play ${wl.title}`}
+                  on:click={() => playEntry(wl)}
+                >
+                  <div class="relative aspect-video w-full overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105 group-focus-within:border-vlc-orange/70">
+                    {#if wl.thumbnail}
+                      <img src={wl.thumbnail} alt="" class="h-full w-full object-cover" loading="lazy" draggable="false" />
+                    {:else if wl.type === 'music'}
+                      <Music size={22} strokeWidth={1.8} class="text-white/25" aria-hidden="true" />
+                    {:else if wl.type === 'stream'}
+                      <Radio size={22} strokeWidth={1.8} class="text-white/25" aria-hidden="true" />
+                    {:else}
+                      <Film size={22} strokeWidth={1.8} class="text-white/25" aria-hidden="true" />
+                    {/if}
+                    <span class="absolute bottom-1 right-1 rounded bg-black/75 px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-white/85">
+                      {formatDuration(wl.duration)}
+                    </span>
+                  </div>
+                  <p class="mt-2 truncate text-[11px] leading-4 text-vlc-text">{wl.title}</p>
+                  {#if wl.artist}
+                    <p class="truncate text-[10px] leading-4 text-vlc-muted">{wl.artist}</p>
+                  {/if}
+                </button>
+                <div class="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <button
+                    type="button"
+                    class={cardActionClass}
+                    title="Add to queue"
+                    aria-label={`Add ${wl.title} to the queue`}
+                    on:click={() => playEntry(wl)}
+                  >
+                    <Play size={12} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    class={cardActionClass}
+                    title="Remove from Watch Later"
+                    aria-label={`Remove ${wl.title} from Watch Later`}
+                    on:click={() => removeWatchLater(wl.id)}
+                  >
+                    <X size={12} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            {/each}
           </div>
-        {/each}
+        {:else}
+          <div class="mb-2 overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel" role="group" aria-label="Watch later, list view">
+            {#each filteredWatchLater as wl (wl.id)}
+              <div
+                class="group flex items-center gap-2 border-b border-vlc-border px-2 py-1.5 transition-colors last:border-b-0 hover:bg-vlc-raised"
+                role="group"
+                draggable={Boolean(wl.src)}
+                on:dragstart={(event) => startEntryDrag(event, wl)}
+              >
+                <div class="h-10 w-10 flex-shrink-0 overflow-hidden rounded bg-vlc-app flex items-center justify-center">
+                  {#if wl.thumbnail}
+                    <img src={wl.thumbnail} alt="" class="h-full w-full object-cover" loading="lazy" draggable="false" />
+                  {:else if wl.type === 'music'}
+                    <Music size={16} class="text-vlc-muted" aria-hidden="true" />
+                  {:else if wl.type === 'stream'}
+                    <Radio size={16} class="text-vlc-muted" aria-hidden="true" />
+                  {:else}
+                    <Film size={16} class="text-vlc-muted" aria-hidden="true" />
+                  {/if}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-[13px] text-vlc-text">{wl.title}</p>
+                  {#if wl.artist}
+                    <p class="truncate text-[10px] text-vlc-muted">{wl.artist}</p>
+                  {/if}
+                  <p class="font-mono text-[10px] tabular-nums text-vlc-muted">{formatDuration(wl.duration)}</p>
+                </div>
+                <button
+                  type="button"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+                  title="Add to queue"
+                  aria-label={`Add ${wl.title} to the queue`}
+                  on:click={() => playEntry(wl)}
+                >
+                  <Play size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+                  title="Remove from Watch Later"
+                  aria-label={`Remove ${wl.title} from Watch Later`}
+                  on:click={() => removeWatchLater(wl.id)}
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
         {#if filteredWatchLater.length === 0}
-          <p class="text-center text-vlc-muted py-4">Watch later list empty</p>
+          <p class="py-4 text-center text-vlc-muted">Watch later list empty</p>
         {/if}
       </div>
     {:else}
+    <!-- Panel 2: History -->
       <div role="tabpanel" id="panel-2" aria-labelledby="tab-2" class="flex-1 px-3 py-2">
-        <div class="flex items-center gap-2 mb-2">
-          <label class="flex h-8 flex-1 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5" aria-label="Search history">
+        <div class="mb-2 flex items-center gap-1.5">
+          <label class="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-control border border-vlc-border bg-vlc-app px-2.5" aria-label="Search history">
             <Search size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
             <input
               type="search"
               placeholder="Search history..."
-              class="flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
+              class="min-w-0 flex-1 bg-transparent text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted"
               bind:value={searchQueries[2]}
             />
           </label>
-          <select bind:value={sortOptions[2]} class="rounded-control border border-vlc-border bg-vlc-card px-2 py-1 text-[12px] text-vlc-text">
-            <option value="new">Newest</option>
-            <option value="old">Oldest</option>
-          </select>
+          <SortMenu
+            options={dateSortOptions}
+            value={sortOptions[2]}
+            onValueChange={(key) => (sortOptions[2] = key)}
+            label="Sort history"
+          />
+          <ViewModeToggle
+            value={tabViewModes[2]}
+            onChange={(mode) => (tabViewModes[2] = mode)}
+            options={['grid', 'list']}
+            label="History view mode"
+          />
         </div>
-        {#each filteredHistory as h (h.id)}
-          <div class="flex items-center gap-2 py-1 border-b border-vlc-border">
-            <div class="w-12 h-12 flex-shrink-0 bg-vlc-app flex items-center justify-center">
-              {#if h.thumbnail}
-                <img src={h.thumbnail} alt="" class="h-full w-full object-cover" />
-              {:else if h.type === 'music'}
-                <Music size={20} class="text-vlc-muted" aria-hidden="true" />
-              {:else if h.type === 'stream'}
-                <Radio size={20} class="text-vlc-muted" aria-hidden="true" />
-              {:else}
-                <Film size={20} class="text-vlc-muted" aria-hidden="true" />
-              {/if}
-            </div>
-            <div class="flex-1">
-              <p class="text-sm text-vlc-text truncate">{h.title}</p>
-              {#if h.artist}
-                <p class="text-xs text-vlc-muted">{h.artist}</p>
-              {/if}
-              <p class="text-xs text-vlc-muted">{formatDuration(h.duration)}</p>
-            </div>
-            <button
-              type="button"
-              class="text-vlc-muted hover:text-vlc-text"
-              on:click={() => {
-                setQueue([
-                  { id: h.mediaKey, title: h.title, artist: h.artist, duration: h.duration, src: h.src },
-                ], 0);
-              }}
-            >
-              <Play size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              class="text-vlc-muted hover:text-vlc-text"
-              on:click={() => removeHistory(h.id)}
-            >
-              <X size={12} aria-hidden="true" />
-            </button>
+
+        {#if tabViewModes[2] === 'grid'}
+          <div class="grid grid-cols-2 gap-x-3 gap-y-3 pb-2" role="group" aria-label="History, grid view">
+            {#each filteredHistory as h (h.id)}
+              <div
+                class="group relative"
+                role="group"
+                draggable={Boolean(h.src)}
+                title={`${h.title} — drag to the queue`}
+                on:dragstart={(event) => startEntryDrag(event, h)}
+              >
+                <button
+                  type="button"
+                  class="block w-full text-left focus:outline-none"
+                  aria-label={`Play ${h.title}`}
+                  on:click={() => playEntry(h)}
+                >
+                  <div class="relative aspect-video w-full overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105 group-focus-within:border-vlc-orange/70">
+                    {#if h.thumbnail}
+                      <img src={h.thumbnail} alt="" class="h-full w-full object-cover" loading="lazy" draggable="false" />
+                    {:else if h.type === 'music'}
+                      <Music size={22} strokeWidth={1.8} class="text-white/25" aria-hidden="true" />
+                    {:else if h.type === 'stream'}
+                      <Radio size={22} strokeWidth={1.8} class="text-white/25" aria-hidden="true" />
+                    {:else}
+                      <Film size={22} strokeWidth={1.8} class="text-white/25" aria-hidden="true" />
+                    {/if}
+                    <span class="absolute bottom-1 right-1 rounded bg-black/75 px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-white/85">
+                      {formatDuration(h.duration)}
+                    </span>
+                    {#if h.position > 0 && h.duration > 0}
+                      <div class="absolute inset-x-0 bottom-0 h-[3px] bg-black/40" aria-hidden="true">
+                        <div class="h-full bg-vlc-orange" style={`width: ${Math.min(100, (h.position / h.duration) * 100)}%`}></div>
+                      </div>
+                    {/if}
+                  </div>
+                  <p class="mt-2 truncate text-[11px] leading-4 text-vlc-text">{h.title}</p>
+                  {#if h.artist}
+                    <p class="truncate text-[10px] leading-4 text-vlc-muted">{h.artist}</p>
+                  {/if}
+                </button>
+                <div class="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <button
+                    type="button"
+                    class={cardActionClass}
+                    title="Add to queue"
+                    aria-label={`Add ${h.title} to the queue`}
+                    on:click={() => playEntry(h)}
+                  >
+                    <Play size={12} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    class={cardActionClass}
+                    title="Remove from history"
+                    aria-label={`Remove ${h.title} from history`}
+                    on:click={() => removeHistory(h.id)}
+                  >
+                    <X size={12} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            {/each}
           </div>
-        {/each}
+        {:else}
+          <div class="mb-2 overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel" role="group" aria-label="History, list view">
+            {#each filteredHistory as h (h.id)}
+              <div
+                class="group flex items-center gap-2 border-b border-vlc-border px-2 py-1.5 transition-colors last:border-b-0 hover:bg-vlc-raised"
+                role="group"
+                draggable={Boolean(h.src)}
+                on:dragstart={(event) => startEntryDrag(event, h)}
+              >
+                <div class="h-10 w-10 flex-shrink-0 overflow-hidden rounded bg-vlc-app flex items-center justify-center">
+                  {#if h.thumbnail}
+                    <img src={h.thumbnail} alt="" class="h-full w-full object-cover" loading="lazy" draggable="false" />
+                  {:else if h.type === 'music'}
+                    <Music size={16} class="text-vlc-muted" aria-hidden="true" />
+                  {:else if h.type === 'stream'}
+                    <Radio size={16} class="text-vlc-muted" aria-hidden="true" />
+                  {:else}
+                    <Film size={16} class="text-vlc-muted" aria-hidden="true" />
+                  {/if}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-[13px] text-vlc-text">{h.title}</p>
+                  {#if h.artist}
+                    <p class="truncate text-[10px] text-vlc-muted">{h.artist}</p>
+                  {/if}
+                  <p class="font-mono text-[10px] tabular-nums text-vlc-muted">{formatDuration(h.duration)}</p>
+                </div>
+                <button
+                  type="button"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+                  title="Add to queue"
+                  aria-label={`Add ${h.title} to the queue`}
+                  on:click={() => playEntry(h)}
+                >
+                  <Play size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+                  title="Remove from history"
+                  aria-label={`Remove ${h.title} from history`}
+                  on:click={() => removeHistory(h.id)}
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
         {#if filteredHistory.length === 0}
-          <p class="text-center text-vlc-muted py-4">History empty</p>
+          <p class="py-4 text-center text-vlc-muted">History empty</p>
         {/if}
         <div class="flex justify-center py-2">
           <button
@@ -412,3 +666,4 @@
     </footer>
   </div>
 {/if}
+
