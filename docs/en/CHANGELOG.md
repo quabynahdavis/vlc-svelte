@@ -2,6 +2,16 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-06
+
+### Added — compact library sorter and view modes
+
+- Extracted the library toolbar's sort dropdown into a shared `src/components/SortMenu.svelte` component, so the video page and the compact library panel now use the exact same control (icon trigger, "Sort by" radio menu, optional ascending/descending direction row). The video page's markup is unchanged.
+- The compact library panel now uses that shared sorter (no more native `<select>`) and gains a **grid/list** layout switcher per tab, matching the browse pages: list rows sit in a bordered panel group and grid cards follow `MediaCard` styling with duration chips and resume progress bars.
+- Saved watch-later and history items with a playable source are now draggable to the queue (`application/x-vlc-track` payload unchanged), matching the drawer's footer hint.
+- Playing a bookmark now resumes at the bookmarked timestamp instead of the start of the media.
+- `bun run check` reports 0 errors and 0 warnings; `bunx vite build` succeeds.
+
 ## 2026-11-05
 
 ### Fixed — checks and volume cone

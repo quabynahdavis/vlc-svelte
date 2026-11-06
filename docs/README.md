@@ -116,7 +116,7 @@ The canonical documentation is written in English under [`docs/en/`](en/OVERVIEW
 
 | Label | Meaning |
 | --- | --- |
-| ✅ **Implemented** | Shell, player, six browse views, right dock, sixteen settings categories, themes, persistence, drag-to-queue and add-to-playlist, the next-episode countdown prompt, an editable library address bar with a details view, saved-items tabs (bookmarks, watch later, history) in the compact library, and repeat/shuffle controls in the queue. |
+| ✅ **Implemented** | Shell, player, six browse views, right dock, sixteen settings categories, themes, persistence, drag-to-queue and add-to-playlist, the next-episode countdown prompt, an editable library address bar with a details view, saved-items tabs (bookmarks, watch later, history) with per-tab search, sorting and grid/list views, and repeat/shuffle controls in the queue. |
 | 🗓️ **Planned** | Native media scanning and metadata, native playback, OS media keys and persistent `blob:` imports. |
 
 Library, music, playlist and network data are mock data. Imported media and playlist tracks with `blob:` sources are session-only; pins, saved streams, subtitle profiles, bookmarks, layout and onboarding persist across reloads.

@@ -116,7 +116,7 @@ Nkyerɛw a ɛyɛ nokware no wɔ Borɔfo kasa mu wɔ [`docs/en/`](en/OVERVIEW.md)
 
 | Label | Nkyerɛaseɛ |
 | --- | --- |
-| ✅ **Implemented** | Shell, player, browse views 6, right dock, settings categories 16, themes, persistence, drag-to-queue ne add-to-playlist, next-episode prompt, library address bar a wobetumi asesa ne details view, saved-items tabs (bookmarks, watch later, history), ne repeat/shuffle controls wɔ queue mu. |
+| ✅ **Implemented** | Shell, player, browse views 6, right dock, settings categories 16, themes, persistence, drag-to-queue ne add-to-playlist, next-episode prompt, library address bar a wobetumi asesa ne details view, saved-items tabs (bookmarks, watch later, history) a ɛwɔ per-tab search, sorting ne grid/list views, ne repeat/shuffle controls wɔ queue mu. |
 | 🗓️ **Planned** | Native media scanning ne metadata, native playback, OS media keys ne `blob:` imports a ɛkɔ so. |
 
 Library, music, playlist ne network data yɛ mock data. Imported media ne playlist tracks a wɔde `blob:` sources no wɔ session mu nkutoo; pins, saved streams, subtitle profiles, bookmarks, layout ne onboarding na ɛkɔ so wɔ reload akyi.
