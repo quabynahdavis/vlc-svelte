@@ -127,6 +127,7 @@ export interface SettingsState {
 
   // Library
   libraryFolders: string[];
+  libraryDefaultSeeded: boolean;
   scanOnStartup: boolean;
   includeHiddenFiles: boolean;
   fileTypes: FileTypeCategory;
@@ -312,6 +313,7 @@ export const defaultSettings: SettingsState = {
 
   // Library
   libraryFolders: [],
+  libraryDefaultSeeded: false,
   scanOnStartup: true,
   includeHiddenFiles: false,
   fileTypes: { ...DEFAULT_FILE_TYPES },

@@ -3,7 +3,9 @@
   import { FilePlus2, FolderPlus, Plus, Radio, X } from 'lucide-svelte';
   import {
     addImportedItems,
+    breadcrumb,
     createLibraryItemId,
+    findScannedSubfolder,
     libraryImportLog,
     updateLibraryItemDuration,
     type LibraryImportEntry,
@@ -274,6 +276,29 @@
 
   function handleFolderChange(event: Event): void {
     const input = event.currentTarget as HTMLInputElement;
+    const files = input.files ? Array.from(input.files) : [];
+
+    if (files.length > 0) {
+      // Get the first folder name from webkitRelativePath (first segment before /)
+      const firstFile = files[0];
+      const relativePath = (firstFile as File & { webkitRelativePath?: string }).webkitRelativePath;
+      if (relativePath) {
+        const firstSegment = relativePath.split('/')[0];
+        if (firstSegment) {
+          // Check if this matches a scanned root or its direct subfolder
+          const breadcrumbSegments = findScannedSubfolder(firstSegment);
+          if (breadcrumbSegments !== null) {
+            // Navigate into the scanned subfolder instead of importing
+            breadcrumb.set(breadcrumbSegments);
+            libraryImportLog.set(`Opened ${firstSegment}`);
+            input.value = '';
+            triggerEl?.focus();
+            return;
+          }
+        }
+      }
+    }
+
     importFiles(input.files, 'folder');
     input.value = '';
     triggerEl?.focus();

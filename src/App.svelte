@@ -287,7 +287,7 @@
     </div>
 
     <main
-      class="relative min-w-0 flex-1 overflow-hidden bg-vlc-app focus:outline-none"
+      class="relative min-w-0 flex-1 overflow-hidden overflow-x-clip bg-vlc-app focus:outline-none"
       tabindex="-1"
       data-hotkeys-return-fallback
       on:contextmenu={handleContextMenu}

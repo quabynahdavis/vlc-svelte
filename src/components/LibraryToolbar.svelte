@@ -112,7 +112,7 @@
     {/each}
   </nav>
 
-  <div class="ml-auto flex shrink-0 items-center gap-1">
+  <div class="ml-auto flex min-w-0 items-center gap-1 flex-wrap">
     <span class="mr-2 whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
       {itemCount} {itemCount === 1 ? 'item' : 'items'}
     </span>
@@ -159,7 +159,7 @@
       label="Library view mode"
     />
 
-    <label class="relative ml-2 block w-60">
+    <label class="relative ml-2 min-w-0 flex-1 max-w-60">
       <Search
         size={14}
         strokeWidth={1.75}

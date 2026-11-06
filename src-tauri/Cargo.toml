@@ -4,7 +4,10 @@ version = "1.0.0"
 edition = "2021"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
+serde = { version = "1", features = ["derive"] }
+walkdir = "2"
+dirs = "5"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

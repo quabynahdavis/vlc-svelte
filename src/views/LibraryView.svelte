@@ -9,9 +9,9 @@
   import type { MediaItem } from '../lib/mock';
   import {
     breadcrumb,
+    currentFolders,
     filteredItems,
     goUpOneLevel,
-    libraryFolders,
     libraryImportLog,
     libraryItems,
     libraryRootName,
@@ -20,6 +20,7 @@
     libraryWatchFilter,
     navigateToLibraryPath,
     openLibraryFolder,
+    rootFolders,
     searchQuery,
     sortedItems,
     subfolders,
@@ -50,8 +51,22 @@
     : null;
 
   /** Configured roots are listed under the Library level; deeper levels show imported subfolders. */
-  $: currentFolders = $breadcrumb.length === 0 ? $libraryFolders : $subfolders;
   $: atLibraryRoot = $breadcrumb.length === 0;
+
+  /** Disambiguate folder names when siblings share a name: Name[ParentName] */
+  $: displayFolderNames = (() => {
+    const names = $currentFolders.map(f => f.name);
+    const dupes = new Set(names.filter((n, i) => names.indexOf(n) !== i));
+    return new Map($currentFolders.map(f => {
+      if (!dupes.has(f.name)) return [f.path, f.name];
+      const parent = f.path.split('/').slice(-2, -1)[0] ?? f.name;
+      return [f.path, `${f.name}[${parent}]`];
+    }));
+  })();
+
+  function getDisplayName(folder: LibraryFolder): string {
+    return $displayFolderNames.get(folder.path) ?? folder.name;
+  }
 
   const emptyActionClass =
     'rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50';
@@ -299,7 +314,7 @@
               <button
                 type="button"
                 class="group text-left focus-visible:outline-none"
-                aria-label={`Open folder ${folder.name}`}
+                aria-label={`Open folder ${getDisplayName(folder)}`}
                 title={folder.path}
                 on:click={() => openFolder(folder)}
               >
@@ -309,7 +324,7 @@
                   </div>
                 </div>
                 <div class="mt-2.5 truncate text-[12px] font-medium leading-4 text-vlc-secondary group-hover:text-vlc-text">
-                  {folder.name}
+                  {getDisplayName(folder)}
                 </div>
                 <div class="text-[10px] leading-4 text-vlc-muted">
                   {folder.total} {folder.total === 1 ? 'item' : 'items'}
@@ -328,7 +343,7 @@
                 <button
                   type="button"
                   class="flex w-full items-center gap-3 border-b border-vlc-border px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-vlc-orange/50"
-                  aria-label={`Open folder ${folder.name}`}
+                  aria-label={`Open folder ${getDisplayName(folder)}`}
                   title={folder.path}
                   on:click={() => openFolder(folder)}
                 >
@@ -336,7 +351,7 @@
                     <Folder size={18} strokeWidth={1.6} aria-hidden="true" />
                   </span>
                   <span class="min-w-0 flex-1">
-                    <span class="block truncate text-[13px] text-vlc-text">{folder.name}</span>
+                    <span class="block truncate text-[13px] text-vlc-text">{getDisplayName(folder)}</span>
                     <span class="block truncate font-mono text-[10px] text-vlc-muted">{folder.path}</span>
                   </span>
                   <span class="shrink-0 text-[11px] tabular-nums text-vlc-muted">
