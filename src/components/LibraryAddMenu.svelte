@@ -243,13 +243,17 @@
       return;
     }
 
-    const entries: LibraryImportEntry[] = supported.map((file) => ({
-      id: createLibraryItemId(),
-      title: titleFromFileName(file.name),
-      durationSeconds: 0,
-      progress: 0,
-      src: URL.createObjectURL(file),
-    }));
+    const entries: LibraryImportEntry[] = supported.map((file) => {
+      const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+      return {
+        id: createLibraryItemId(),
+        title: titleFromFileName(file.name),
+        durationSeconds: 0,
+        progress: 0,
+        src: URL.createObjectURL(file),
+        relativePath: relativePath || undefined,
+      };
+    });
 
     addImportedItems(entries);
     supported.forEach((file, index) => probeDuration(file, entries[index].id));

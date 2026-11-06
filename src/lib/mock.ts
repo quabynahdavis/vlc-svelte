@@ -16,12 +16,16 @@ export interface MediaItem {
   thumbnailPath?: string;
   /** Optional local media source. Demo library items point at the bundled sample clip. */
   src?: string;
+  /**
+   * Folder chain of an imported item (`webkitRelativePath` captured by Add
+   * folder imports). The library tree matches these segments against the
+   * folders configured in Settings > Library.
+   */
+  relativePath?: string;
 }
 
 /** Small bundled clip used by the demo library and music queues. */
 export const DEMO_MEDIA_SRC = '/demo/sample.mp4';
-
-export const showsBreadcrumb: string[] = ['Videos', 'Shows', 'The Wand', 'S01'];
 
 /** Music domain types */
 export interface Track {
@@ -115,36 +119,6 @@ export interface Playlist {
   lastModified: number; // epoch ms
   tracks: PlaylistTrack[];
 }
-
-/** Exact display order from the reference screenshot. */
-const EPISODE_ORDER = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1, 2, 3, 4];
-
-const EPISODE_DURATIONS = [
-  1384, 1461, 1402, 1517, 1350, 1288, 1436, 1499, 1424, 1337, 1552, 1391, 1478, 1309, 1445,
-];
-
-/** The first four episodes were watched almost to the end. */
-const WATCHED_PROGRESS: Record<number, number> = {
-  1: 0.94,
-  2: 0.98,
-  3: 1,
-  4: 0.96,
-};
-
-export const showsItems: MediaItem[] = EPISODE_ORDER.map((episode) => {
-  const episodeCode = `S01E${String(episode).padStart(2, '0')}`;
-
-  return {
-    id: `the-wand-${episodeCode.toLowerCase()}`,
-    title: `The_Wand_${episodeCode}.mp4`,
-    season: 1,
-    episode,
-    durationSeconds: EPISODE_DURATIONS[episode - 1],
-    progress: episode <= 4 ? WATCHED_PROGRESS[episode] ?? 1 : 0,
-    thumbnailPath: undefined,
-    src: DEMO_MEDIA_SRC,
-  };
-});
 
 /* ---------- Music mock ---------- */
 const ARTIST_NAMES = [

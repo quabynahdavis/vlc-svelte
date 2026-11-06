@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { Check, ChevronRight, EyeOff, Film, Pencil, SearchX, X } from 'lucide-svelte';
+  import { createEventDispatcher } from 'svelte';
+  import { Check, ChevronRight, EyeOff, Film, Folder, Pencil, SearchX, X } from 'lucide-svelte';
   import LibraryDetails from '../components/LibraryDetails.svelte';
   import LibraryToolbar from '../components/LibraryToolbar.svelte';
   import MediaCard from '../components/MediaCard.svelte';
@@ -9,18 +10,26 @@
   import {
     breadcrumb,
     filteredItems,
+    goUpOneLevel,
+    libraryFolders,
     libraryImportLog,
     libraryItems,
+    libraryRootName,
     librarySortDirection,
     librarySortKey,
     libraryWatchFilter,
     navigateToLibraryPath,
+    openLibraryFolder,
     searchQuery,
     sortedItems,
+    subfolders,
+    type LibraryFolder,
   } from '../stores/library';
   import { navigate } from '../stores/navigation';
   import { currentTrack, setQueue, type Track } from '../stores/player';
   import { libraryViewMode } from '../stores/viewModes';
+
+  const dispatch = createEventDispatcher<{ advancedSettings: string }>();
 
   $: activeQuery = $searchQuery.trim();
   $: watchFilterActive = $libraryWatchFilter !== 'all';
@@ -40,6 +49,10 @@
     ? $libraryItems.find((item) => item.id === detailsItemId) ?? null
     : null;
 
+  /** Configured roots are listed under the Library level; deeper levels show imported subfolders. */
+  $: currentFolders = $breadcrumb.length === 0 ? $libraryFolders : $subfolders;
+  $: atLibraryRoot = $breadcrumb.length === 0;
+
   const emptyActionClass =
     'rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50';
 
@@ -58,14 +71,21 @@
     navigate('home');
   }
 
-  function handleBreadcrumbSelect(index: number) {
+  function handleBreadcrumbSelect(renderedIndex: number) {
+    // The rendered trail starts with the fixed Library root label.
     searchQuery.set('');
-    breadcrumb.update((segments) => segments.slice(0, index + 1));
+    breadcrumb.update((segments) => segments.slice(0, renderedIndex));
     detailsItemId = null;
   }
 
+  function openFolder(folder: LibraryFolder) {
+    searchQuery.set('');
+    detailsItemId = null;
+    openLibraryFolder(folder.name);
+  }
+
   async function beginPathEdit() {
-    pathDraft = $breadcrumb.join(' / ');
+    pathDraft = [libraryRootName, ...$breadcrumb].join(' / ');
     pathError = '';
     pathEditing = true;
 
@@ -144,6 +164,7 @@
     onToggleSortDirection={() =>
       librarySortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'))}
     onWatchFilterChange={(filter) => libraryWatchFilter.set(filter)}
+    onBack={goUpOneLevel}
   />
 
   <div
@@ -161,7 +182,7 @@
           type="text"
           autocomplete="off"
           spellcheck="false"
-          placeholder="Videos / Shows / The Wand"
+          placeholder="Library / Videos / Shows"
           aria-invalid={pathError ? 'true' : undefined}
           aria-describedby={pathError ? 'library-path-error' : undefined}
           class="h-7 w-full max-w-[420px] rounded-input border bg-vlc-card px-2.5 text-xs text-vlc-text outline-none transition-colors placeholder:text-vlc-muted {pathError
@@ -200,7 +221,7 @@
         class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-[12px] leading-none"
         aria-label="Library path"
       >
-        {#each $breadcrumb as crumb, index (index)}
+        {#each [libraryRootName, ...$breadcrumb] as crumb, index (index)}
           {#if index > 0}
             <ChevronRight
               size={13}
@@ -212,11 +233,11 @@
           <button
             type="button"
             class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-            class:text-vlc-text={index === $breadcrumb.length - 1}
-            class:text-vlc-secondary={index !== $breadcrumb.length - 1}
-            class:hover:text-vlc-text={index !== $breadcrumb.length - 1}
-            aria-current={index === $breadcrumb.length - 1 ? 'page' : undefined}
-            title={index === $breadcrumb.length - 1 ? crumb : `Go to ${crumb}`}
+            class:text-vlc-text={index === $breadcrumb.length}
+            class:text-vlc-secondary={index !== $breadcrumb.length}
+            class:hover:text-vlc-text={index !== $breadcrumb.length}
+            aria-current={index === $breadcrumb.length ? 'page' : undefined}
+            title={index === $breadcrumb.length ? crumb : `Go to ${crumb}`}
             on:click={() => handleBreadcrumbSelect(index)}
           >
             {crumb}
@@ -262,11 +283,74 @@
     {#if detailsItem}
       <LibraryDetails
         item={detailsItem}
-        breadcrumb={$breadcrumb}
+        breadcrumb={[libraryRootName, ...$breadcrumb]}
         onBack={closeDetails}
         onPlay={handleSelect}
       />
-    {:else if $sortedItems.length > 0}
+    {:else if currentFolders.length > 0 || $sortedItems.length > 0}
+      {#if currentFolders.length > 0}
+        {#if $libraryViewMode === 'grid'}
+          <div
+            class="grid grid-cols-2 gap-x-5 gap-y-7 px-6 pt-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            role="group"
+            aria-label="Library folders"
+          >
+            {#each currentFolders as folder (folder.path)}
+              <button
+                type="button"
+                class="group text-left focus-visible:outline-none"
+                aria-label={`Open folder ${folder.name}`}
+                title={folder.path}
+                on:click={() => openFolder(folder)}
+              >
+                <div class="relative flex aspect-[16/10] w-full flex-col justify-end overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] p-4 transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-orange">
+                    <Folder size={22} strokeWidth={1.6} aria-hidden="true" />
+                  </div>
+                </div>
+                <div class="mt-2.5 truncate text-[12px] font-medium leading-4 text-vlc-secondary group-hover:text-vlc-text">
+                  {folder.name}
+                </div>
+                <div class="text-[10px] leading-4 text-vlc-muted">
+                  {folder.total} {folder.total === 1 ? 'item' : 'items'}
+                </div>
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <div class="px-6 pt-6">
+            <div
+              class="overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel"
+              role="group"
+              aria-label="Library folders"
+            >
+              {#each currentFolders as folder (folder.path)}
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-3 border-b border-vlc-border px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-vlc-orange/50"
+                  aria-label={`Open folder ${folder.name}`}
+                  title={folder.path}
+                  on:click={() => openFolder(folder)}
+                >
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-input border border-vlc-border bg-vlc-card text-vlc-orange">
+                    <Folder size={18} strokeWidth={1.6} aria-hidden="true" />
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-[13px] text-vlc-text">{folder.name}</span>
+                    <span class="block truncate font-mono text-[10px] text-vlc-muted">{folder.path}</span>
+                  </span>
+                  <span class="shrink-0 text-[11px] tabular-nums text-vlc-muted">
+                    {folder.total} {folder.total === 1 ? 'item' : 'items'}
+                  </span>
+                  <ChevronRight size={14} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {/if}
+
+      {#if $sortedItems.length > 0}
       {#if $libraryViewMode === 'grid'}
         <div
           class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
@@ -305,6 +389,7 @@
             />
           {/each}
         </div>
+      {/if}
       {/if}
     {:else}
       <div class="flex h-full min-h-[360px] flex-col items-center justify-center px-6 text-center">
@@ -362,8 +447,25 @@
             </button>
           </div>
         {:else}
-          <p class="text-sm font-medium text-vlc-secondary">Your video library is empty</p>
-          <p class="mt-1 text-xs text-vlc-muted">Media you add will show up here.</p>
+          <p class="text-sm font-medium text-vlc-secondary">
+            {atLibraryRoot ? 'Your video library is empty' : 'This folder is empty'}
+          </p>
+          <p class="mt-1 text-xs text-vlc-muted">
+            {atLibraryRoot
+              ? 'Point Kanea at your media folders to browse them here.'
+              : 'Media inside this folder shows up here once it is imported.'}
+          </p>
+          {#if atLibraryRoot}
+            <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                class={emptyActionClass}
+                on:click={() => dispatch('advancedSettings', 'Library')}
+              >
+                Add folders in Settings
+              </button>
+            </div>
+          {/if}
         {/if}
       </div>
     {/if}

@@ -298,7 +298,7 @@
           on:advancedSettings={(event) => void openSettingsAt(event.detail)}
         />
       {:else if $activeNav === 'videos'}
-        <LibraryView />
+        <LibraryView on:advancedSettings={(event) => void openSettingsAt(event.detail)} />
       {:else if $activeNav === 'music'}
         <MusicView />
       {:else if $activeNav === 'network'}

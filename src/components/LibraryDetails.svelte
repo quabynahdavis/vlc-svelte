@@ -26,7 +26,7 @@
   $: progressLabel = watched ? `${Math.round(progress * 100)}% watched` : 'Not started';
   $: episodeCode = `S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`;
   $: durationLabel = formatDuration(item.durationSeconds);
-  $: pathLabel = breadcrumb.length > 0 ? breadcrumb.join(' / ') : 'Library';
+  $: pathLabel = breadcrumb.join(' / ');
   $: hasSource = Boolean(item.src);
   // `description` is not part of the current MediaItem contract yet; read it
   // defensively so the panel picks it up when the mock or a future import adds it.
