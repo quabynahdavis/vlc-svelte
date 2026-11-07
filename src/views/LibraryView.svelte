@@ -54,10 +54,12 @@
   $: atLibraryRoot = $breadcrumb.length === 0;
 
   /** Disambiguate folder names when siblings share a name: Name[ParentName] */
+  let displayFolderNames: Map<string, string> = new Map();
   $: displayFolderNames = (() => {
-    const names = $currentFolders.map(f => f.name);
+    const folders = $currentFolders;
+    const names = folders.map(f => f.name);
     const dupes = new Set(names.filter((n, i) => names.indexOf(n) !== i));
-    return new Map($currentFolders.map(f => {
+    return new Map(folders.map(f => {
       if (!dupes.has(f.name)) return [f.path, f.name];
       const parent = f.path.split('/').slice(-2, -1)[0] ?? f.name;
       return [f.path, `${f.name}[${parent}]`];
@@ -65,7 +67,7 @@
   })();
 
   function getDisplayName(folder: LibraryFolder): string {
-    return $displayFolderNames.get(folder.path) ?? folder.name;
+    return displayFolderNames.get(folder.path) ?? folder.name;
   }
 
   const emptyActionClass =
@@ -302,15 +304,15 @@
         onBack={closeDetails}
         onPlay={handleSelect}
       />
-    {:else if currentFolders.length > 0 || $sortedItems.length > 0}
-      {#if currentFolders.length > 0}
+    {:else if $currentFolders.length > 0 || $sortedItems.length > 0}
+      {#if $currentFolders.length > 0}
         {#if $libraryViewMode === 'grid'}
           <div
             class="grid grid-cols-2 gap-x-5 gap-y-7 px-6 pt-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
             role="group"
             aria-label="Library folders"
           >
-            {#each currentFolders as folder (folder.path)}
+            {#each $currentFolders as folder (folder.path)}
               <button
                 type="button"
                 class="group text-left focus-visible:outline-none"
@@ -339,7 +341,7 @@
               role="group"
               aria-label="Library folders"
             >
-              {#each currentFolders as folder (folder.path)}
+              {#each $currentFolders as folder (folder.path)}
                 <button
                   type="button"
                   class="flex w-full items-center gap-3 border-b border-vlc-border px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-vlc-orange/50"

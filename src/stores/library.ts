@@ -3,7 +3,7 @@ import { settings } from './settings';
 import { hasTauri } from '../lib/tauriFs';
 import { invokeCommand } from '../lib/tauriFs';
 import { toFileSrc } from '../lib/tauriFs';
-import { upsertWatch } from './watch';
+import { upsertWatch, watchEntries } from './watch';
 import type { MediaItem, ScannedFile, ScannedFolder, ScanResult } from '../lib/mock';
 
 /**
@@ -34,12 +34,6 @@ export const scanTree: Writable<{
     roots: { rootPath: string; rootName: string; result: ScanResult }[];
     ready: boolean;
 }> = writable({ roots: [], ready: false });
-
-/** Whether Tauri is available (for scan-based operations). */
-export const hasTauriScan: Readable<boolean> = derived(
-    [hasTauri],
-    ($has) => $has,
-);
 
 /* ---------------------------------------------------------------- */
 /* Folder tree                                                       */
@@ -436,6 +430,11 @@ export function updateLibraryItemDuration(id: string, durationSeconds: number): 
             item.id === id ? { ...item, durationSeconds: Math.round(durationSeconds) } : item,
         ),
     );
+    scannedItems.update((items) =>
+        items.map((item) =>
+            item.id === id ? { ...item, durationSeconds: Math.round(durationSeconds) } : item,
+        ),
+    );
 }
 
 /* ---------- Root folders for view ---------- */
@@ -573,7 +572,8 @@ export function findScannedSubfolder(name: string): string[] | null {
  */
 async function probeDurationsForScanned(items: MediaItem[]): Promise<void> {
     for (const item of items) {
-        if (!item.src) continue;
+        const src = item.src;
+        if (!src) continue;
 
         const video = document.createElement('video');
         video.preload = 'metadata';
@@ -586,98 +586,118 @@ async function probeDurationsForScanned(items: MediaItem[]): Promise<void> {
                 resolve();
             };
             video.onerror = () => resolve();
-            video.src = item.src;
+            video.src = src;
         });
     }
 }
 
 /**
  * Scan all roots in settings.libraryFolders and update scannedItems/scanTree.
+ * Skipped entirely when the user disabled startup scanning; replaces each
+ * root's previous results so rescans never duplicate items.
  */
 function scanRoots(): void {
-    const roots = get(settings).libraryFolders;
-    const includeHidden = get(settings).includeHiddenFiles;
+    const state = get(settings);
+    if (state.scanOnStartup === false) return;
+
+    const roots = state.libraryFolders;
+    const includeHidden = state.includeHiddenFiles;
+    const currentWatch = get(watchEntries);
+    const progressFor = (path: string): number => {
+        const entry = currentWatch.find((w) => w.mediaKey === path && w.type === 'video');
+        if (!entry) return 0;
+        if (entry.watched) return 1;
+        return entry.duration > 0 ? Math.min(1, entry.position / entry.duration) : 0;
+    };
+
+    /** True when `path` is `root` itself or lives directly beneath it (either separator). */
+    const underRoot = (path: string, root: string): boolean =>
+        path.startsWith(root) &&
+        (path.length === root.length || path[root.length] === '/' || path[root.length] === '\\');
 
     for (const rootPath of roots) {
-        invokeCommand<ScanResult>('scan_library_dir', [rootPath, 4, includeHidden]).then((scanResult) => {
-            if (!scanResult) return;
+        void invokeCommand<ScanResult>('scan_library_dir', { root: rootPath, maxDepth: 4, includeHidden })
+            .then(async (scanResult) => {
+                if (!scanResult) return;
 
-            // Convert ScannedFile -> MediaItem
-            const mediaItems: MediaItem[] = scanResult.files.map((file) => {
+                // Convert ScannedFile -> MediaItem; root basename leads the chain
+                // so imports and scans share one tree layout.
                 const rootBasename = scanResult.root;
-                let relativePathSegments: string[] = [];
+                const mediaItems: MediaItem[] = await Promise.all(
+                    scanResult.files.map(async (file): Promise<MediaItem> => {
+                        const parts = file.relative_path.split('/').filter(Boolean);
+                        return {
+                            id: file.path,
+                            title: file.name,
+                            season: 1,
+                            episode: 0,
+                            durationSeconds: 0,
+                            progress: progressFor(file.path),
+                            src: (await toFileSrc(file.path)) ?? '',
+                            relativePath: [rootBasename, ...parts].join('/'),
+                        };
+                    }),
+                );
 
-                if (file.relative_path) {
-                    const parts = file.relative_path.split('/');
-                    relativePathSegments.push(rootBasename);
-                    for (const part of parts) {
-                        if (part) relativePathSegments.push(part);
-                    }
-                } else {
-                    relativePathSegments.push(rootBasename);
-                }
+                // Replace this root's previous items instead of appending.
+                scannedItems.update((current) => [
+                    ...current.filter((item) => !underRoot(item.id, rootPath)),
+                    ...mediaItems,
+                ]);
 
-                const relativePath = relativePathSegments.join('/');
+                scanTree.update((tree) => ({
+                    roots: [
+                        ...tree.roots.filter((r) => r.rootPath !== rootPath),
+                        { rootPath, rootName: rootBasename, result: scanResult },
+                    ],
+                    ready: true,
+                }));
 
-                // Get file:// URL for playback
-                let src = '';
-                toFileSrc(file.path).then((url) => { src = url ?? ''; });
-
-                return {
-                    id: file.path,
-                    title: file.name,
-                    season: 1,
-                    episode: 0,
-                    durationSeconds: 0,
-                    progress: 0,
-                    src,
-                    relativePath,
-                };
+                // Probe durations in background
+                void probeDurationsForScanned(mediaItems);
+            })
+            .catch((e) => {
+                console.warn(`Scan failed for ${rootPath}:`, e);
             });
-
-            // Update scannedItems
-            scannedItems.update((current) => [...current, ...mediaItems]);
-
-            // Update scanTree
-            scanTree.update((tree) => {
-                // Check if root already exists
-                const existingIdx = tree.roots.findIndex((r) => r.rootPath === rootPath);
-                if (existingIdx >= 0) {
-                    const newRoots = [...tree.roots];
-                    newRoots[existingIdx] = { rootPath, rootName: scanResult.root, result: scanResult };
-                    return { ...tree, roots: newRoots, ready: true };
-                }
-                return { ...tree, roots: [...tree.roots, { rootPath, rootName: scanResult.root, result: scanResult }], ready: true };
-            });
-
-            // Probe durations in background
-            probeDurationsForScanned(mediaItems);
-        }).catch((e) => {
-            console.warn(`Scan failed for ${rootPath}:`, e);
-        });
     }
 }
 
-/** Subscribe to settings changes and rescan when needed. */
-let bootstrapDone = false;
+/** Settings watch that seeds the default Videos folder once, then rescans on changes. */
+let bootstrapRan = false;
+let lastScannedFolders = '';
+
 settings.subscribe((newSettings) => {
-    if (bootstrapDone) return;
+    if (!hasTauri()) return;
 
-    // On first run in Tauri, add default videos folder if not seeded
-    if (hasTauri()) {
-        bootstrapDone = true;
-        invokeCommand<string>('default_media_dir', ['videos']).then((result) => {
-            if (!result) return;
-            const alreadyExists = newSettings.libraryFolders.some((f) =>
-                f.split(/[\\/]+/).filter(Boolean).pop()?.toLowerCase() === result.split(/[\\/]+/).filter(Boolean).pop()?.toLowerCase()
-            );
-            if (alreadyExists) return;
+    if (!bootstrapRan) {
+        bootstrapRan = true;
 
-            // Add the folder and mark seeded
-            settings.update((s) => ({ ...s, libraryFolders: [...s.libraryFolders, result], libraryDefaultSeeded: true }));
+        // On first run in the desktop shell, add the platform Videos folder.
+        void invokeCommand<string>('default_media_dir', { kind: 'videos' }).then((result) => {
+            const current = get(settings);
+            if (
+                result &&
+                !current.libraryDefaultSeeded &&
+                !current.libraryFolders.some(
+                    (f) => rootNameFor(f).toLowerCase() === rootNameFor(result).toLowerCase(),
+                )
+            ) {
+                settings.update((s) => ({
+                    ...s,
+                    libraryFolders: [...s.libraryFolders, result],
+                    libraryDefaultSeeded: true,
+                }));
+            }
 
-            // Now scan all roots
+            lastScannedFolders = get(settings).libraryFolders.join(' ');
             scanRoots();
         });
+        return;
+    }
+
+    const foldersKey = newSettings.libraryFolders.join(' ');
+    if (foldersKey !== lastScannedFolders) {
+        lastScannedFolders = foldersKey;
+        scanRoots();
     }
 });

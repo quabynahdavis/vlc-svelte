@@ -2,7 +2,7 @@ export function hasTauri(): boolean {
 	return '__TAURI_INTERNALS__' in window;
 }
 
-export async function invokeCommand<T>(cmd: string, args?: unknown[]): Promise<T | null> {
+export async function invokeCommand<T>(cmd: string, args?: Record<string, unknown>): Promise<T | null> {
 	try {
 		const { invoke } = await import('@tauri-apps/api/core');
 		return await invoke<T>(cmd, args);
