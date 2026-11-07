@@ -616,7 +616,7 @@ function scanRoots(): void {
         (path.length === root.length || path[root.length] === '/' || path[root.length] === '\\');
 
     for (const rootPath of roots) {
-        void invokeCommand<ScanResult>('scan_library_dir', { root: rootPath, maxDepth: 4, includeHidden })
+        void invokeCommand<ScanResult>('scan_library_dir', { root: rootPath, max_depth: 4, include_hidden: includeHidden })
             .then(async (scanResult) => {
                 if (!scanResult) return;
 
@@ -674,6 +674,7 @@ settings.subscribe((newSettings) => {
 
         // On first run in the desktop shell, add the platform Videos folder.
         void invokeCommand<string>('default_media_dir', { kind: 'videos' }).then((result) => {
+            console.log('default_media_dir result:', result);
             const current = get(settings);
             if (
                 result &&
