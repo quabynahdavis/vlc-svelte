@@ -116,10 +116,10 @@ The canonical documentation is written in English under [`docs/en/`](en/OVERVIEW
 
 | Label | Meaning |
 | --- | --- |
-| ✅ **Implemented** | Shell, player, six browse views, right dock, sixteen settings categories, themes, persistence, drag-to-queue and add-to-playlist, the next-episode countdown prompt, an editable library address bar with a details view, saved-items tabs (bookmarks, watch later, history) with per-tab search, sorting and grid/list views, and repeat/shuffle controls in the queue. |
-| 🗓️ **Planned** | Native media scanning and metadata, native playback, OS media keys and persistent `blob:` imports. |
+| ✅ **Implemented** | Shell, player, six browse views, right dock, sixteen settings categories, themes, persistence, drag-to-queue and add-to-playlist, the next-episode countdown prompt, an editable library address bar with a details view, saved-items tabs (bookmarks, watch later, history) with per-tab search, sorting and grid/list views, repeat/shuffle controls in the queue, and a Videos folder tree backed by Tauri disk scanning (the default Videos folder is seeded on the first desktop run). |
+| 🗓️ **Planned** | Library metadata and artwork extraction, native playback, OS media keys and persistent `blob:` imports. |
 
-Library, music, playlist and network data are mock data. Imported media and playlist tracks with `blob:` sources are session-only; pins, saved streams, subtitle profiles, bookmarks, layout and onboarding persist across reloads.
+Library folders are read from disk on desktop; in a browser preview without Tauri, scans are unavailable, imports still drive the tree and the default Videos folder is not seeded. Music, playlist and network data remain mock data. Imported media and playlist tracks with `blob:` sources are session-only; pins, saved streams, subtitle profiles, bookmarks, layout and onboarding persist across reloads.
 
 ## Tech stack
 

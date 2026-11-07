@@ -1,6 +1,6 @@
 # Redesign Vision
 
-**Status:** target document. This file records the intended direction for the next redesign pass. Items under **Planned** are **not implemented**; do not treat them as current behaviour. Implemented and in-progress items are called out in [Current status](#current-status). Last updated 2026-11-05.
+**Status:** target document. This file records the intended direction for the next redesign pass. Items under **Planned** are **not implemented**; do not treat them as current behaviour. Implemented and in-progress items are called out in [Current status](#current-status). Last updated 2026-11-07.
 
 ## Direction
 
@@ -62,6 +62,7 @@
 ## Library
 
 - A **breadcrumb/address bar** that shows the current folder and can be edited or navigated directly.
+- A real **folder tree**: library folders are read from disk, with the platform default videos folder seeded on first run and subfolders that contain media listed as cards above the files.
 - **Grid, list and details** views. Grid is visual, list is scannable, details exposes metadata and actions.
 - Sort by **watched/unwatched** as well as title, duration, progress and episode.
 - Search stays available in every view.
@@ -136,6 +137,7 @@ This section separates what exists in `src/` from the target above.
 | Area | State |
 | --- | --- |
 | Library | Watched/unwatched filtering, a `watched` sort key, clickable breadcrumbs, add file/folder/network actions, empty states and import status. Grid, list and compact modes remain. |
+| Videos folder tree | **Shipped (desktop shell).** The Videos page opens on a Library root of folder cards backed by a real disk scan. The platform default videos folder (`~/Videos` on Linux/macOS, `C:\Users\<user>\Videos` on Windows) is seeded on the first desktop run via `settings.libraryFolders` plus the `libraryDefaultSeeded` flag, and folders stay manageable in Settings. Opening a folder lists media-bearing subfolders (any depth, empties skipped) as cards above the files in grid and list modes; cards show direct and recursive item counts. "Add folder…" on a folder already inside `~/Videos` or another configured root navigates into it instead of re-importing; any other folder imports as one self-contained top-level card. Same-name siblings display as `Name[ParentName]` only — breadcrumbs and typed paths stay canonical. Watched state reuses `vlc.watch.v1`, keyed by absolute file path. Without Tauri (browser preview) scans are unavailable: imports still drive the tree and the default folder is not seeded. |
 | Drag to queue | Library cards/rows, music rows and compact-overlay rows expose the shared `application/x-vlc-track` payload. The playlist panel accepts the drop, shows a drop hint and appends with `addToQueue` without interrupting playback. |
 | Add to playlist | Library and music rows expose **Add to playlist**; the dialog lists playlists, adds the track and can create a session playlist inline. Playlists with `blob:` sources stay session-only; pins persist under `vlc.playlists.pins.v1`. |
 | Playlists | Create-playlist flow, pin/unpin with **Pinned** and **All playlists** sections, sorting, search, grid/list/compact rows and queueing. |
@@ -159,7 +161,7 @@ This section separates what exists in `src/` from the target above.
 
 ### Planned — not implemented
 
-- Real media-library scanning, metadata extraction and artwork; the current library is mock data plus session imports.
+- Media-library metadata and artwork extraction (episode parsing, cover art) on top of the shipped folder-tree disk scan; library content outside configured roots remains mock data, and a browser preview without Tauri cannot scan.
 - Persistent imported media and playlist tracks whose sources are `blob:` URLs; these remain session-only by design.
 - Native Tauri playback, disc playback and OS media-key integration; the browser `<video>` element remains the playback engine.
 - Full keyboard remapping beyond the hotkeys window, and per-profile hotkey sets.

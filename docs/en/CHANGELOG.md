@@ -2,6 +2,35 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-07
+
+### Added — Videos folder tree backed by Tauri disk scanning
+
+Recorded here as one entry — feature plus companion fixes — since the bulk of the work landed through the autosave commits (`925b2bd`, `614f40d`) and was finished by `4384b7e` and `0b0091e`.
+
+- The Videos page now opens on a **Library root of folder cards**. The platform default videos folder (`~/Videos` on Linux and macOS, `C:\Users\<user>\Videos` on Windows) is seeded automatically on the first desktop run, persisted through `settings.libraryFolders` plus the new `libraryDefaultSeeded` flag; folders are still added, removed and reordered in Settings as before.
+- Opening a folder lists the **subfolders that contain media** (any depth, empty ones skipped) as folder cards above the files, in both grid and list view modes. Folder cards show direct plus recursive item counts.
+- **Two new Tauri commands**: `default_media_dir` (xdg-user-dir VIDEOS / `%USERPROFILE%\Videos` with a `HOME` fallback) and `scan_library_dir` (bounded-depth walkdir scan filtered to media extensions — mp4, m4v, mkv, webm, mov, avi, ogv, mp3, m4a, aac, flac, ogg, oga, opus, wav, wma, mka — with hidden subtrees pruned, symlinks skipped and deterministic ordering). The asset protocol is enabled scoped to `$HOME/**`, so scanned files stream into `<video>` and durations are probed via metadata preload.
+- **Upload rule:** "Add folder…" on a folder that already exists inside `~/Videos` (or any configured root) does not import it again — the UI navigates into that subfolder. Any other folder imports as one self-contained top-level folder card next to Videos, subtree intact.
+- Same-name sibling folders are disambiguated for display only as `Name[ParentName]`; breadcrumbs and typed paths stay canonical.
+- Watched state and progress for scanned files reuse the existing `vlc.watch.v1` storage, keyed by absolute file path (no new storage keys).
+- **Browser preview fallback:** with no Tauri, scans are unavailable; imports still drive the tree and the default folder is not seeded.
+
+### Fixed — narrow-pane layout
+
+- The library toolbar's right cluster no longer overflows narrow panes; the search field shrinks with the width instead of pushing controls out (`LibraryToolbar.svelte`).
+- The main content area can no longer be scrolled horizontally out of position (`overflow-x: clip` on the content region in `App.svelte`).
+
+### Changed — documentation
+
+- Status rows in [README.md](../README.md) and [README.as-twi.md](../README.as-twi.md) now list the Videos-folder disk scanning as implemented, and the Planned row narrows to library metadata/artwork and the remaining native-integration gaps.
+- [design/02-redesign-vision.md](design/02-redesign-vision.md) gained a shipped **Videos folder tree** row in the current-status table, a folder-tree bullet under the Library target, and a narrowed Planned section.
+
+### Verified
+
+- `bun run check` reports **0 errors and 0 warnings**; `bunx vite build` succeeds.
+- `cargo test` passes 4 of 4 tests against the new Tauri library commands.
+
 ## 2026-11-06
 
 ### Added — compact library sorter and view modes
@@ -204,8 +233,8 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## Known gaps
 
-- Tauri native integration is partial: window capabilities and custom/system decorations exist, but there are no plugin crates, `invoke_handler`, native file dialogs or media-metadata commands, and `app.security.csp` is `null`.
-- Library, music, playlist, recent and network data are mock data; mock items use the bundled `public/demo/sample.mp4`, while imported files/streams are session-only and recent/network selections are inert.
+- Tauri native integration is partial: window capabilities and custom/system decorations exist, and the library commands (`scan_library_dir`, `default_media_dir`) registered through `invoke_handler` are the first native bridge, but there are no plugin crates, native file dialogs or media-metadata commands, and `app.security.csp` is `null`.
+- Library folder trees for configured roots are scanned from disk on the desktop (seeded with the default Videos folder); music, playlist, recent and network data are mock data, mock items use the bundled `public/demo/sample.mp4`, while imported files/streams — and everything in a browser preview, where scans are unavailable — are session-only.
 - There is no URL router; navigation, settings visibility, the property dock and hidden chrome are in-memory and reset on reload.
 - Settings and view modes persist; the player queue does not.
 - The full next-episode prompt, subtitle timeline, audio output-device selection, video filter previews, saved network streams, editable address bar, details view and library empty-state add actions are planned, not implemented. Picture-in-picture, fullscreen chrome auto-hide, watched filtering and library imports exist in the working tree but are uncommitted.
