@@ -1,8 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::fs;
-use std::fs::Metadata;
 use serde::{Serialize, Deserialize};
-use tauri::command;
 
 /// Media file extensions (case-insensitive filter)
 const MEDIA_EXTENSIONS: &[&str] = &[
@@ -16,6 +14,13 @@ fn is_media_extension(name: &str) -> bool {
         .map(|e| e.to_string_lossy().to_lowercase())
         .unwrap_or_default();
     MEDIA_EXTENSIONS.iter().any(|e| **e == ext)
+}
+
+/// True when the final path component starts with a dot (hidden on unix).
+fn is_hidden_name(path: &Path) -> bool {
+    path.file_name()
+        .map(|n| n.to_string_lossy().starts_with('.'))
+        .unwrap_or(false)
 }
 
 /// A scanned media file
@@ -82,9 +87,16 @@ fn scan_media_dir(
     let mut folders: Vec<ScannedFolder> = Vec::new();
     let mut files: Vec<ScannedFile> = Vec::new();
 
-    // Walk the directory tree up to max_depth
+    // Walk the directory tree up to max_depth; prune hidden subtrees entirely.
     let walker = walkdir::WalkDir::new(root).max_depth(max_depth);
-    for entry in walker {
+    for entry in walker
+        .into_iter()
+        .filter_entry(|e| {
+        if include_hidden {
+            return true;
+        }
+        !e.file_name().to_str().map(|s| s.starts_with('.')).unwrap_or(false)
+    }) {
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
@@ -99,15 +111,6 @@ fn scan_media_dir(
         // Skip symlinks
         if file_type.is_symlink() {
             continue;
-        }
-
-        // Skip hidden entries unless include_hidden
-        if !include_hidden {
-            if let Some(name) = path.file_name() {
-                if name.to_string_lossy().starts_with('.') {
-                    continue;
-                }
-            }
         }
 
         // Process files
@@ -147,13 +150,31 @@ fn scan_media_dir(
 
             let total_media = count_media_files(path, include_hidden);
 
+            // Direct media count: media files that are direct children.
+            let direct = fs::read_dir(path)
+                .map(|entries| {
+                    entries
+                        .flatten()
+                        .filter(|e| {
+                            if !include_hidden && is_hidden_name(&e.path()) {
+                                return false;
+                            }
+                            e.metadata()
+                                .ok()
+                                .map(|m| m.file_type().is_file() && is_media_extension(&e.path().to_string_lossy()))
+                                .unwrap_or(false)
+                        })
+                        .count()
+                })
+                .unwrap_or(0);
+
             folders.push(ScannedFolder {
                 name: path
                     .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default(),
                 path: relative_path,
-                files: 0,
+                files: direct as u32,
                 total: total_media,
             });
         }
