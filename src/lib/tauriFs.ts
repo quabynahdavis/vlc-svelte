@@ -22,12 +22,14 @@ export async function toFileSrc(absPath: string): Promise<string | null> {
 	}
 }
 
-// TS types mirroring ScanResult/ScannedFolder/ScannedFile (camelCase)
+// TS types mirroring ScanResult/ScannedFolder/ScannedFile — Tauri serializes
+// the Rust structs with #[serde(rename_all = "camelCase")], so every multi-word
+// field arrives camelCased over IPC.
 export interface ScannedFile {
 	name: string;
-	relative_path: string;
+	relativePath: string;
 	path: string;
-	size_bytes: number;
+	sizeBytes: number;
 }
 
 export interface ScannedFolder {

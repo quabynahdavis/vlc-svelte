@@ -27,26 +27,9 @@ export interface MediaItem {
 /** Small bundled clip used by the demo library and music queues. */
 export const DEMO_MEDIA_SRC = '/demo/sample.mp4';
 
-// Tauri scan types
-export interface ScannedFile {
-  name: string;
-  relative_path: string;
-  path: string;
-  size_bytes: number;
-}
-
-export interface ScannedFolder {
-  name: string;
-  path: string;
-  files: number;
-  total: number;
-}
-
-export interface ScanResult {
-  root: string;
-  folders: ScannedFolder[];
-  files: ScannedFile[];
-}
+// Tauri scan types — single-sourced from tauriFs (the Rust side serializes
+// these structs with `rename_all = "camelCase"`).
+export type { ScannedFile, ScannedFolder, ScanResult } from './tauriFs';
 
 /** Music domain types */
 export interface Track {

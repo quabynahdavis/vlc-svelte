@@ -616,7 +616,7 @@ function scanRoots(): void {
         (path.length === root.length || path[root.length] === '/' || path[root.length] === '\\');
 
     for (const rootPath of roots) {
-        void invokeCommand<ScanResult>('scan_library_dir', { root: rootPath, max_depth: 4, include_hidden: includeHidden })
+        void invokeCommand<ScanResult>('scan_library_dir', { root: rootPath, maxDepth: 4, includeHidden })
             .then(async (scanResult) => {
                 if (!scanResult) return;
 
@@ -625,7 +625,7 @@ function scanRoots(): void {
                 const rootBasename = scanResult.root;
                 const mediaItems: MediaItem[] = await Promise.all(
                     scanResult.files.map(async (file): Promise<MediaItem> => {
-                        const rel = file.relative_path ?? '';
+                        const rel = file.relativePath ?? '';
                         const parts = rel.split('/').filter(Boolean);
                         return {
                             id: file.path,
@@ -675,15 +675,19 @@ settings.subscribe((newSettings) => {
 
         // On first run in the desktop shell, add the platform Videos folder.
         void invokeCommand<string>('default_media_dir', { kind: 'videos' }).then((result) => {
-            console.log('default_media_dir result:', result);
             const current = get(settings);
-            if (
-                result &&
+            const shouldSeed =
+                !!result &&
                 !current.libraryDefaultSeeded &&
                 !current.libraryFolders.some(
                     (f) => rootNameFor(f).toLowerCase() === rootNameFor(result).toLowerCase(),
-                )
-            ) {
+                );
+
+            if (shouldSeed && result) {
+                // Record the expected key BEFORE updating settings so the
+                // synchronous subscriber callback triggered by `settings.update`
+                // sees an unchanged key and does not start a second scan.
+                lastScannedFolders = [...current.libraryFolders, result].join(' ');
                 settings.update((s) => ({
                     ...s,
                     libraryFolders: [...s.libraryFolders, result],
