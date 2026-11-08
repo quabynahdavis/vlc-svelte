@@ -2,6 +2,20 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-08
+
+### Fixed — Videos folder scan pipeline
+
+- Tauri command arguments now use the camelCase keys Tauri v2 expects (`root`/`maxDepth`/`includeHidden`, `kind`); `scan_library_dir` previously failed arg binding and silently logged "Scan failed".
+- TypeScript scan types match the Rust structs' `#[serde(rename_all = "camelCase")]` output (`relativePath`, `sizeBytes` instead of snake_case); scan-file mapping no longer throws `undefined is not an object`, and subfolders now derive correctly from the scanned relative paths.
+- Scan result types are single-sourced from `src/lib/tauriFs.ts` (`mock.ts` re-exports instead of duplicating definitions).
+- Bootstrap no longer starts two concurrent root scans (settings subscriber re-entry guard).
+
+### Verified
+
+- End-to-end in `dev:tauri`: the default `~/Videos` folder is seeded and persisted (`libraryDefaultSeeded`), the disk scan runs, and subfolder cards (e.g. Camera, OBS, Screencasts, vids) render with counts.
+- `svelte-check` reports 0 errors and 0 warnings; `cargo test` passes 4 of 4.
+
 ## 2026-11-07
 
 ### Added — Videos folder tree backed by Tauri disk scanning
