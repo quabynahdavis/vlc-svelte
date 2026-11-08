@@ -12,6 +12,27 @@ export async function invokeCommand<T>(cmd: string, args?: any): Promise<T | nul
 	}
 }
 
+/**
+ * Native OS folder picker shown by the desktop shell (Tauri dialog plugin).
+ * Returns the picked absolute folder path, or null when cancelled or when the
+ * dialog is unavailable. Browser callers fall back to the webkitdirectory
+ * input instead.
+ */
+export async function pickFolderViaDialog(): Promise<string | null> {
+	try {
+		const dialog = await import('@tauri-apps/plugin-dialog');
+		const picked = await dialog.open({
+			directory: true,
+			multiple: false,
+			title: 'Add folder to library',
+		});
+		return typeof picked === 'string' && picked.length > 0 ? picked : null;
+	} catch (e) {
+		console.warn('Folder dialog failed:', e);
+		return null;
+	}
+}
+
 export async function toFileSrc(absPath: string): Promise<string | null> {
 	try {
 		const fileSrc = await import('@tauri-apps/api/core').then(m => m.convertFileSrc(absPath));

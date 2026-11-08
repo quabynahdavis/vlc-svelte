@@ -533,6 +533,48 @@ export function findScannedSubfolder(name: string): string[] | null {
     return null;
 }
 
+/**
+ * Handle a folder picked outside the DOM (native desktop dialog).
+ *
+ * Inside a configured root → navigate into it (the pick may be the root itself
+ * or any deeper descendant; the breadcrumb is rebuilt from the chain between
+ * root and pick). Outside every configured root → adopt the folder as a new
+ * configured root, so the scanner gives it its own top-level card next to the
+ * others with its subtree intact.
+ */
+export async function importLibraryFolderPath(
+    absolutePath: string,
+): Promise<'navigated' | 'adopted'> {
+    const target = absolutePath.replace(/[\\/]+$/, '');
+    const targetKey = target.toLowerCase();
+    const roots = get(settings).libraryFolders;
+
+    for (const rootPath of roots) {
+        const clean = rootPath.replace(/[\\/]+$/, '');
+        const cleanKey = clean.toLowerCase();
+        const sameOrInside =
+            targetKey === cleanKey ||
+            targetKey.startsWith(`${cleanKey}/`) ||
+            targetKey.startsWith(`${cleanKey}\\`);
+
+        if (!sameOrInside) continue;
+
+        const rootName = rootNameFor(clean);
+        const rest = target.slice(clean.length).replace(/^[\\/]+/, '');
+        const segments = rest.length > 0 ? rest.split(/[\\/]+/).filter(Boolean) : [];
+        breadcrumb.set([rootName, ...segments]);
+        return 'navigated';
+    }
+
+    settings.update((s) => ({
+        ...s,
+        libraryFolders: s.libraryFolders.some((f) => f.toLowerCase() === targetKey)
+            ? s.libraryFolders
+            : [...s.libraryFolders, target],
+    }));
+    return 'adopted';
+}
+
 /* ---------- Bootstrap & Tauri integration ---------- */
 
 /**

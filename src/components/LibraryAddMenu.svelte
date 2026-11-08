@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { FilePlus2, FolderPlus, Plus, Radio, X } from 'lucide-svelte';
+  import { hasTauri, pickFolderViaDialog } from '../lib/tauriFs';
   import {
     addImportedItems,
     breadcrumb,
     createLibraryItemId,
     findScannedSubfolder,
+    importLibraryFolderPath,
     libraryImportLog,
     updateLibraryItemDuration,
     type LibraryImportEntry,
@@ -141,9 +143,30 @@
     fileInputEl?.click();
   }
 
-  function openFolderPicker(): void {
+  /** Base name of an absolute path, for import log messages. */
+  function folderTitle(path: string): string {
+    return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+  }
+
+  async function openFolderPicker(): Promise<void> {
     closeMenu(false);
     triggerEl?.focus();
+
+    // In the desktop shell the webkitdirectory input opens a plain file
+    // picker, so use the native OS folder dialog instead.
+    if (hasTauri()) {
+      const picked = await pickFolderViaDialog();
+      if (!picked) return;
+
+      const result = await importLibraryFolderPath(picked);
+      libraryImportLog.set(
+        result === 'navigated'
+          ? `Opened ${folderTitle(picked)}`
+          : `Added folder ${folderTitle(picked)} to the library`,
+      );
+      return;
+    }
+
     folderInputEl?.click();
   }
 
