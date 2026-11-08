@@ -88,61 +88,18 @@ function rootNameFor(folderPath: string): string {
     return parts[parts.length - 1] ?? folderPath;
 }
 
-/** Folder names configured in Settings, deduped per display name, in order. */
-export const libraryFolders: Readable<LibraryFolder[]> = derived(
-    [settings, importedItems, scannedItems],
-    ([$settings, $imported, $scanned]) => {
-        const folders: LibraryFolder[] = [];
-        const seen = new Set<string>();
-
-        for (const folderPath of $settings.libraryFolders) {
-            const name = rootNameFor(folderPath);
-            const key = segmentKey(name);
-            if (seen.has(key)) continue;
-            seen.add(key);
-
-            const parts = folderPath.split(/[\\/]+/).filter(Boolean);
-            const root = parts[parts.length - 1]?.toLowerCase() ?? '';
-            const inside = $imported.filter((item) =>
-                matchesChain(relativeParts(item), root ? [root] : []),
-            );
-
-            folders.push({
-                name,
-                path: folderPath,
-                files: inside.filter((item) => relativeParts(item).length === 1).length,
-                total: inside.length,
-            });
-        }
-
-        // Add scan-derived folders (first segment matches a scanned root)
-        const scanRoots = get(scanTree).roots;
-        for (const root of scanRoots) {
-            const name = root.rootName;
-            const key = segmentKey(name);
-            if (seen.has(key)) continue;
-            seen.add(key);
-
-            const inside = $imported.filter((item) => {
-                const parts = relativeParts(item);
-                return parts.length >= 1 && segmentKey(parts[0]) === key;
-            });
-
-            folders.push({
-                name,
-                path: root.rootPath,
-                files: inside.filter((item) => relativeParts(item).length === 1).length,
-                total: inside.length,
-            });
-        }
-
-        return folders;
-    },
+/** All media items: concat of imported + scanned. */
+const allItems: Readable<MediaItem[]> = derived(
+    [importedItems, scannedItems],
+    ([$imported, $scanned]) => [...$imported, ...$scanned],
 );
+
+/** Every item in the tree (details lookup, continue-watching style lists). */
+export const libraryItems: Readable<MediaItem[]> = allItems;
 
 /** Media folders at the active level, after the Library root label. */
 export const subfolders: Readable<LibraryFolder[]> = derived(
-    [importedItems, breadcrumb],
+    [allItems, breadcrumb],
     ([$items, $segments]) => {
         if ($segments.length === 0) return [];
 
@@ -177,15 +134,6 @@ export const subfolders: Readable<LibraryFolder[]> = derived(
     },
 );
 
-/** All media items: concat of imported + scanned. */
-const allItems: Readable<MediaItem[]> = derived(
-    [importedItems, scannedItems],
-    ([$imported, $scanned]) => [...$imported, ...$scanned],
-);
-
-/** Items in the current folder. */
-export const libraryItems: Readable<MediaItem[]> = allItems;
-
 /* ---------- Address bar ---------- */
 
 export type LibraryPathResolution =
@@ -194,7 +142,7 @@ export type LibraryPathResolution =
 
 /** Canonical folder names one level below `segments`, for path resolution. */
 function folderNamesAt(segments: string[]): LibraryFolder[] {
-    const configured = segments.length === 0 ? get(libraryFolders) : [];
+    const configured = segments.length === 0 ? get(rootFolders) : [];
     const nested = get(subfolders);
     return mergeFolders(configured, nested);
 }
@@ -309,15 +257,29 @@ export function toggleItemWatched(id: string): void {
 }
 
 /**
- * Case-insensitive title filter plus the watched-state filter, used by the
- * library grid, the toolbar count and the empty states.
+ * Items for the active library level, file-manager style.
+ *
+ * At the Library root only loose items (imports with no folder info) are
+ * listed — everything else lives inside a folder card. Inside a folder, only
+ * its direct children are listed; files deeper in the tree belong to the
+ * subfolder cards opening from the same level. Search and watched filters
+ * apply within that scope.
  */
 export const filteredItems: Readable<MediaItem[]> = derived(
-    [allItems, searchQuery, libraryWatchFilter],
-    ([$allItems, $searchQuery, $watchFilter]) => {
+    [allItems, breadcrumb, searchQuery, libraryWatchFilter],
+    ([$allItems, $breadcrumb, $searchQuery, $watchFilter]) => {
         const query = $searchQuery.trim().toLowerCase();
+        const segments = $breadcrumb;
 
         return $allItems.filter((item) => {
+            const parts = relativeParts(item);
+
+            if (segments.length === 0) {
+                if (parts.length !== 0) return false;
+            } else if (parts.length !== segments.length + 1 || !matchesChain(parts, segments)) {
+                return false;
+            }
+
             if (query && !item.title.toLowerCase().includes(query)) return false;
             if ($watchFilter === 'unwatched') return !isItemWatched(item);
             if ($watchFilter === 'watched') return isItemWatched(item);
@@ -441,11 +403,12 @@ export function updateLibraryItemDuration(id: string, durationSeconds: number): 
 
 /**
  * rootFolders: union of configured roots + import-derived groups at root level.
- * Used by LibraryView at the top level (breadcrumb empty).
+ * Used by LibraryView at the top level (breadcrumb empty). Counts cover the
+ * combined pool (imports + scans) — they share one relativePath tree layout.
  */
 export const rootFolders: Readable<LibraryFolder[]> = derived(
-    [settings, importedItems, scanTree],
-    ([$settings, $imported, $scanned]) => {
+    [settings, allItems, scanTree],
+    ([$settings, $items, $scanned]) => {
         const configured: LibraryFolder[] = [];
         const seen = new Set<string>();
 
@@ -457,7 +420,7 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
 
             const parts = folderPath.split(/[\\/]+/).filter(Boolean);
             const root = parts[parts.length - 1]?.toLowerCase() ?? '';
-            const inside = $imported.filter((item) =>
+            const inside = $items.filter((item) =>
                 matchesChain(relativeParts(item), root ? [root] : []),
             );
 
@@ -470,7 +433,7 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
         }
 
         // Add import-derived groups at root level (first segment not matching any configured root)
-        for (const item of $imported) {
+        for (const item of $items) {
             const parts = relativeParts(item);
             if (parts.length === 0) continue;
             const firstSegment = parts[0];
@@ -485,11 +448,16 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
             if (seen.has(key)) continue;
             seen.add(key);
 
+            const inside = $items.filter((candidate) => {
+                const candidateParts = relativeParts(candidate);
+                return candidateParts.length >= 1 && segmentKey(candidateParts[0]) === key;
+            });
+
             configured.push({
                 name: firstSegment,
                 path: firstSegment, // Display path
-                files: 1,
-                total: 1,
+                files: inside.filter((candidate) => relativeParts(candidate).length === 1).length,
+                total: inside.length,
             });
         }
 
@@ -500,8 +468,8 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
             if (seen.has(key)) continue;
             seen.add(key);
 
-            // Count imported items whose relativePath starts with this root
-            const inside = $imported.filter((item) => {
+            // Count combined-pool items whose relativePath starts with this root
+            const inside = $items.filter((item) => {
                 const parts = relativeParts(item);
                 return parts.length >= 1 && segmentKey(parts[0]) === key;
             });
