@@ -4,6 +4,15 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-08
 
+### Added — Video and folder thumbnails
+
+- Library cards now show real video frames: file cards (grid and list) and folder cards (grid and list) render a captured frame; failed or not-yet-captured items keep their existing placeholder styling.
+- Captures are made client-side (`src/lib/thumbnails.ts`): a detached `<video>` loads the item's media source, seeks ~8% into the film (clamped 0.1s–45s), draws a frame to a canvas and exports a small JPEG data URL. First attempt uses `crossOrigin='anonymous'` and retries without it, so a protocol without CORS headers still degrades gracefully; a 9s watchdog and a max-2-concurrent queue keep decodes bounded.
+- Results live in the `mediaThumbnails` store (item id → data URL). This is a session cache, deliberately NOT persisted to settings/storage — frames regenerate lazily as cards mount; capture failures are remembered for the session only.
+- Folder cards show a representative frame from their first direct child (`LibraryFolder.representativeId`, chosen by `pickRepresentative` for roots, nested subfolders and import-derived groups alike); the view layer overlays a dark gradient so the folder icon chip and labels stay readable.
+- Applies only to video files; audio items keep placeholders.
+- Committed as `3f255cd`; `svelte-check` 0 errors / 0 warnings, `vite build` clean.
+
 ### Fixed — Folder upload rule applies to every root card
 
 - The "upload already-in-library folder → navigate instead of import" rule previously only worked reliably for the seeded `~/Videos`-like cases and only at depth 1; the browser (`webkitRelativePath`) upload path had three defects: picking any root card's own name reset the breadcrumb to the Library level (returned empty segments), only direct subfolders of scanned roots matched, and import-derived top-level groups never navigated (re-uploading an already-imported folder duplicated its files).
