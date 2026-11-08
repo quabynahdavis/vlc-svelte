@@ -7,6 +7,7 @@
   import MediaCard from '../components/MediaCard.svelte';
   import MediaListRow from '../components/MediaListRow.svelte';
   import type { MediaItem } from '../lib/mock';
+  import { ensureItemThumbnail, mediaThumbnails } from '../lib/thumbnails';
   import {
     breadcrumb,
     currentFolders,
@@ -69,6 +70,22 @@
   function getDisplayName(folder: LibraryFolder): string {
     return displayFolderNames.get(folder.path) ?? folder.name;
   }
+
+  /**
+   * Representative folder frames: finding a folder's representative item and
+   * queueing its capture is idempotent (cached/pending/failed ids no-op), so
+   * this re-run is cheap whenever folders or items change, e.g. after a scan.
+   */
+  function ensureFolderRepresentatives(folders: LibraryFolder[], items: MediaItem[]): void {
+    for (const folder of folders) {
+      const repId = folder.representativeId;
+      if (!repId) continue;
+      const item = items.find((candidate) => candidate.id === repId);
+      if (item) ensureItemThumbnail(item);
+    }
+  }
+
+  $: ensureFolderRepresentatives($currentFolders, $libraryItems);
 
   const emptyActionClass =
     'rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50';
@@ -321,6 +338,16 @@
                 on:click={() => openFolder(folder)}
               >
                 <div class="relative flex aspect-[16/10] w-full flex-col justify-end overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] p-4 transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105">
+                  {#if folder.representativeId && $mediaThumbnails.has(folder.representativeId)}
+                    <img
+                      src={$mediaThumbnails.get(folder.representativeId)}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      class="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1)_0%,rgba(0,0,0,0.72)_100%)]" aria-hidden="true"></div>
+                  {/if}
                   <div class="flex h-11 w-11 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-orange">
                     <Folder size={22} strokeWidth={1.6} aria-hidden="true" />
                   </div>
@@ -349,7 +376,17 @@
                   title={folder.path}
                   on:click={() => openFolder(folder)}
                 >
-                  <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-input border border-vlc-border bg-vlc-card text-vlc-orange">
+                  <span class="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-input border border-vlc-border bg-vlc-card text-vlc-orange">
+                    {#if folder.representativeId && $mediaThumbnails.has(folder.representativeId)}
+                      <img
+                        src={$mediaThumbnails.get(folder.representativeId)}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        class="absolute inset-0 h-full w-full object-cover"
+                      />
+                      <span class="absolute inset-0 bg-black/45" aria-hidden="true"></span>
+                    {/if}
                     <Folder size={18} strokeWidth={1.6} aria-hidden="true" />
                   </span>
                   <span class="min-w-0 flex-1">

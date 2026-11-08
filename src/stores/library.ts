@@ -48,6 +48,8 @@ export interface LibraryFolder {
     files: number;
     /** Media files inside including nested subfolders. */
     total: number;
+    /** Optional id of a media item whose frame represents this folder card. */
+    representativeId?: string;
 }
 
 /** Merge two LibraryFolder arrays, deduping by display name. */
@@ -86,6 +88,17 @@ function matchesChain(parts: string[], segments: string[]): boolean {
 function rootNameFor(folderPath: string): string {
     const parts = folderPath.split(/[\\/]+/).filter(Boolean);
     return parts[parts.length - 1] ?? folderPath;
+}
+
+/**
+ * Pick the item whose frame represents a folder card: the first direct child
+ * (shallowest depth) of `inside`, falling back to the first list entry.
+ */
+function pickRepresentative(inside: MediaItem[], directDepth: number): string | undefined {
+    const direct = inside.find(
+        (item) => relativeParts(item).length === directDepth && Boolean(item.src),
+    );
+    return (direct ?? inside[0])?.id;
 }
 
 /** All media items: concat of imported + scanned. */
@@ -129,6 +142,7 @@ export const subfolders: Readable<LibraryFolder[]> = derived(
                 path: chain.join('/'),
                 files: inside.filter((item) => relativeParts(item).length === chain.length + 1).length,
                 total: inside.length,
+                representativeId: pickRepresentative(inside, chain.length + 1),
             };
         });
     },
@@ -430,8 +444,9 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
             configured.push({
                 name,
                 path: folderPath,
-                files: inside.filter((item) => relativeParts(item).length === 1).length,
+                files: inside.filter((item) => relativeParts(item).length === 2).length,
                 total: inside.length,
+                representativeId: pickRepresentative(inside, 2),
             });
         }
 
@@ -461,8 +476,9 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
             configured.push({
                 name: firstSegment,
                 path: firstSegment, // Display path
-                files: inside.filter((candidate) => relativeParts(candidate).length === 1).length,
+                files: inside.filter((candidate) => relativeParts(candidate).length === 2).length,
                 total: inside.length,
+                representativeId: pickRepresentative(inside, 2),
             });
         }
 

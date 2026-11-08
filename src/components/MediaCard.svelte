@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { Info, ListMusic, ListPlus } from 'lucide-svelte';
   import { startTrackDrag } from '../lib/dragTrack';
   import type { MediaItem } from '../lib/mock';
+  import { ensureItemThumbnail, mediaThumbnails } from '../lib/thumbnails';
   import { libraryImportLog } from '../stores/library';
   import { addToQueue, type Track } from '../stores/player';
   import { openPlaylistTarget } from '../stores/playlistTarget';
@@ -15,6 +16,13 @@
   $: progress = Math.min(Math.max(item.progress, 0), 1);
   $: hasProgress = progress > 0;
   $: progressPercent = `${progress * 100}%`;
+
+  // Frame thumbnail: session cache first, then a persisted path if any. The
+  // capture itself is queued on mount so empty cards fill in as frames land.
+  $: thumbSrc = $mediaThumbnails.get(item.id) ?? item.thumbnailPath ?? '';
+  onMount(() => {
+    ensureItemThumbnail(item);
+  });
 
   const actionClass =
     'flex h-6 w-6 items-center justify-center rounded-[4px] bg-black/65 text-white/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-vlc-orange hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70';
@@ -73,9 +81,9 @@
     <div
       class="relative aspect-video w-full overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105 group-focus-within:border-vlc-orange/70 group-focus-within:ring-1 group-focus-within:ring-vlc-orange/50"
     >
-      {#if item.thumbnailPath}
+      {#if thumbSrc}
         <img
-          src={item.thumbnailPath}
+          src={thumbSrc}
           alt=""
           class="h-full w-full object-cover"
           loading="lazy"

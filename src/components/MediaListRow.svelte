@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { Info, ListMusic, ListPlus, Play } from 'lucide-svelte';
   import { startTrackDrag } from '../lib/dragTrack';
   import type { MediaItem } from '../lib/mock';
+  import { ensureItemThumbnail, mediaThumbnails } from '../lib/thumbnails';
   import { libraryImportLog } from '../stores/library';
   import { addToQueue, type Track } from '../stores/player';
   import { openPlaylistTarget } from '../stores/playlistTarget';
@@ -20,6 +21,13 @@
   $: progressLabel = `${Math.round(progress * 100)}% watched`;
   $: episodeCode = `S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`;
   $: durationLabel = formatDuration(item.durationSeconds);
+
+  // Frame thumbnail: session cache first, then a persisted path if any. The
+  // capture itself is queued on mount so empty rows fill in as frames land.
+  $: thumbSrc = $mediaThumbnails.get(item.id) ?? item.thumbnailPath ?? '';
+  onMount(() => {
+    ensureItemThumbnail(item);
+  });
   $: ariaLabel = `Play ${item.title}, ${episodeCode}, ${durationLabel}${hasProgress ? `, ${progressLabel}` : ''}`;
 
   const actionClass =
@@ -98,9 +106,9 @@
         class="relative flex aspect-video w-24 shrink-0 items-center justify-center overflow-hidden rounded-md border border-vlc-border bg-vlc-panel-alt"
         aria-hidden="true"
       >
-        {#if item.thumbnailPath}
+        {#if thumbSrc}
           <img
-            src={item.thumbnailPath}
+            src={thumbSrc}
             alt=""
             class="h-full w-full object-cover"
             loading="lazy"
