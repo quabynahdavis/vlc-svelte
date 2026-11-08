@@ -6,7 +6,7 @@
     addImportedItems,
     breadcrumb,
     createLibraryItemId,
-    findScannedSubfolder,
+    findLibraryFolderChain,
     importLibraryFolderPath,
     libraryImportLog,
     updateLibraryItemDuration,
@@ -302,22 +302,21 @@
     const files = input.files ? Array.from(input.files) : [];
 
     if (files.length > 0) {
-      // Get the first folder name from webkitRelativePath (first segment before /)
+      // webkitRelativePath starts with the picked folder's name; find which
+      // existing tree level it belongs to (any root, any depth, or an
+      // import-derived group) and navigate there instead of re-importing.
       const firstFile = files[0];
       const relativePath = (firstFile as File & { webkitRelativePath?: string }).webkitRelativePath;
-      if (relativePath) {
-        const firstSegment = relativePath.split('/')[0];
-        if (firstSegment) {
-          // Check if this matches a scanned root or its direct subfolder
-          const breadcrumbSegments = findScannedSubfolder(firstSegment);
-          if (breadcrumbSegments !== null) {
-            // Navigate into the scanned subfolder instead of importing
-            breadcrumb.set(breadcrumbSegments);
-            libraryImportLog.set(`Opened ${firstSegment}`);
-            input.value = '';
-            triggerEl?.focus();
-            return;
-          }
+      const firstSegment = relativePath ? relativePath.split(/[\\/]/)[0] : '';
+
+      if (firstSegment) {
+        const chain = findLibraryFolderChain(firstSegment);
+        if (chain !== null) {
+          breadcrumb.set(chain);
+          libraryImportLog.set(`Opened ${firstSegment}`);
+          input.value = '';
+          triggerEl?.focus();
+          return;
         }
       }
     }

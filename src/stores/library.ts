@@ -506,34 +506,57 @@ export const currentFolders: Readable<LibraryFolder[]> = derived(
     },
 );
 
-/* ---------- findScannedSubfolder ---------- */
+/* ---------- Folder-chain lookup for the upload rule ---------- */
 
 /**
- * Export helper: find a scanned root or its direct subfolder by name.
- * Returns breadcrumb segments (or null) if matched.
+ * Find the breadcrumb chain for a folder name picked by an upload/dialog flow.
+ *
+ * The rule applies to every root-level card, not just the default Videos
+ * folder: the pick may be a root card itself, any descendant of one (any
+ * depth), or an already-imported top-level group. The shallowest match wins
+ * when several folders share the name. Null means the folder is new tree
+ * territory and an import should proceed.
  */
-export function findScannedSubfolder(name: string): string[] | null {
-    const scannedRoots = get(scanTree).roots;
+export function findLibraryFolderChain(name: string): string[] | null {
+    const pickedKey = name.trim().toLowerCase();
+    if (!pickedKey) return null;
 
-    // Check if name matches a scanned root's rootName
-    for (const root of scannedRoots) {
-        if (root.rootName.toLowerCase() === name.toLowerCase()) {
-            return []; // Return empty segments - the root itself
+    const items = get(allItems);
+
+    // 1) The pick is itself a configured/scanned root card.
+    for (const root of get(scanTree).roots) {
+        if (root.rootName.toLowerCase() === pickedKey) {
+            return [root.rootName];
         }
     }
 
-    // Check if name matches a direct subfolder of a scanned root
-    // The root's relativePath segments would be [rootName]
-    // A direct subfolder would have relativePath = [rootName, subfolderName]
-    const items = get(allItems);
-    for (const root of scannedRoots) {
-        // If the breadcrumb is just [rootName], opening a subfolder would add another segment
-        // We need to check if any item's relativePath starts with [rootName, name]
+    // 2) The pick lives inside one of the scanned roots, at any depth. Keep
+    //    the shallowest match; parts exclude the trailing file segment, so
+    //    folder positions run 1..length-2 over file-bearing chains.
+    let bestDepth = Number.POSITIVE_INFINITY;
+    let bestChain: string[] | null = null;
+    for (const root of get(scanTree).roots) {
+        const rootKey = segmentKey(root.rootName);
         for (const item of items) {
             const parts = relativeParts(item);
-            if (parts.length >= 2 && segmentKey(parts[0]) === segmentKey(root.rootName) && segmentKey(parts[1]) === segmentKey(name)) {
-                return [root.rootName, name];
+            if (parts.length < 2 || segmentKey(parts[0]) !== rootKey) continue;
+            for (let index = 1; index < parts.length - 1; index += 1) {
+                if (segmentKey(parts[index]) !== pickedKey) continue;
+                if (index < bestDepth) {
+                    bestDepth = index;
+                    bestChain = [root.rootName, ...parts.slice(1, index + 1)];
+                }
+                break;
             }
+        }
+    }
+    if (bestChain) return bestChain;
+
+    // 3) The pick matches an already-imported top-level group.
+    for (const item of items) {
+        const parts = relativeParts(item);
+        if (parts.length >= 2 && segmentKey(parts[0]) === pickedKey) {
+            return [parts[0]];
         }
     }
 
