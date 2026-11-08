@@ -4,6 +4,13 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-08
 
+### Fixed — Folder upload rule applies to every root card
+
+- The "upload already-in-library folder → navigate instead of import" rule previously only worked reliably for the seeded `~/Videos`-like cases and only at depth 1; the browser (`webkitRelativePath`) upload path had three defects: picking any root card's own name reset the breadcrumb to the Library level (returned empty segments), only direct subfolders of scanned roots matched, and import-derived top-level groups never navigated (re-uploading an already-imported folder duplicated its files).
+- Replaced `findScannedSubfolder` with `findLibraryFolderChain`, an any-depth matcher: the pick may be any root card itself, any descendant of one (breadcrumb rebuilt from root to the matched level; shallowest same-name match wins), or an already-imported top-level group. The rule now covers every root-level card (configured seeds, Settings additions, adopted folders, import-derived groups), not just `~/Videos`.
+- The desktop native-dialog path (`importLibraryFolderPath`) already handled every configured root at any depth and is unchanged.
+- Committed as `96cde94`; `svelte-check` 0 errors / 0 warnings.
+
 ### Added — Native folder dialog for "Add folder…"
 
 - The "Add folder…" menu item now opens the OS-native folder picker in the desktop shell (Tauri dialog plugin, registered in `main.rs` plus the `dialog:default` capability) instead of the HTML `webkitdirectory` input, which rendered a plain file picker under WebKitGTK.
