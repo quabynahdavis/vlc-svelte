@@ -64,10 +64,7 @@ pub fn scan_library_dir(root: String, max_depth: Option<u32>, include_hidden: Op
 
 #[tauri::command(async)]
 pub fn default_media_dir(kind: String) -> Result<Option<String>, String> {
-    eprintln!("default_media_dir called with kind: {}", kind);
-    let result = default_media_dir_fn(&kind).map(|p| p.to_string_lossy().to_string());
-    eprintln!("default_media_dir result: {:?}", result);
-    Ok(result)
+    Ok(default_media_dir_fn(&kind).map(|p| p.to_string_lossy().to_string()))
 }
 
 fn scan_media_dir(
