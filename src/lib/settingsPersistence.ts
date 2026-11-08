@@ -4,9 +4,16 @@
  * Persisted JSON is never trusted: it is merged over `defaultSettings` and
  * validated field by field, so unknown keys are dropped and malformed values
  * fall back to their defaults. The module is DOM-aware but tolerant of
- * missing/blocked localStorage (private mode, storage disabled, SSR).
+ * missing/blocked storage.
+ *
+ * Reads/writes go through `dbPersistence` — the SQLite `kv` table on the
+ * desktop shell, webview localStorage in the browser preview. On the desktop
+ * the value loads asynchronously after boot (`hydrateSettings`); the store
+ * starts from defaults so the first paint stays synchronous.
  */
 import type { SettingsState } from '../stores/settings';
+import { hasTauri } from './tauriFs';
+import { loadPersistedRaw, savePersistedRaw } from './dbPersistence';
 import { isHexColor } from './theme';
 
 /** Bump the suffix when the persisted shape changes incompatibly. */
@@ -136,26 +143,42 @@ export function parseSettingsJson(json: string, defaults: SettingsState): Settin
   return validateSettings(parsed, defaults);
 }
 
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 /** Load persisted settings, falling back to a deep clone of the defaults. */
 export function loadSettings(defaults: SettingsState): SettingsState {
-  const storage = getStorage();
-  if (!storage) return clone(defaults);
+  // Desktop: start from defaults so paint stays synchronous — `hydrateSettings`
+  // applies the SQLite snapshot to the store a moment after boot.
+  if (hasTauri()) return clone(defaults);
 
+  // Browser preview keeps the original synchronous localStorage path.
   try {
-    const raw = storage.getItem(SETTINGS_STORAGE_KEY);
+    if (typeof window === 'undefined') return clone(defaults);
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return clone(defaults);
     return validateSettings(JSON.parse(raw) as unknown, defaults);
   } catch {
     return clone(defaults);
+  }
+}
+
+/**
+ * Desktop hydration: read the settings blob from SQLite (migrating the legacy
+ * webview copy on first run), validate it and apply it to the store. `apply`
+ * should suppress the store's persistence reactions while it runs. When
+ * `hasLiveChanges` is true — the user managed a change during the load window
+ * — the snapshot is discarded so live edits win.
+ */
+export async function hydrateSettings(
+  defaults: SettingsState,
+  apply: (state: SettingsState) => void,
+  hasLiveChanges: () => boolean,
+): Promise<void> {
+  const raw = await loadPersistedRaw(SETTINGS_STORAGE_KEY);
+  if (!raw || hasLiveChanges()) return;
+
+  try {
+    apply(validateSettings(JSON.parse(raw) as unknown, defaults));
+  } catch {
+    // The stored blob failed validation: current defaults stand.
   }
 }
 
@@ -173,14 +196,7 @@ export function flushSettingsSave(): void {
   pendingState = null;
   if (!state) return;
 
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Quota exceeded or storage blocked: settings stay in memory only.
-  }
+  void savePersistedRaw(SETTINGS_STORAGE_KEY, JSON.stringify(state));
 }
 
 /** Debounced save; safe to call on every store emission. */

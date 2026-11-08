@@ -3,7 +3,9 @@ import {
   loadSettings,
   parseSettingsJson,
   scheduleSettingsSave,
+  hydrateSettings,
 } from '../lib/settingsPersistence';
+import { hasTauri } from '../lib/tauriFs';
 
 /**
  * A single typed settings store keeps the panel bindings simple:
@@ -362,16 +364,31 @@ export const DEFAULT_SETTINGS: SettingsState = defaultSettings;
 
 export const settings = writable<SettingsState>(loadSettings(defaultSettings));
 
-// Persist subsequent changes only. The initial value was either loaded from
-// storage or is the default set, so writing it back on boot would be pointless.
-let isFirstEmission = true;
+// Persist changes only. Boot emissions — the initial value and the async
+// SQLite hydration below — bypass this reaction so nothing is written back.
+let bypassPersistence = true;
+let changedSinceBoot = false;
+
 settings.subscribe((state) => {
-  if (isFirstEmission) {
-    isFirstEmission = false;
-    return;
-  }
+  if (bypassPersistence) return;
+  changedSinceBoot = true;
   scheduleSettingsSave(state);
 });
+
+// Desktop shell: swap in the SQLite snapshot once resolved (legacy webview
+// storage is migrated on this first pass). Live edits that beat the load
+// window win and the snapshot is dropped, so nothing user-made is overwritten.
+if (hasTauri()) {
+  void hydrateSettings(
+    defaultSettings,
+    (state) => {
+      bypassPersistence = true;
+      settings.set(state);
+      bypassPersistence = false;
+    },
+    () => changedSinceBoot,
+  );
+}
 
 /** Deep clone of the defaults, safe to hand to `settings.set` (including nested arrays). */
 export function createDefaultSettings(): SettingsState {
