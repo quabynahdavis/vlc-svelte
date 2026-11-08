@@ -410,14 +410,17 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
     [settings, allItems, scanTree],
     ([$settings, $items, $scanned]) => {
         const configured: LibraryFolder[] = [];
-        const seen = new Set<string>();
+        // Dedupe by exact path, not display name — same-named folders in
+        // different locations stay distinct so the view can disambiguate them
+        // with the Name[ParentName] label (display-only).
+        const pathsSeen = new Set<string>();
 
         for (const folderPath of $settings.libraryFolders) {
-            const name = rootNameFor(folderPath);
-            const key = segmentKey(name);
-            if (seen.has(key)) continue;
-            seen.add(key);
-
+            const cleanPath = folderPath.replace(/[\\/]+$/, '');
+            const pathKey = cleanPath.toLowerCase();
+            if (pathsSeen.has(pathKey)) continue;
+            pathsSeen.add(pathKey);
+            const name = rootNameFor(cleanPath);
             const parts = folderPath.split(/[\\/]+/).filter(Boolean);
             const root = parts[parts.length - 1]?.toLowerCase() ?? '';
             const inside = $items.filter((item) =>
@@ -433,6 +436,8 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
         }
 
         // Add import-derived groups at root level (first segment not matching any configured root)
+        // Same display segment = same logical folder group, so dedupe by name.
+        const segmentsSeen = new Set<string>();
         for (const item of $items) {
             const parts = relativeParts(item);
             if (parts.length === 0) continue;
@@ -445,8 +450,8 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
             );
             if (matchesConfigured) continue; // Already in configured
 
-            if (seen.has(key)) continue;
-            seen.add(key);
+            if (segmentsSeen.has(key)) continue;
+            segmentsSeen.add(key);
 
             const inside = $items.filter((candidate) => {
                 const candidateParts = relativeParts(candidate);
@@ -461,12 +466,14 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
             });
         }
 
-        // Add scan-derived root folders
+        // Add scan-derived root folders (dedupe by path: a scanned root is
+        // always the scan of a configured folder, which is already a card).
         for (const root of $scanned.roots) {
+            const rootPathKey = root.rootPath.replace(/[\\/]+$/, '').toLowerCase();
+            if (pathsSeen.has(rootPathKey)) continue;
+            pathsSeen.add(rootPathKey);
             const name = root.rootName;
             const key = segmentKey(name);
-            if (seen.has(key)) continue;
-            seen.add(key);
 
             // Count combined-pool items whose relativePath starts with this root
             const inside = $items.filter((item) => {
