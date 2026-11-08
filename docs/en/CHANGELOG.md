@@ -4,6 +4,14 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-08
 
+### Changed — Library levels behave like a file manager
+
+- The Library (Videos) page now navigates strictly level by level: the Library root lists only folder cards (configured roots such as Videos, plus import-derived roots) and loose imports with no folder info — it no longer dumps the whole media pool flat.
+- Opening a folder lists only that folder's direct child subfolders and files; deeper files stay inside their subfolder cards (`filteredItems` now scopes by breadcrumb).
+- Subfolder cards now derive from the combined imported+scanned pool, so disk-scanned subfolders (e.g. `~/Videos/Camera`, OBS, Screencasts, vids) render as cards with direct/recursive item counts; folder-item counts read the combined pool instead of imports only.
+- The address-bar resolver resolves root-level paths against the same folder cards the UI shows; the redundant imports-only `libraryFolders` store was removed.
+- Committed as `e595669`; `svelte-check` 0 errors / 0 warnings.
+
 ### Fixed — Videos folder scan pipeline
 
 - Tauri command arguments now use the camelCase keys Tauri v2 expects (`root`/`maxDepth`/`includeHidden`, `kind`); `scan_library_dir` previously failed arg binding and silently logged "Scan failed".
