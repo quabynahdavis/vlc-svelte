@@ -4,6 +4,13 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-08
 
+### Added — Native folder dialog for "Add folder…"
+
+- The "Add folder…" menu item now opens the OS-native folder picker in the desktop shell (Tauri dialog plugin, registered in `main.rs` plus the `dialog:default` capability) instead of the HTML `webkitdirectory` input, which rendered a plain file picker under WebKitGTK.
+- Picked folder handling follows the library rules: a folder inside a configured root navigates the view into it (may be the root itself or any deeper descendant; the breadcrumb is rebuilt from the chain via `importLibraryFolderPath`); a folder outside every configured root is adopted as a new configured root so the scanner gives it its own top-level card next to the existing ones, subtree intact.
+- Browser preview keeps the previous `webkitdirectory` fallback with its existing upload/navigate behavior.
+- Committed as `a54949e` (adds the `tauri-plugin-dialog` crate and the `@tauri-apps/plugin-dialog` package); `svelte-check` 0 errors / 0 warnings, `cargo test` passes 4 of 4.
+
 ### Changed — Library levels behave like a file manager
 
 - The Library (Videos) page now navigates strictly level by level: the Library root lists only folder cards (configured roots such as Videos, plus import-derived roots) and loose imports with no folder info — it no longer dumps the whole media pool flat.
