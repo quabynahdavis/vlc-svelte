@@ -625,7 +625,8 @@ function scanRoots(): void {
                 const rootBasename = scanResult.root;
                 const mediaItems: MediaItem[] = await Promise.all(
                     scanResult.files.map(async (file): Promise<MediaItem> => {
-                        const parts = file.relative_path.split('/').filter(Boolean);
+                        const rel = file.relative_path ?? '';
+                        const parts = rel.split('/').filter(Boolean);
                         return {
                             id: file.path,
                             title: file.name,
