@@ -8,6 +8,8 @@
  * degrade to in-memory defaults.
  */
 import { writable, type Writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { hasTauri } from '../lib/tauriFs';
 
 export type ViewMode = 'grid' | 'list' | 'compact';
 
@@ -64,15 +66,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 function defaultModes(): ViewModeState {
   return { ...viewModeDefaults };
 }
@@ -91,11 +84,12 @@ function sanitizeModes(value: unknown): ViewModeState {
 }
 
 function loadModes(): ViewModeState {
-  const storage = getStorage();
-  if (!storage) return defaultModes();
+  // Desktop shell: start from defaults; the snapshot is applied by the boot
+  // hydration. Browser preview keeps the direct localStorage read.
+  if (hasTauri()) return defaultModes();
 
   try {
-    const raw = storage.getItem(VIEW_MODES_STORAGE_KEY);
+    const raw = window.localStorage.getItem(VIEW_MODES_STORAGE_KEY);
     if (raw === null) return defaultModes();
     return sanitizeModes(JSON.parse(raw) as unknown);
   } catch {
@@ -106,15 +100,10 @@ function loadModes(): ViewModeState {
 /** Latest known values for every scope, mirrored from the public stores. */
 const modes: ViewModeState = loadModes();
 
-function persistModes(): void {
-  const storage = getStorage();
-  if (!storage) return;
+const writeModes = createKeyWriter(VIEW_MODES_STORAGE_KEY);
 
-  try {
-    storage.setItem(VIEW_MODES_STORAGE_KEY, JSON.stringify(modes));
-  } catch {
-    // Quota exceeded or storage blocked: keep the in-memory mode only.
-  }
+function persistModes(): void {
+  void writeModes(JSON.stringify(modes));
 }
 
 function createViewModeStore(scope: ViewModeScope): Writable<ViewMode> {
@@ -135,3 +124,29 @@ export const musicViewMode: Writable<ViewMode> = createViewModeStore('music');
 export const playlistsViewMode: Writable<ViewMode> = createViewModeStore('playlists');
 export const recentViewMode: Writable<ViewMode> = createViewModeStore('recent');
 export const networkViewMode: Writable<ViewMode> = createViewModeStore('network');
+
+/** Per-scope public stores for hydration. */
+const viewModeStores: Record<ViewModeScope, Writable<ViewMode>> = {
+  library: libraryViewMode,
+  music: musicViewMode,
+  playlists: playlistsViewMode,
+  recent: recentViewMode,
+  network: networkViewMode,
+};
+
+// Desktop hydration: apply the persisted snapshot scope by scope. The mirror
+// is updated before each set so the stores' subscribers see an unchanged
+// mirror and do not write the snapshot straight back.
+void (async () => {
+  const raw = await loadPersistedRaw(VIEW_MODES_STORAGE_KEY);
+  if (raw === null) return;
+  try {
+    const next = sanitizeModes(JSON.parse(raw) as unknown);
+    for (const scope of VIEW_MODE_SCOPES) {
+      modes[scope] = next[scope];
+      viewModeStores[scope].set(next[scope]);
+    }
+  } catch {
+    // Malformed legacy blob: defaults stand.
+  }
+})();

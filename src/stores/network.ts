@@ -1,4 +1,6 @@
 import { get, writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { hasTauri } from '../lib/tauriFs';
 
 /** A stream the user saved from the Network section. */
 export type SavedStream = {
@@ -27,15 +29,6 @@ export const networkViewSubPath = writable<string | null>(null);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -167,64 +160,72 @@ function sanitizeStream(value: unknown): SavedStream | null {
 
 /** Load, validate, de-duplicate and cap the persisted list. */
 function loadSavedStreams(): SavedStream[] {
-  const storage = getStorage();
-  if (!storage) return [];
+  // Desktop shell: start with an empty list; the snapshot is applied by the
+  // boot hydration. Browser preview keeps the direct localStorage read.
+  if (hasTauri()) return [];
 
   try {
-    const raw = storage.getItem(SAVED_STREAMS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(SAVED_STREAMS_STORAGE_KEY);
     if (raw === null) return [];
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    const streams: SavedStream[] = [];
-    const seenIds = new Set<string>();
-    const seenUrls = new Set<string>();
-
-    for (const entry of parsed) {
-      const stream = sanitizeStream(entry);
-      if (!stream) continue;
-
-      const urlKey = streamUrlKey(stream.url);
-      if (seenIds.has(stream.id) || seenUrls.has(urlKey)) continue;
-
-      seenIds.add(stream.id);
-      seenUrls.add(urlKey);
-      streams.push(stream);
-      if (streams.length >= MAX_SAVED_STREAMS) break;
-    }
-
-    return streams;
+    return sanitizeSavedStreamList(JSON.parse(raw) as unknown);
   } catch {
     return [];
   }
 }
 
-function persistSavedStreams(streams: SavedStream[]): void {
-  const storage = getStorage();
-  if (!storage) return;
+/** Validate, de-duplicate and cap an arbitrary parsed list of streams. */
+function sanitizeSavedStreamList(parsed: unknown): SavedStream[] {
+  if (!Array.isArray(parsed)) return [];
 
-  try {
-    storage.setItem(SAVED_STREAMS_STORAGE_KEY, JSON.stringify(streams));
-  } catch {
-    // Quota exceeded, private mode or storage blocked: keep the in-memory list.
+  const streams: SavedStream[] = [];
+  const seenIds = new Set<string>();
+  const seenUrls = new Set<string>();
+
+  for (const entry of parsed) {
+    const stream = sanitizeStream(entry);
+    if (!stream) continue;
+
+    const urlKey = streamUrlKey(stream.url);
+    if (seenIds.has(stream.id) || seenUrls.has(urlKey)) continue;
+
+    seenIds.add(stream.id);
+    seenUrls.add(urlKey);
+    streams.push(stream);
+    if (streams.length >= MAX_SAVED_STREAMS) break;
   }
+
+  return streams;
 }
+
+const writeStreams = createKeyWriter(SAVED_STREAMS_STORAGE_KEY);
 
 const initialSavedStreams = loadSavedStreams();
 
 export const savedStreams = writable<SavedStream[]>(initialSavedStreams);
 
-let persistenceStarted = false;
+// The initial emission and the async SQLite hydration bypass persistence;
+// writes start only after the boot snapshot settles.
+let persistenceActive = false;
 
 savedStreams.subscribe((streams) => {
-  // The initial subscription sees the hydrated value; only persist mutations.
-  if (!persistenceStarted) {
-    persistenceStarted = true;
-    return;
-  }
-  persistSavedStreams(streams);
+  if (!persistenceActive) return;
+  void writeStreams(JSON.stringify(streams));
 });
+
+// Desktop hydration: swap in the persisted snapshot once resolved (the legacy
+// webview blob migrates into SQLite on this first pass).
+void (async () => {
+  const raw = await loadPersistedRaw(SAVED_STREAMS_STORAGE_KEY);
+  if (raw !== null) {
+    try {
+      const next = sanitizeSavedStreamList(JSON.parse(raw) as unknown);
+      if (next.length > 0) savedStreams.set(next);
+    } catch {
+      // Malformed legacy blob: keep the current list.
+    }
+  }
+  persistenceActive = true;
+})();
 
 export type SaveStreamResult =
   | { ok: true; stream: SavedStream; duplicate: boolean }

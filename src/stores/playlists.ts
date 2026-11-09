@@ -1,5 +1,7 @@
 import { writable, type Writable } from 'svelte/store';
 import { playlists as mockPlaylists, type Playlist, type PlaylistTrack } from '../lib/mock';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { hasTauri } from '../lib/tauriFs';
 
 export const playlistsSelectedId = writable<string | null>(null);
 export const playlistsSearch = writable('');
@@ -161,15 +163,6 @@ export function createPlaylistFromTracks(name: string, tracks: PlaylistTrack[]):
 /** Bump the version suffix when the persisted shape changes. */
 export const PLAYLIST_PINS_STORAGE_KEY = 'vlc.playlists.pins.v1';
 
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 /** Stored pins are untrusted: keep only unique, non-empty string ids. */
 function sanitizePinnedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -189,11 +182,12 @@ function sanitizePinnedIds(value: unknown): string[] {
 }
 
 function loadPinnedIds(): string[] {
-  const storage = getStorage();
-  if (!storage) return [];
+  // Desktop shell: start with no pins; the snapshot is applied by the boot
+  // hydration. Browser preview keeps the direct localStorage read.
+  if (hasTauri()) return [];
 
   try {
-    const raw = storage.getItem(PLAYLIST_PINS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(PLAYLIST_PINS_STORAGE_KEY);
     if (raw === null) return [];
     return sanitizePinnedIds(JSON.parse(raw) as unknown);
   } catch {
@@ -202,19 +196,30 @@ function loadPinnedIds(): string[] {
   }
 }
 
-function persistPinnedIds(ids: string[]): void {
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.setItem(PLAYLIST_PINS_STORAGE_KEY, JSON.stringify(ids));
-  } catch {
-    // Quota exceeded, private mode, or blocked storage: keep pins in memory.
-  }
-}
+const writePinnedIds = createKeyWriter(PLAYLIST_PINS_STORAGE_KEY);
 
 function createPinnedPlaylistStore(): Writable<string[]> {
   const store = writable<string[]>(loadPinnedIds());
+
+  /** Set when a mutation lands before the SQLite snapshot has been applied. */
+  let changedSinceBoot = false;
+
+  function persistPinnedIds(ids: string[]): void {
+    changedSinceBoot = true;
+    void writePinnedIds(JSON.stringify(ids));
+  }
+
+  // Desktop hydration: apply the persisted snapshot only when no mutation
+  // landed while reading.
+  void (async () => {
+    const raw = await loadPersistedRaw(PLAYLIST_PINS_STORAGE_KEY);
+    if (raw === null || changedSinceBoot) return;
+    try {
+      store.set(sanitizePinnedIds(JSON.parse(raw) as unknown));
+    } catch {
+      // Malformed legacy blob: start with no pins.
+    }
+  })();
 
   return {
     subscribe: store.subscribe,

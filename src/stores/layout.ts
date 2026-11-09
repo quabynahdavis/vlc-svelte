@@ -1,5 +1,7 @@
 import { writable } from 'svelte/store';
 import { NAV_ITEMS, type NavId } from '../lib/constants';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { hasTauri } from '../lib/tauriFs';
 import type { DockMode } from './ui';
 
 /**
@@ -130,25 +132,32 @@ function normalizePlayerControls(value: unknown): Record<PlayerControlId, boolea
   return result;
 }
 
+/** Merge a stored partial over the defaults, field by field. */
+function sanitizeLayoutState(parsed: unknown): LayoutState {
+  if (!parsed || typeof parsed !== 'object') return defaults();
+
+  const value = parsed as Partial<LayoutState>;
+  return {
+    railOrder: normalizeOrder(value.railOrder, DEFAULT_RAIL_ORDER, DEFAULT_RAIL_ORDER),
+    dockTabOrder: normalizeOrder(
+      value.dockTabOrder,
+      DEFAULT_DOCK_ORDER.filter(isDockMode),
+      DEFAULT_DOCK_ORDER,
+    ),
+    playerControls: normalizePlayerControls(value.playerControls),
+  };
+}
+
 function loadLayout(): LayoutState {
-  if (typeof localStorage === 'undefined') return defaults();
+  // Desktop shell: start from defaults; the snapshot is applied by the boot
+  // hydration. Browser preview keeps the direct localStorage read.
+  if (hasTauri()) return defaults();
 
   try {
+    if (typeof localStorage === 'undefined') return defaults();
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaults();
-
-    const parsed = JSON.parse(raw) as Partial<LayoutState> | null;
-    if (!parsed || typeof parsed !== 'object') return defaults();
-
-    return {
-      railOrder: normalizeOrder(parsed.railOrder, DEFAULT_RAIL_ORDER, DEFAULT_RAIL_ORDER),
-      dockTabOrder: normalizeOrder(
-        parsed.dockTabOrder,
-        DEFAULT_DOCK_ORDER.filter(isDockMode),
-        DEFAULT_DOCK_ORDER,
-      ),
-      playerControls: normalizePlayerControls(parsed.playerControls),
-    };
+    return sanitizeLayoutState(JSON.parse(raw));
   } catch {
     return defaults();
   }
@@ -156,19 +165,33 @@ function loadLayout(): LayoutState {
 
 export const layout = writable<LayoutState>(loadLayout());
 
-function persist(state: LayoutState): void {
-  if (typeof localStorage === 'undefined') return;
+const writeLayout = createKeyWriter(STORAGE_KEY);
+/** Persistence starts only after the boot snapshot has settled. */
+let persistenceActive = false;
 
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Private mode or a blocked storage quota: keep the in-memory layout.
-  }
+function persist(state: LayoutState): void {
+  if (!persistenceActive) return;
+  void writeLayout(JSON.stringify(state));
 }
 
 if (typeof window !== 'undefined') {
   layout.subscribe(persist);
 }
+
+// Desktop hydration: swap in the persisted snapshot once resolved (the legacy
+// webview blob migrates into SQLite on this first pass). The hydration set is
+// suppressed by the gate above, so it is not written straight back.
+void (async () => {
+  const raw = await loadPersistedRaw(STORAGE_KEY);
+  if (raw !== null) {
+    try {
+      layout.set(sanitizeLayoutState(JSON.parse(raw)));
+    } catch {
+      // Malformed legacy blob: defaults stand.
+    }
+  }
+  persistenceActive = true;
+})();
 
 function move<T>(items: T[], from: number, to: number): T[] {
   if (from === to) return items;
