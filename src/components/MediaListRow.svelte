@@ -7,6 +7,7 @@
   import { libraryImportLog } from '../stores/library';
   import { addToQueue, type Track } from '../stores/player';
   import { openPlaylistTarget } from '../stores/playlistTarget';
+import { openMediaContextMenu } from '../stores/ui';
 
   export let item: MediaItem;
   export let mode: 'list' | 'compact' = 'list';
@@ -89,6 +90,7 @@
   aria-label={`${item.title} actions`}
   draggable={Boolean(item.src)}
   on:dragstart={handleDragStart}
+  on:contextmenu={(e) => openMediaContextMenu(e, item.id)}
 >
   <button
     type="button"

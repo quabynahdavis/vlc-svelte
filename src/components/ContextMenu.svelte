@@ -17,9 +17,11 @@
     SkipForward,
     Sparkles,
     Square,
+    X,
   } from 'lucide-svelte';
   import { onMount, tick } from 'svelte';
   import type { ComponentType } from 'svelte';
+  import { currentContext } from '../stores/ui';
 
   export let x = 0;
   export let y = 0;
@@ -206,7 +208,40 @@
   const SUBMENU_FLIP_THRESHOLD = 340;
   const VIEWPORT_MARGIN = 8;
 
-  $: activeMenuItems = compact ? compactMenuItems : menuItems;
+  // Substitute menu based on UI context – global, folder, or media.
+  $: activeMenuItems = (() => {
+    const ctx = $currentContext;
+    // Global: all items (already defined in menuItems).
+    if (ctx === 'global') return compact ? compactMenuItems : menuItems;
+
+    // Folder context – minimal actions.
+    if (ctx === 'folder') {
+      const items: MenuItem[] = [
+        { id: 'open-folder', label: 'Open Folder', shortcut: 'Enter', icon: FolderOpen, tone: 'accent' },
+        { id: 'add-to-watch-later', label: 'Add to Watch Later', shortcut: 'W', icon: Play, tone: 'accent' },
+        { type: 'divider' },
+        { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
+        { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+      ];
+      return items;
+    }
+
+    // Media context – playback‑centric actions.
+    if (ctx === 'media') {
+      const items: MenuItem[] = [
+        { id: 'play-pause', label: 'Play', shortcut: 'Space', icon: Play, tone: 'accent' },
+        { id: 'stop', label: 'Stop', shortcut: 'S', icon: Square, tone: 'accent' },
+        { type: 'divider' },
+        { id: 'add-to-playlist', label: 'Add to Playlist', shortcut: 'P', icon: ListVideo, tone: 'accent' },
+        { id: 'remove-from-watch-later', label: 'Remove from Watch Later', shortcut: 'W', icon: X, tone: 'neutral' },
+        { type: 'divider' },
+        { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
+        { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+      ];
+      return items;
+    }
+    return compact ? compactMenuItems : menuItems;
+  })();
   $: submenuItems = new Map(
     activeMenuItems
       .filter((item): item is ActionItem => 'id' in item && Boolean(item.children?.length))

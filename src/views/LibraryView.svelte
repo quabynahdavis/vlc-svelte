@@ -31,6 +31,7 @@
   import { navigate } from '../stores/navigation';
   import { currentTrack, setQueue, type Track } from '../stores/player';
   import { libraryViewMode } from '../stores/viewModes';
+  import { openFolderContextMenu } from '../stores/ui';
 
   const dispatch = createEventDispatcher<{ advancedSettings: string }>();
 
@@ -338,6 +339,7 @@
                 aria-label={`Open folder ${getDisplayName(folder)}`}
                 title={folder.path}
                 on:click={() => openFolder(folder)}
+          on:contextmenu={(e) => openFolderContextMenu(e, folder.path)}
               >
                 <div class="relative flex aspect-[16/10] w-full flex-col justify-end overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] p-4 transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105">
                   {#if folder.representativeId && $mediaThumbnails.has(folder.representativeId)}
@@ -377,6 +379,7 @@
                   aria-label={`Open folder ${getDisplayName(folder)}`}
                   title={folder.path}
                   on:click={() => openFolder(folder)}
+          on:contextmenu={(e) => openFolderContextMenu(e, folder.path)}
                 >
                   <span class="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-input border border-vlc-border bg-vlc-card text-vlc-orange">
                     {#if folder.representativeId && $mediaThumbnails.has(folder.representativeId)}

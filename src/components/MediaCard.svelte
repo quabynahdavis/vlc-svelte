@@ -7,6 +7,7 @@
   import { libraryImportLog } from '../stores/library';
   import { addToQueue, type Track } from '../stores/player';
   import { openPlaylistTarget } from '../stores/playlistTarget';
+  import { openMediaContextMenu } from '../stores/ui';
 
   export let item: MediaItem;
   export let onSelect: (item: MediaItem) => void = () => {};
@@ -71,6 +72,7 @@
   draggable={Boolean(item.src)}
   title={`${item.title} — drag to the queue`}
   on:dragstart={handleDragStart}
+  on:contextmenu={(e) => openMediaContextMenu(e, item.id)}
 >
   <button
     type="button"
