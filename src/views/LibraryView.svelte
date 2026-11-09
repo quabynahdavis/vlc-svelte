@@ -19,6 +19,7 @@
     librarySortDirection,
     librarySortKey,
     libraryWatchFilter,
+    navigateBreadcrumbToDepth,
     navigateToLibraryPath,
     openLibraryFolder,
     rootFolders,
@@ -106,16 +107,17 @@
   }
 
   function handleBreadcrumbSelect(renderedIndex: number) {
-    // The rendered trail starts with the fixed Library root label.
+    // The rendered trail starts with the fixed Library root label (index 0).
+    // The store helper clears the active root identity when returning to root.
     searchQuery.set('');
-    breadcrumb.update((segments) => segments.slice(0, renderedIndex));
+    navigateBreadcrumbToDepth(renderedIndex);
     detailsItemId = null;
   }
 
   function openFolder(folder: LibraryFolder) {
     searchQuery.set('');
     detailsItemId = null;
-    openLibraryFolder(folder.name);
+    openLibraryFolder({ name: folder.name, path: folder.path });
   }
 
   async function beginPathEdit() {

@@ -4,9 +4,8 @@
   import { hasTauri, pickFolderViaDialog } from '../lib/tauriFs';
   import {
     addImportedItems,
-    breadcrumb,
     createLibraryItemId,
-    findLibraryFolderChain,
+    navigateToFolderChain,
     importLibraryFolderPath,
     libraryImportLog,
     updateLibraryItemDuration,
@@ -310,9 +309,8 @@
       const firstSegment = relativePath ? relativePath.split(/[\\/]/)[0] : '';
 
       if (firstSegment) {
-        const chain = findLibraryFolderChain(firstSegment);
-        if (chain !== null) {
-          breadcrumb.set(chain);
+        const result = navigateToFolderChain(firstSegment);
+        if (result !== null) {
           libraryImportLog.set(`Opened ${firstSegment}`);
           input.value = '';
           triggerEl?.focus();

@@ -1,7 +1,7 @@
 import { derived, get, writable, type Readable, type Writable } from 'svelte/store';
-import { settings } from './settings';
+import { settings, settingsHydrated } from './settings';
 import { hasTauri } from '../lib/tauriFs';
-import { invokeCommand } from '../lib/tauriFs';
+import { invokeCommand, syncLibraryAssetScope } from '../lib/tauriFs';
 import { toFileSrc } from '../lib/tauriFs';
 import { upsertWatch, watchEntries } from './watch';
 import type { MediaItem, ScannedFile, ScannedFolder, ScanResult } from '../lib/mock';
@@ -18,6 +18,99 @@ export const breadcrumb: Writable<string[]> = writable([]);
 
 /** Raw search box contents, shared so later phases can layer on other filters. */
 export const searchQuery: Writable<string> = writable('');
+
+/**
+ * Absolute path of the configured/scanned filesystem root the user is
+ * currently navigating inside. `null` at the Library root level or when the
+ * active breadcrumb is an import-derived (non-configured) group. When set, it
+ * anchors the navigation scope so duplicate-named roots (same basename,
+ * different absolute paths) never merge their subtrees.
+ */
+export const activeLibraryRootPath: Writable<string | null> = writable(null);
+
+/** Strip a single trailing path separator for stable comparisons. */
+function trimTrailingSeparator(path: string): string {
+    return path.replace(/[\\/]+$/, '');
+}
+
+/**
+ * True when `path` is `root` itself or lives directly beneath it. Both sides
+ * are compared with a normalized trailing separator so configured roots stored
+ * with or without one behave the same.
+ */
+export function isUnderRoot(path: string, root: string): boolean {
+    const cleanRoot = trimTrailingSeparator(root);
+    return (
+        path.startsWith(cleanRoot) &&
+        (path.length === cleanRoot.length || path[cleanRoot.length] === '/' || path[cleanRoot.length] === '\\')
+    );
+}
+
+/**
+ * Configured/scanned filesystem roots whose absolute path is a meaningful
+ * identity (displayed as cards at the Library root). Import-derived groups use
+ * a display name as their `path` and are not included.
+ */
+function configuredRootIdentities(): LibraryFolder[] {
+    return get(rootFolders).filter((folder) => /[\\/]/.test(folder.path));
+}
+
+/** Parent folder segment of a path, used for `Name[ParentName]` disambiguation. */
+function parentSegmentOf(path: string): string {
+    const parts = trimTrailingSeparator(path).split(/[\\/]+/).filter(Boolean);
+    return parts[parts.length - 2] ?? '';
+}
+
+/**
+ * Resolve a typed root segment that may carry a `[ParentName]` disambiguator
+ * (matching LibraryView's display-only label) to a configured root. Plain
+ * names resolve to the unique match, or the first configured root in stable
+ * rootFolders order when still ambiguous.
+ */
+function resolveConfiguredRootSegment(
+    segment: string,
+    roots: LibraryFolder[],
+): LibraryFolder | undefined {
+    const bracket = /^(.*)\[([^\]]+)\]$/.exec(segment.trim());
+    if (bracket) {
+        const nameKey = segmentKey(bracket[1]);
+        const parentKey = segmentKey(bracket[2]);
+        return roots.find(
+            (folder) => segmentKey(folder.name) === nameKey && segmentKey(parentSegmentOf(folder.path)) === parentKey,
+        );
+    }
+
+    const key = segmentKey(segment);
+    return roots.find((folder) => segmentKey(folder.name) === key);
+}
+
+/**
+ * Set breadcrumb segments and the matching root-path identity together. A
+ * configured/scanned root at depth 1 anchors `activeLibraryRootPath`; an
+ * import-derived group or the Library root leaves it `null`.
+ */
+function setNavigation(segments: string[], rootPath: string | null): void {
+    activeLibraryRootPath.set(segments.length === 0 ? null : rootPath);
+    breadcrumb.set(segments);
+}
+
+/**
+ * Slice the breadcrumb to `depth` segments (0 = Library root). Clears the
+ * active root identity when returning to the Library root so no stale scope
+ * survives. Rendered breadcrumb index 0 is the Library label, 1 is the first
+ * segment, etc., so callers pass the rendered index as `depth`.
+ */
+export function navigateBreadcrumbToDepth(depth: number): void {
+    const next = Math.max(0, depth);
+    if (next === 0) {
+        setNavigation([], null);
+        return;
+    }
+    const current = get(breadcrumb);
+    // For depth >= 1 keep the already-anchored active root identity; only the
+    // breadcrumb slices. Rendered index 1 = first segment = configured root.
+    breadcrumb.set(current.slice(0, next));
+}
 
 /* ---------------------------------------------------------------- */
 /* Store items                                                       */
@@ -112,14 +205,18 @@ export const libraryItems: Readable<MediaItem[]> = allItems;
 
 /** Media folders at the active level, after the Library root label. */
 export const subfolders: Readable<LibraryFolder[]> = derived(
-    [allItems, breadcrumb],
-    ([$items, $segments]) => {
+    [allItems, breadcrumb, activeLibraryRootPath],
+    ([$items, $segments, $rootPath]) => {
         if ($segments.length === 0) return [];
+
+        const memberOfScope = (item: MediaItem): boolean =>
+            $rootPath === null ? true : isUnderRoot(item.id, $rootPath);
 
         const order: string[] = [];
         const seen = new Set<string>();
 
         for (const item of $items) {
+            if (!memberOfScope(item)) continue;
             const parts = relativeParts(item);
             if (parts.length <= $segments.length + 1 || !matchesChain(parts, $segments)) continue;
 
@@ -133,9 +230,10 @@ export const subfolders: Readable<LibraryFolder[]> = derived(
 
         return order.map((name) => {
             const chain = [...$segments, name];
-            const inside = $items.filter(
-                (item) => relativeParts(item).length > chain.length && matchesChain(relativeParts(item), chain),
-            );
+            const inside = $items.filter((item) => {
+                if (!memberOfScope(item)) return false;
+                return relativeParts(item).length > chain.length && matchesChain(relativeParts(item), chain);
+            });
 
             return {
                 name,
@@ -156,9 +254,27 @@ export type LibraryPathResolution =
 
 /** Canonical folder names one level below `segments`, for path resolution. */
 function folderNamesAt(segments: string[]): LibraryFolder[] {
-    const configured = segments.length === 0 ? get(rootFolders) : [];
-    const nested = get(subfolders);
-    return mergeFolders(configured, nested);
+    if (segments.length === 0) {
+        // Return configured roots as-is (path-deduped, not name-deduped) so
+        // same-named roots in different locations stay distinct cards.
+        return get(rootFolders);
+    }
+    return get(subfolders);
+}
+
+function resolveFolderSegment(segment: string, depth: number): LibraryFolder | undefined {
+    if (depth === 0) {
+        const roots = configuredRootIdentities();
+        const explicit = resolveConfiguredRootSegment(segment, roots);
+        if (explicit) return explicit;
+        // Import-derived root groups (display path is the bare segment name).
+        return folderNamesAt([]).find(
+            (folder) => !/[\\/]/.test(folder.path) && segmentKey(folder.name) === segmentKey(segment),
+        );
+    }
+    return folderNamesAt(get(breadcrumb).slice(0, depth)).find(
+        (folder) => segmentKey(folder.name) === segmentKey(segment),
+    );
 }
 
 /**
@@ -166,10 +282,12 @@ function folderNamesAt(segments: string[]): LibraryFolder[] {
  *
  * The trail is `Library / <configured folder> / <imported subfolders>`; the
  * leading `Library` label is optional. Segments are trimmed and empty segments
- * ignored so `Videos/Shows` and `videos//shows` resolve the same way, matching
- * is case-insensitive and canonical casing is returned. Empty input resolves to
- * the Library root. The whole path must exist; the first unknown segment is
- * reported so the caller can show an error without navigating.
+ * ignored, matching is case-insensitive and canonical casing is returned. The
+ * first segment may use `Name[ParentName]` to disambiguate duplicate-named
+ * configured roots (matching the card label); a plain name resolves to the
+ * unique match or the first configured root in stable order when ambiguous.
+ * Empty input resolves to the Library root. The whole path must exist; the
+ * first unknown segment is reported without navigating.
  */
 export function resolveLibraryPath(input: string): LibraryPathResolution {
     const requested = (input ?? '')
@@ -184,9 +302,7 @@ export function resolveLibraryPath(input: string): LibraryPathResolution {
     const segments: string[] = [];
 
     for (let index = 0; index < requested.length; index += 1) {
-        const canonical = folderNamesAt(segments).find(
-            (folder) => segmentKey(folder.name) === segmentKey(requested[index]),
-        );
+        const canonical = resolveFolderSegment(requested[index], index);
 
         if (!canonical) return { ok: false, segment: requested[index] };
         segments.push(canonical.name);
@@ -197,22 +313,84 @@ export function resolveLibraryPath(input: string): LibraryPathResolution {
 
 /**
  * Navigate the breadcrumb to a typed path. Returns the resolution so callers
- * can render an error state; the breadcrumb only changes on success.
+ * can render an error state; the breadcrumb and active root identity only
+ * change on success.
  */
 export function navigateToLibraryPath(input: string): LibraryPathResolution {
-    const result = resolveLibraryPath(input);
-    if (result.ok) breadcrumb.set(result.segments);
-    return result;
+    const requested = (input ?? '')
+        .split(/[\\/]+/)
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0);
+    if (segmentKey(requested[0] ?? '') === segmentKey(libraryRootName)) requested.shift();
+
+    if (requested.length === 0) {
+        setNavigation([], null);
+        return { ok: true, segments: [] };
+    }
+
+    const first = resolveFolderSegment(requested[0], 0);
+    if (!first) return { ok: false, segment: requested[0] };
+    const rootPath = /[\\/]/.test(first.path) ? trimTrailingSeparator(first.path) : null;
+
+    const segments: string[] = [first.name];
+    // Deeper resolution uses the current store-derived subfolders; anchor the
+    // root first so scoped lookups resolve against the intended root.
+    const prevRoot = get(activeLibraryRootPath);
+    const prevCrumb = get(breadcrumb);
+    if (segments.length > 0) setNavigation(segments, rootPath);
+    try {
+        for (let index = 1; index < requested.length; index += 1) {
+            const canonical = folderNamesAt(segments).find(
+                (folder) => segmentKey(folder.name) === segmentKey(requested[index]),
+            );
+            if (!canonical) {
+                setNavigation(prevCrumb, prevRoot);
+                return { ok: false, segment: requested[index] };
+            }
+            segments.push(canonical.name);
+            breadcrumb.set([...segments]);
+        }
+    } catch (e) {
+        setNavigation(prevCrumb, prevRoot);
+        throw e;
+    }
+
+    setNavigation(segments, rootPath);
+    return { ok: true, segments };
 }
 
 /** Drop the last breadcrumb segment (the toolbar Back button). */
 export function goUpOneLevel(): void {
-    breadcrumb.update((segments) => segments.slice(0, -1));
+    const segments = get(breadcrumb);
+    if (segments.length <= 1) {
+        setNavigation([], null);
+        return;
+    }
+    breadcrumb.set(segments.slice(0, -1));
 }
 
-/** Open a folder one level below the current one. */
-export function openLibraryFolder(name: string): void {
-    breadcrumb.update((segments) => [...segments, name]);
+export interface LibraryFolderRef {
+    name: string;
+    path: string;
+}
+
+/** Open a folder one level below the current one, anchoring root identity. */
+export function openLibraryFolder(folder: LibraryFolderRef): void {
+    const segments = get(breadcrumb);
+    if (segments.length === 0) {
+        const roots = configuredRootIdentities();
+        const rootMatch = roots.find(
+            (candidate) => trimTrailingSeparator(candidate.path).toLowerCase() === trimTrailingSeparator(folder.path).toLowerCase(),
+        );
+        if (rootMatch) {
+            setNavigation([folder.name], trimTrailingSeparator(rootMatch.path));
+            return;
+        }
+        // Import-derived group (no absolute configured/scanned root identity).
+        setNavigation([folder.name], null);
+        return;
+    }
+    breadcrumb.set([...segments, folder.name]);
 }
 
 /** Latest human-readable import status shown under the toolbar. */
@@ -280,8 +458,8 @@ export function toggleItemWatched(id: string): void {
  * apply within that scope.
  */
 export const filteredItems: Readable<MediaItem[]> = derived(
-    [allItems, breadcrumb, searchQuery, libraryWatchFilter],
-    ([$allItems, $breadcrumb, $searchQuery, $watchFilter]) => {
+    [allItems, breadcrumb, searchQuery, libraryWatchFilter, activeLibraryRootPath],
+    ([$allItems, $breadcrumb, $searchQuery, $watchFilter, $rootPath]) => {
         const query = $searchQuery.trim().toLowerCase();
         const segments = $breadcrumb;
 
@@ -290,6 +468,11 @@ export const filteredItems: Readable<MediaItem[]> = derived(
 
             if (segments.length === 0) {
                 if (parts.length !== 0) return false;
+            } else if ($rootPath !== null) {
+                // Navigating inside a configured/scanned root: scope by absolute
+                // path so duplicate-named roots never share a subtree.
+                if (!isUnderRoot(item.id, $rootPath)) return false;
+                if (parts.length !== segments.length + 1 || !matchesChain(parts, segments)) return false;
             } else if (parts.length !== segments.length + 1 || !matchesChain(parts, segments)) {
                 return false;
             }
@@ -435,11 +618,7 @@ export const rootFolders: Readable<LibraryFolder[]> = derived(
             if (pathsSeen.has(pathKey)) continue;
             pathsSeen.add(pathKey);
             const name = rootNameFor(cleanPath);
-            const parts = folderPath.split(/[\\/]+/).filter(Boolean);
-            const root = parts[parts.length - 1]?.toLowerCase() ?? '';
-            const inside = $items.filter((item) =>
-                matchesChain(relativeParts(item), root ? [root] : []),
-            );
+            const inside = $items.filter((item) => isUnderRoot(item.id, cleanPath));
 
             configured.push({
                 name,
@@ -524,59 +703,96 @@ export const currentFolders: Readable<LibraryFolder[]> = derived(
 
 /* ---------- Folder-chain lookup for the upload rule ---------- */
 
+export interface FolderChainResult {
+    chain: string[];
+    /** Absolute configured/scanned root path anchoring the chain, or null for import-derived groups. */
+    rootPath: string | null;
+}
+
 /**
- * Find the breadcrumb chain for a folder name picked by an upload/dialog flow.
+ * Resolve a folder name picked by an upload/dialog flow to an existing
+ * breadcrumb chain and its absolute root identity.
  *
- * The rule applies to every root-level card, not just the default Videos
- * folder: the pick may be a root card itself, any descendant of one (any
- * depth), or an already-imported top-level group. The shallowest match wins
- * when several folders share the name. Null means the folder is new tree
- * territory and an import should proceed.
+ * The webkit folder picker exposes only a display name (no absolute path), so
+ * a name matching two configured roots is inherently ambiguous. Resolution is
+ * deterministic and best-effort: configured/scanned roots are checked in stable
+ * order and the first match wins; a configured-root basename match is preferred
+ * over a fuzzy deep descendant match (which could land in the wrong duplicate).
+ * The shallowest deep match wins when several folders share the name. `null`
+ * means the folder is new tree territory and an import should proceed.
  */
-export function findLibraryFolderChain(name: string): string[] | null {
-    const pickedKey = name.trim().toLowerCase();
+export function findLibraryFolderChain(name: string): FolderChainResult | null {
+    const pickedKey = segmentKey(name.trim());
     if (!pickedKey) return null;
 
     const items = get(allItems);
+    const configuredRoots = get(settings).libraryFolders.map((folderPath) => {
+        const clean = trimTrailingSeparator(folderPath);
+        return { rootPath: clean, rootName: rootNameFor(clean) };
+    });
+    const scannedRoots = get(scanTree).roots.map((root) => ({
+        rootPath: trimTrailingSeparator(root.rootPath),
+        rootName: root.rootName,
+    }));
 
-    // 1) The pick is itself a configured/scanned root card.
-    for (const root of get(scanTree).roots) {
-        if (root.rootName.toLowerCase() === pickedKey) {
-            return [root.rootName];
+    // 1) The pick is itself a configured root card (stable settings order).
+    for (const root of configuredRoots) {
+        if (segmentKey(root.rootName) === pickedKey) {
+            return { chain: [root.rootName], rootPath: root.rootPath };
+        }
+    }
+    // 1b) The pick is itself a scanned root not already represented above.
+    for (const root of scannedRoots) {
+        if (segmentKey(root.rootName) === pickedKey) {
+            return { chain: [root.rootName], rootPath: root.rootPath };
         }
     }
 
-    // 2) The pick lives inside one of the scanned roots, at any depth. Keep
-    //    the shallowest match; parts exclude the trailing file segment, so
-    //    folder positions run 1..length-2 over file-bearing chains.
+    // 2) The pick lives inside a known root, at any depth. Prefer roots in
+    //    stable configured order, then scanned order; keep the shallowest match
+    //    globally. parts exclude the trailing file segment, so folder positions
+    //    run 1..length-2 over file-bearing chains.
+    const knownRoots = [
+        ...configuredRoots,
+        ...scannedRoots.filter((root) => !configuredRoots.some((c) => c.rootPath.toLowerCase() === root.rootPath.toLowerCase())),
+    ];
     let bestDepth = Number.POSITIVE_INFINITY;
-    let bestChain: string[] | null = null;
-    for (const root of get(scanTree).roots) {
+    let best: FolderChainResult | null = null;
+    for (const root of knownRoots) {
         const rootKey = segmentKey(root.rootName);
         for (const item of items) {
             const parts = relativeParts(item);
             if (parts.length < 2 || segmentKey(parts[0]) !== rootKey) continue;
+            if (!isUnderRoot(item.id, root.rootPath)) continue;
             for (let index = 1; index < parts.length - 1; index += 1) {
                 if (segmentKey(parts[index]) !== pickedKey) continue;
                 if (index < bestDepth) {
                     bestDepth = index;
-                    bestChain = [root.rootName, ...parts.slice(1, index + 1)];
+                    best = { chain: [root.rootName, ...parts.slice(1, index + 1)], rootPath: root.rootPath };
                 }
                 break;
             }
         }
     }
-    if (bestChain) return bestChain;
+    if (best) return best;
 
-    // 3) The pick matches an already-imported top-level group.
+    // 3) The pick matches an already-imported top-level group (name-based).
     for (const item of items) {
         const parts = relativeParts(item);
         if (parts.length >= 2 && segmentKey(parts[0]) === pickedKey) {
-            return [parts[0]];
+            return { chain: [parts[0]], rootPath: null };
         }
     }
 
     return null;
+}
+
+/** Resolve and navigate to an existing folder picked by name (e.g. webkit picker). */
+export function navigateToFolderChain(name: string): FolderChainResult | null {
+    const result = findLibraryFolderChain(name);
+    if (!result) return null;
+    setNavigation(result.chain, result.rootPath);
+    return result;
 }
 
 /**
@@ -608,7 +824,7 @@ export async function importLibraryFolderPath(
         const rootName = rootNameFor(clean);
         const rest = target.slice(clean.length).replace(/^[\\/]+/, '');
         const segments = rest.length > 0 ? rest.split(/[\\/]+/).filter(Boolean) : [];
-        breadcrumb.set([rootName, ...segments]);
+        setNavigation([rootName, ...segments], clean);
         return 'navigated';
     }
 
@@ -666,10 +882,7 @@ function scanRoots(): void {
         return entry.duration > 0 ? Math.min(1, entry.position / entry.duration) : 0;
     };
 
-    /** True when `path` is `root` itself or lives directly beneath it (either separator). */
-    const underRoot = (path: string, root: string): boolean =>
-        path.startsWith(root) &&
-        (path.length === root.length || path[root.length] === '/' || path[root.length] === '\\');
+    // uses shared isUnderRoot(path, root)
 
     for (const rootPath of roots) {
         void invokeCommand<ScanResult>('scan_library_dir', { root: rootPath, maxDepth: 4, includeHidden })
@@ -698,7 +911,7 @@ function scanRoots(): void {
 
                 // Replace this root's previous items instead of appending.
                 scannedItems.update((current) => [
-                    ...current.filter((item) => !underRoot(item.id, rootPath)),
+                    ...current.filter((item) => !isUnderRoot(item.id, rootPath)),
                     ...mediaItems,
                 ]);
 
@@ -729,8 +942,14 @@ settings.subscribe((newSettings) => {
     if (!bootstrapRan) {
         bootstrapRan = true;
 
-        // On first run in the desktop shell, add the platform Videos folder.
-        void invokeCommand<string>('default_media_dir', { kind: 'videos' }).then((result) => {
+        // On first run in the desktop shell, wait for settings hydration to
+        // complete first. The hydration path in settings.ts syncs the
+        // asset-protocol scope (allowing the configured library roots) before
+        // resolving settingsHydrated, so scanning/probing never touches
+        // asset:// URLs outside the allowed scope.
+        void settingsHydrated.then(async () => {
+            // On first run in the desktop shell, add the platform Videos folder.
+            const result = await invokeCommand<string>('default_media_dir', { kind: 'videos' });
             const current = get(settings);
             const shouldSeed =
                 !!result &&
@@ -760,6 +979,10 @@ settings.subscribe((newSettings) => {
     const foldersKey = newSettings.libraryFolders.join(' ');
     if (foldersKey !== lastScannedFolders) {
         lastScannedFolders = foldersKey;
+        // Reactive sync: asset-protocol scope follows libraryFolders changes
+        // (in addition to the subscription in settings.ts). No-op in browser,
+        // idempotent via previous-value diff.
+        void syncLibraryAssetScope(newSettings.libraryFolders);
         scanRoots();
     }
 });
