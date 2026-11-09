@@ -4,6 +4,13 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-09
 
+### Fixed — Asset protocol 403s for library files on mounted volumes
+
+- The webview console flooded with `403 (Forbidden)` asset requests for library files under `/run/media/davisville/BackupVault/...`: the asset protocol scope in `src-tauri/tauri.conf.json` allowed only `$HOME/**`, so every webview-side load of a file outside the home directory (boot-time duration probes, the capture fallback, and playback itself) was rejected — earlier the boot-time duration probe loop had emitted one request per scanned file, hence "hundreds" of errors.
+- The Rust scanner and the Rust thumbnail pipeline still read such files directly from the filesystem, which is why those cards existed and only webview-side loads failed.
+- The asset protocol allow list now also covers the standard mount roots: `/run/media/**`, `/media/**` and `/mnt/**`, alongside `$HOME/**`; `requireLiteralLeadingDot` is unchanged (false).
+- Committed as `8d645da`; config validated by `tauri-build` through `cargo check`.
+
 ### Added — Rust ffmpeg thumbnail pipeline (thumbnails persisted, no webview canvas)
 
 - Library video and folder thumbnails now render reliably: frame capture moved out of the webview into Rust. `src-tauri/src/thumb.rs` exposes `thumb_get(path)` and `thumb_generate(path, seek_seconds)` commands; generation runs the system `/usr/bin/ffmpeg` (`-frames:v 1 -vf scale=-2:240 -q:v 5`, seek clamped 0.05–45s; 2 MB output cap with kill, 10s watchdog, nonzero exit/empty/missing binary all degrade to `None`), and a generated still is always `INSERT OR REPLACE`'d into the database before being returned, so the whole pipeline is one IPC roundtrip.
