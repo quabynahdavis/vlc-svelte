@@ -11,6 +11,8 @@
  * video surface yet.
  */
 import { get, writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { hasTauri } from '../lib/tauriFs';
 
 export type SubtitleSizeMode = 'relative' | 'exact';
 export type SubtitleVerticalPosition = 'bottom' | 'lower-middle' | 'middle' | 'top';
@@ -499,24 +501,17 @@ function sanitizeState(value: unknown): SubtitleProfilesState {
   return state;
 }
 
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 /** True when a formatting object was present in storage at module load. */
 let formattingLoadedFromStorage = false;
 
 function loadState(): SubtitleProfilesState {
-  const storage = getStorage();
-  if (!storage) return createDefaultState();
+  // Desktop shell: start from defaults; the snapshot is applied by the boot
+  // hydration, which mirrors loadState's "formatting came from storage"
+  // side effect for the dock's one-time migration.
+  if (hasTauri()) return createDefaultState();
 
   try {
-    const raw = storage.getItem(SUBTITLE_PROFILES_STORAGE_KEY);
+    const raw = window.localStorage.getItem(SUBTITLE_PROFILES_STORAGE_KEY);
     if (raw === null) return createDefaultState();
 
     const parsed = JSON.parse(raw) as unknown;
@@ -531,26 +526,36 @@ function loadState(): SubtitleProfilesState {
   }
 }
 
-function persistState(state: SubtitleProfilesState): void {
-  const storage = getStorage();
-  if (!storage) return;
+const writeSubtitleState = createKeyWriter(SUBTITLE_PROFILES_STORAGE_KEY);
 
-  try {
-    storage.setItem(
-      SUBTITLE_PROFILES_STORAGE_KEY,
-      JSON.stringify({
-        formatting: state.formatting,
-        presets: state.customPresets,
-        shows: state.shows,
-        showPresets: state.showPresets,
-      }),
-    );
-  } catch {
-    // Quota exceeded, private mode, or blocked storage: keep in-memory only.
-  }
+function persistState(state: SubtitleProfilesState): void {
+  void writeSubtitleState(
+    JSON.stringify({
+      formatting: state.formatting,
+      presets: state.customPresets,
+      shows: state.shows,
+      showPresets: state.showPresets,
+    }),
+  );
 }
 
 export const subtitleProfiles = writable<SubtitleProfilesState>(loadState());
+
+// Desktop hydration: apply the persisted snapshot after boot, replicating the
+// load-time marker that tells the dock its formatting came from storage.
+void (async () => {
+  const raw = await loadPersistedRaw(SUBTITLE_PROFILES_STORAGE_KEY);
+  if (raw === null) return;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (isRecord(parsed) && isRecord(parsed.formatting)) {
+      formattingLoadedFromStorage = true;
+    }
+    subtitleProfiles.set(sanitizeState(parsed));
+  } catch {
+    // Malformed legacy blob: defaults stand.
+  }
+})();
 
 function commit(next: SubtitleProfilesState): SubtitleProfilesState {
   const sanitized = sanitizeState(next);

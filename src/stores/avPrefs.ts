@@ -8,6 +8,8 @@
  * in-memory defaults.
  */
 import { writable, type Writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { hasTauri } from '../lib/tauriFs';
 
 /** Bump the version suffix when the persisted shape changes. */
 export const AV_PREFS_STORAGE_KEY = 'vlc.av.prefs.v1';
@@ -116,15 +118,6 @@ function isOptionId<T extends string>(
   return typeof value === 'string' && options.some((option) => option.id === value);
 }
 
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 function defaultPrefs(): AvPrefs {
   return { ...DEFAULT_AV_PREFS };
 }
@@ -148,11 +141,12 @@ function sanitizePrefs(value: unknown): AvPrefs {
 }
 
 function loadPrefs(): AvPrefs {
-  const storage = getStorage();
-  if (!storage) return defaultPrefs();
+  // Desktop shell: start from defaults; the snapshot is applied by the boot
+  // hydration. Browser preview keeps the direct localStorage read.
+  if (hasTauri()) return defaultPrefs();
 
   try {
-    const raw = storage.getItem(AV_PREFS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(AV_PREFS_STORAGE_KEY);
     if (raw === null) return defaultPrefs();
     return sanitizePrefs(JSON.parse(raw) as unknown);
   } catch {
@@ -161,19 +155,30 @@ function loadPrefs(): AvPrefs {
   }
 }
 
-function persistPrefs(prefs: AvPrefs): void {
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.setItem(AV_PREFS_STORAGE_KEY, JSON.stringify(prefs));
-  } catch {
-    // Quota exceeded, private mode, or blocked storage: keep preferences in memory.
-  }
-}
+const writePrefs = createKeyWriter(AV_PREFS_STORAGE_KEY);
 
 function createAvPrefsStore(): Writable<AvPrefs> {
   const store = writable<AvPrefs>(loadPrefs());
+
+  /** Set when a mutation lands before the SQLite snapshot has been applied. */
+  let changedSinceBoot = false;
+
+  function persistPrefs(prefs: AvPrefs): void {
+    changedSinceBoot = true;
+    void writePrefs(JSON.stringify(prefs));
+  }
+
+  // Desktop hydration: apply the persisted snapshot only when no mutation
+  // landed while reading, so early user changes are kept.
+  void (async () => {
+    const raw = await loadPersistedRaw(AV_PREFS_STORAGE_KEY);
+    if (raw === null || changedSinceBoot) return;
+    try {
+      store.set(sanitizePrefs(JSON.parse(raw) as unknown));
+    } catch {
+      // Malformed legacy blob: defaults stand.
+    }
+  })();
 
   return {
     subscribe: store.subscribe,

@@ -1,5 +1,7 @@
 import { get, writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
 import { validateSettings } from '../lib/settingsPersistence';
+import { hasTauri } from '../lib/tauriFs';
 import {
   DEFAULT_SETTINGS,
   createDefaultSettings,
@@ -101,53 +103,66 @@ function sanitizeProfile(
 }
 
 /** Load and validate persisted profiles; malformed entries are dropped. */
-export function loadProfiles(): SettingsProfile[] {
-  if (typeof window === 'undefined') return [];
+function sanitizeProfileList(parsed: unknown): SettingsProfile[] {
+  if (!Array.isArray(parsed)) return [];
+
+  const result: SettingsProfile[] = [];
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>([DEFAULT_PROFILE.name.toLowerCase()]);
+
+  for (const entry of parsed) {
+    if (result.length >= MAX_PROFILES) break;
+    const profile = sanitizeProfile(entry, seenIds, seenNames);
+    if (profile) result.push(profile);
+  }
+
+  return result;
+}
+
+function loadProfiles(): SettingsProfile[] {
+  // Desktop shell: start empty; the snapshot is applied by the boot hydration.
+  if (hasTauri()) return [];
 
   try {
+    if (typeof window === 'undefined') return [];
+
     const raw = window.localStorage.getItem(PROFILES_STORAGE_KEY);
     if (!raw) return [];
 
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    const result: SettingsProfile[] = [];
-    const seenIds = new Set<string>();
-    const seenNames = new Set<string>([DEFAULT_PROFILE.name.toLowerCase()]);
-
-    for (const entry of parsed) {
-      if (result.length >= MAX_PROFILES) break;
-      const profile = sanitizeProfile(entry, seenIds, seenNames);
-      if (profile) result.push(profile);
-    }
-
-    return result;
+    return sanitizeProfileList(JSON.parse(raw) as unknown);
   } catch {
     // Corrupt JSON, blocked storage: start with no user profiles.
     return [];
   }
 }
 
-function persist(state: SettingsProfile[]): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    window.localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Quota exceeded or storage blocked: profiles stay in memory only.
-  }
-}
+const writeProfiles = createKeyWriter(PROFILES_STORAGE_KEY);
 
 export const profiles = writable<SettingsProfile[]>(loadProfiles());
 
-let isFirstEmission = true;
+// The initial emission and the async SQLite hydration bypass persistence;
+// writes start only after the boot snapshot settles.
+let persistenceActive = false;
+
 profiles.subscribe((state) => {
-  if (isFirstEmission) {
-    isFirstEmission = false;
-    return;
-  }
-  persist(state);
+  if (!persistenceActive) return;
+  void writeProfiles(JSON.stringify(state));
 });
+
+// Desktop hydration: swap in the persisted snapshot once resolved (the legacy
+// webview blob migrates into SQLite on this first pass).
+void (async () => {
+  const raw = await loadPersistedRaw(PROFILES_STORAGE_KEY);
+  if (raw !== null) {
+    try {
+      const next = sanitizeProfileList(JSON.parse(raw) as unknown);
+      if (next.length > 0) profiles.set(next);
+    } catch {
+      // Malformed legacy blob: keep the current (empty or user-made) list.
+    }
+  }
+  persistenceActive = true;
+})();
 
 function nameTaken(name: string, excludeId?: string): boolean {
   const lower = name.toLowerCase();
