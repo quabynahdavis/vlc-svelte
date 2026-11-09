@@ -25,12 +25,7 @@
       "assetProtocol": {
         "enable": true,
         "scope": {
-          "allow": [
-            "$HOME/**",
-            "/run/media/**",
-            "/media/**",
-            "/mnt/**"
-          ],
+          "allow": [],
           "requireLiteralLeadingDot": false
         }
       }

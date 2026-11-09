@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod asset_scope;
 mod db;
 mod library;
 mod thumb;
@@ -22,9 +23,15 @@ fn main() {
             let database = db::open_database(app.handle())?;
             app.manage(database);
 
+            // Runtime-managed asset protocol scope: starts empty, synced from
+            // the user's configured library roots after settings hydration.
+            app.manage(std::sync::Mutex::new(Vec::<std::path::PathBuf>::new())
+                as asset_scope::AssetScopeRoots);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            asset_scope::scope_assets,
             library::scan_library_dir,
             library::default_media_dir,
             db::db_get,
