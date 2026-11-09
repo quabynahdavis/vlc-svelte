@@ -4,6 +4,20 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-09
 
+### Added — Rust ffmpeg thumbnail pipeline (thumbnails persisted, no webview canvas)
+
+- Library video and folder thumbnails now render reliably: frame capture moved out of the webview into Rust. `src-tauri/src/thumb.rs` exposes `thumb_get(path)` and `thumb_generate(path, seek_seconds)` commands; generation runs the system `/usr/bin/ffmpeg` (`-frames:v 1 -vf scale=-2:240 -q:v 5`, seek clamped 0.05–45s; 2 MB output cap with kill, 10s watchdog, nonzero exit/empty/missing binary all degrade to `None`), and a generated still is always `INSERT OR REPLACE`'d into the database before being returned, so the whole pipeline is one IPC roundtrip.
+- New `thumbnails (path TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER)` table keyed by the file's absolute path: a still is captured at most once ever, and survives restarts.
+- Frontend `src/lib/thumbnails.ts` resolves the session store from the pipeline first on desktop (cache hit → generate → only then the old `<video>`/canvas attempt as fallback); browser preview and session-only imports (blob URLs) keep the webview capture path with its concurrency 2 queue and per-session failure memory. Folder previews resolve through the unchanged `representativeId` → `$mediaThumbnails` layers in grid and list.
+- Shell-side evidence: the exact production ffmpeg argument set produced a valid 450×240 JPEG (11,318 bytes) from `Screencast_20260506_214544.webm` and a 426×240 JPEG from an mp4 whose path contains spaces; oversized seeks exit non-zero and fall back.
+- Rust core committed as `a63e087`, frontend as `4fe8a25`; `cargo test` 12/12, `svelte-check` 0 errors / 0 warnings, `vite build` clean.
+
+### Fixed — App failed to boot: setup hook panicked with "Query returned no rows"
+
+- The desktop app crashed on startup with `Failed to setup app: ... Query returned no rows` (exit code 101): the SQLite setup read `PRAGMA synchronous = NORMAL` back through `query_row`, but that pragma's assignment form returns no row (unlike `PRAGMA journal_mode`, which returns one) so rusqlite's `QueryReturnedNoRows` bubbled out of `open_database` into Tauri's setup hook.
+- Both pragma reads in `open_connection` now tolerate a missing row via `.optional()`; the WAL journal mode and NORMAL synchronous settings themselves are unchanged. A regression test (`test_open_connection_sets_pragmas_and_schema`) opens a real file database through the actual open path and asserts the WAL mode plus the `kv` and `thumbnails` tables, so this crash shape now fails loudly in tests.
+- Included in commit `a63e087` (verified same evidence via the `sqlite3` CLI: journal_mode prints `wal`, synchronous prints nothing, `wc -l` = 0).
+
 ### Added — All persisted stores migrated to SQLite (localStorage abandoned on desktop)
 
 - Every remaining persisted store now goes through the SQLite bridge first introduced yesterday; after this change the desktop shell no longer reads or writes webview localStorage for any domain — it survives only as the browser-preview backend and the one-time legacy migration source in `src/lib/dbPersistence.ts`.
