@@ -4,6 +4,34 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-09
 
+### Added — Per-item context menus for folders and media cards
+
+- Right-click on a library folder card now opens a folder-specific context menu (`Open Folder`, `Add to Watch Later`, `Settings`, `Quit`) instead of the global playback menu.
+- Right-click on a media card/row (in `LibraryView`, `CompactLibraryOverlay`, and the player's library panel) now opens a media-specific context menu (`Play`, `Stop`, `Add to Playlist`, `Remove from Watch Later`, `Settings`, `Quit`).
+- The global context menu (title‑bar button and right‑click on empty space) retains the full playback/settings tree.
+- Implementation: added `currentContext` (`'global' | 'folder' | 'media'`) and `contextItemId` stores in `src/stores/ui.ts` with `openFolderContextMenu`/`openMediaContextMenu` helpers. `ContextMenu.svelte` dynamically selects menu items based on the active context. Folder cards in `LibraryView.svelte` and media cards/rows in `MediaCard.svelte`/`MediaListRow.svelte` call the appropriate opener on `on:contextmenu`.
+- Committed as `4a2a73e`; `bun run check` 0 errors / 0 warnings; `vite build` clean.
+
+### Fixed — Replaced blanket mount-root globs with runtime asset scope from library roots
+
+- The webview (`asset://`) now only reads exactly the folders the user configured (`settings.libraryFolders`), one privilege per root — no blanket `$HOME/**`/`/run/media/**`/… globs (supersedes the mount-root fix in `8d645da`/`970197a`).
+- `tauri.conf.json` ships `assetProtocol.scope.allow: []` (empty by default). New Tauri state `AssetScopeRoots` and `scope_assets(app, roots)` command diff old vs new normalized roots (case-insensitive) via `app.asset_protocol_scope().allow_directory(added,true)` / `forbid_directory(removed,true)` (recursive); removals actually revoke. Empty roots = allow nothing. Pure `scope_diff` helper unit-tested (additions/removals/mixed/no-op/case-insensitive/empty).
+- Frontend `syncLibraryAssetScope(folders)` syncs once right after settings SQLite hydration — before the first scan/probe creates `asset://` URLs (library bootstrap awaits `settingsHydrated`) — and reactively whenever `libraryFolders` changes. No-op in browser preview.
+- Committed as `2ebaa0d` (Rust) + `f372c97` (frontend wiring); `cargo test` 19/19; `bun run check` 0/0; `vite build` clean.
+
+### Fixed — Opening one of two same-named library roots merged both subtrees
+
+- `~/Videos` and `~/Desktop/Videos` rendered as distinct cards (correct) but opening either mixed both subtrees, because breadcrumb navigation and item scoping resolved by folder-name segments (`matchesChain` on `relativePath`) rather than by path identity — any item under `Videos/...` matched breadcrumb `["Videos"]`.
+- Added `activeLibraryRootPath` (absolute path of the configured root being browsed, `null` at Library root or inside an import-derived group). `filteredItems`/`subfolders` and configured-root card counts (`rootFolders`) scope items via `isUnderRoot(item.id, activeLibraryRootPath)` when a root is active: path-exact, so same-named roots no longer interleave; import-derived groups keep name-chain matching unchanged.
+- Navigation helpers (`openLibraryFolder` now carries `{name,path}`, `goUpOneLevel`, `navigateBreadcrumbToDepth`, `importLibraryFolderPath`, `navigateToLibraryPath`) keep the identity anchored on success only; a failed typed path restores the previous navigation state. `resolveLibraryPath` accepts `Name[ParentName]` first-segment bracket suffixes to disambiguate against configured roots' basename+parent segment (matching `LibraryView.getDisplayName`'s display-only labels), while plain names resolve to the unique/first configured root in stable order — canonical name typing is preserved.
+- `findLibraryFolderChain` returns `{ chain, rootPath } | null` for the webkit folder picker: deterministic prefer configured-root basename match over a fuzzy deep match in stable configured-then-scanned order, `rootPath` null for import-derived groups (a name-only picker picking two same-named configured roots resolves to the first in stable order — no merge).
+- Committed as `7a45f37`; `bun run check` 0 errors / 0 warnings; `bunx vite build` clean.
+
+### Fixed — Root-level card counts overcounted duplicate-named roots
+
+- `rootFolders` card counts (`files`/`total`) and representative-pick now scope counted items to `isUnderRoot(item.id, cleanPath)` per configured root instead of name-chain matching, so each card's counts cover only its own tree.
+- Configured roots remain path-deduped; distinct same-named root cards are preserved. Import-derived and scan-derived passes keep existing name-based semantics.
+
 ### Fixed — Asset protocol 403s for library files on mounted volumes
 
 - The webview console flooded with `403 (Forbidden)` asset requests for library files under `/run/media/davisville/BackupVault/...`: the asset protocol scope in `src-tauri/tauri.conf.json` allowed only `$HOME/**`, so every webview-side load of a file outside the home directory (boot-time duration probes, the capture fallback, and playback itself) was rejected — earlier the boot-time duration probe loop had emitted one request per scanned file, hence "hundreds" of errors.
