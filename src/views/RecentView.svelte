@@ -2,24 +2,37 @@
   import type { ComponentType } from 'svelte';
   import { HardDrive, Play, Radio, Trash2 } from 'lucide-svelte';
   import {
-    recentItems,
-    type RecentItemType,
-    type RecentMediaItem,
-  } from '../lib/mock';
-  import {
     recentActiveTab,
     recentFilterType,
     recentSearch,
   } from '../stores/recent';
+  import { history, clearHistory as clearPersistedHistory } from '../stores/history';
   import { recentViewMode, type ViewMode } from '../stores/viewModes';
   import FuzzySearch from '../components/FuzzySearch.svelte';
   import ViewModeToggle from '../components/ViewModeToggle.svelte';
 
   type RecentTab = 'media' | 'devices' | 'network';
+  type RecentItemType = 'media' | 'device' | 'network';
+
+  interface RecentMediaItem {
+    id: string;
+    type: RecentItemType;
+    title: string;
+    source: string;
+    timestamp: number; // epoch ms (lastPlayedAt)
+    duration?: number;
+    position?: number;
+  }
 
   interface RecentGroup {
     label: string;
     items: RecentMediaItem[];
+  }
+
+  function historyTypeToRecent(type: string): RecentItemType {
+    if (type === 'stream') return 'network';
+    if (type === 'music') return 'device'; // map music to devices tab bucket? keep compatible
+    return 'media';
   }
 
   const recentTabs: { id: RecentTab; label: string }[] = [
@@ -50,8 +63,16 @@
 
   $: filter = $recentFilterType;
 
-  /** Newest first, always, so grouping is deterministic regardless of source order. */
-  $: historyItems = [...recentItems].sort((a, b) => b.timestamp - a.timestamp);
+  /** Map SQLite-backed history entries to the view shape; newest first. */
+  $: historyItems = ($history ?? []).map((e) => ({
+    id: e.id,
+    type: historyTypeToRecent(e.type),
+    title: e.title,
+    source: e.artist || e.src || 'Library',
+    timestamp: e.lastPlayedAt ?? e.createdAt ?? 0,
+    duration: e.duration,
+    position: e.position,
+  })).sort((a, b) => b.timestamp - a.timestamp);
 
   $: filtered = historyItems.filter(item => {
     const matchesQuery = !query || item.title.toLowerCase().includes(query) || item.source.toLowerCase().includes(query);
@@ -79,18 +100,12 @@
     return new Date(ts).toISOString();
   }
 
-  /**
-   * The recent mock feed has no playback position. Derive a stable resume point
-   * from the item id so progress bars do not jump between renders. Items with
-   * no duration (devices) intentionally show no progress.
-   */
+  /** Real resume progress from persisted history (0..1); 0 hides the bar. */
   function resumeProgress(item: RecentMediaItem): number {
     if (!item.duration || item.duration <= 0) return 0;
-    let hash = 0;
-    for (let i = 0; i < item.id.length; i += 1) {
-      hash = (hash * 31 + item.id.charCodeAt(i)) % 997;
-    }
-    return 0.2 + (hash % 65) / 100;
+    const pos = item.position ?? 0;
+    if (!Number.isFinite(pos) || pos <= 0) return 0;
+    return Math.max(0, Math.min(1, pos / item.duration));
   }
 
   function itemAriaLabel(item: RecentMediaItem): string {
@@ -140,7 +155,8 @@
     recentViewMode.set(mode);
   }
 
-  function clearHistory() {
+  function clearRecents() {
+    clearPersistedHistory();
     recentSearch.set('');
     recentFilterType.set(null);
     query = '';
@@ -182,7 +198,7 @@
         class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
         title="Clear history"
         aria-label="Clear history and filters"
-        on:click={clearHistory}
+        on:click={clearRecents}
       >
         <Trash2 size={16} aria-hidden="true" />
       </button>
@@ -197,7 +213,7 @@
         <button
           type="button"
           class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
-          on:click={clearHistory}
+          on:click={clearRecents}
         >
           Clear filters
         </button>
