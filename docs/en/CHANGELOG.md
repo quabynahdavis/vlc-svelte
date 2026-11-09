@@ -2,6 +2,16 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-09
+
+### Added — All persisted stores migrated to SQLite (localStorage abandoned on desktop)
+
+- Every remaining persisted store now goes through the SQLite bridge first introduced yesterday; after this change the desktop shell no longer reads or writes webview localStorage for any domain — it survives only as the browser-preview backend and the one-time legacy migration source in `src/lib/dbPersistence.ts`.
+- Migrated domains and their versioned keys: watch state `vlc.watch.v1`, history `vlc.history.v1`, watch-later `vlc.watchlater.v1`, bookmarks `vlc.bookmarks.v1`, settings profiles `vlc.settings.profiles.v1`, subtitle profiles `vlc.subtitles.v1`, AV preferences `vlc.av.prefs.v1`, shell layout `vlc.layout.v1`, per-view modes `vlc.viewModes.v1`, onboarding `vlc.onboarding.v1`, playlist pins `vlc.playlists.pins.v1`, saved network streams `vlc.network.streams.v1`, and the hotkey window position `vlc.hotkeys.window.v1`.
+- Uniform boot flow per store: synchronous start from defaults (browser preview keeps the old synchronous localStorage path behind `hasTauri()`), then an async hydration applies the validated SQLite snapshot a moment after boot; mutations that land during the load window keep the store from accepting a stale snapshot, and persistence is gated until hydration settles so boot emissions are never written back.
+- New `createKeyWriter(key)` helper in `src/lib/dbPersistence.ts` serializes writes per key and coalesces bursts into the newest value so rapid mutations (e.g. watch-position ticks) never land in SQLite out of order.
+- Committed in stages: `b9e29f5` (playback stores), `f7eec18` (profile stores), `8c492ce` (layout, view modes, onboarding, playlist pins, saved streams, hotkey window position); a `chore(autosave)` commit by the user's autosave tooling (`4fed667`) interleaved mid-stage and is acknowledged, not rewritten. `svelte-check` 0 errors / 0 warnings, `vite build` clean.
+
 ## 2026-11-08
 
 ### Added — SQLite storage layer for persisted blobs (first stage)
