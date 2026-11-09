@@ -1,5 +1,7 @@
 import { writable, derived, type Writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
 import type { WatchType } from './watch';
+import { hasTauri } from '../lib/tauriFs';
 
 export interface HistoryEntry {
   id: string;
@@ -20,15 +22,6 @@ export const MAX_HISTORY = 500;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 function createId(): string {
@@ -65,10 +58,11 @@ function sanitizeHistory(value: unknown): HistoryEntry[] {
 }
 
 function loadHistory(): HistoryEntry[] {
-  const storage = getStorage();
-  if (!storage) return [];
+  // Desktop shell: start empty; the snapshot is applied by the boot hydration.
+  if (hasTauri()) return [];
+
   try {
-    const raw = storage.getItem(HISTORY_STORAGE_KEY);
+    const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY);
     if (raw === null) return [];
     return sanitizeHistory(JSON.parse(raw) as unknown);
   } catch {
@@ -76,18 +70,31 @@ function loadHistory(): HistoryEntry[] {
   }
 }
 
-function persistHistory(entries: HistoryEntry[]): void {
-  const storage = getStorage();
-  if (!storage) return;
-  try {
-    storage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(entries));
-  } catch {
-    // private mode / quota
-  }
-}
+const writeHistory = createKeyWriter(HISTORY_STORAGE_KEY);
 
 function createHistoryStore(): Writable<HistoryEntry[]> {
   const store = writable<HistoryEntry[]>(loadHistory());
+
+  /** Set when a mutation lands before the SQLite snapshot has been applied. */
+  let changedSinceBoot = false;
+
+  function persistHistory(entries: HistoryEntry[]): void {
+    changedSinceBoot = true;
+    void writeHistory(JSON.stringify(entries));
+  }
+
+  // Desktop hydration: apply the persisted snapshot only when no mutation
+  // landed while reading, so fresh entries recorded during boot are kept.
+  void (async () => {
+    const raw = await loadPersistedRaw(HISTORY_STORAGE_KEY);
+    if (raw === null || changedSinceBoot) return;
+    try {
+      store.set(sanitizeHistory(JSON.parse(raw) as unknown));
+    } catch {
+      // Malformed legacy blob: the session starts with empty history.
+    }
+  })();
+
   return {
     subscribe: store.subscribe,
     set(value) {

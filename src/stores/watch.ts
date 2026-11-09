@@ -1,4 +1,6 @@
 import { derived, writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { hasTauri } from '../lib/tauriFs';
 
 export type WatchType = 'video' | 'music' | 'stream';
 
@@ -17,16 +19,13 @@ export interface WatchEntry {
 
 const STORAGE_KEY = 'vlc.watch.v1';
 
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try { return window.localStorage; } catch { return null; }
-}
-
 function load(): WatchEntry[] {
-  const storage = getStorage();
-  if (!storage) return [];
+  // Desktop shell: the list starts empty and the SQLite snapshot is applied
+  // by the boot hydration at the bottom; browser preview keeps the direct
+  // localStorage read.
+  if (hasTauri()) return [];
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -35,15 +34,31 @@ function load(): WatchEntry[] {
   }
 }
 
+const writeWatch = createKeyWriter(STORAGE_KEY);
+/** Set when a mutation lands before the SQLite snapshot has been applied. */
+let changedSinceBoot = false;
+
 function save(entries: WatchEntry[]) {
-  const storage = getStorage();
-  if (!storage) return;
-  try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  } catch {}
+  changedSinceBoot = true;
+  void writeWatch(JSON.stringify(entries));
 }
 
 export const watchEntries = writable<WatchEntry[]>(load());
+
+// Desktop hydration: swap in the persisted watch list once resolved (the
+// legacy webview blob migrates into SQLite on this first pass). Mutations
+// that beat the read win and the snapshot is dropped, so a late snapshot can
+// never overwrite fresh progress entries.
+void (async () => {
+  const raw = await loadPersistedRaw(STORAGE_KEY);
+  if (raw === null || changedSinceBoot) return;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) watchEntries.set(parsed);
+  } catch {
+    // Malformed legacy blob: the session starts with an empty list.
+  }
+})();
 
 export function upsertWatch(entry: Partial<WatchEntry> & { mediaKey: string; type: WatchType; title: string; duration: number }) {
   watchEntries.update((list) => {

@@ -8,6 +8,8 @@
  * storage, or SSR degrades to in-memory bookmarks.
  */
 import { writable, type Writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { hasTauri } from '../lib/tauriFs';
 
 /** Bump the version suffix when the persisted shape changes. */
 export const BOOKMARKS_STORAGE_KEY = 'vlc.bookmarks.v1';
@@ -24,15 +26,6 @@ export interface Bookmark {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 /** Format a position as m:ss, or h:mm:ss once it reaches an hour. */
@@ -90,11 +83,11 @@ function sanitizeBookmarks(value: unknown): Bookmark[] {
 }
 
 function loadBookmarks(): Bookmark[] {
-  const storage = getStorage();
-  if (!storage) return [];
+  // Desktop shell: start empty; the snapshot is applied by the boot hydration.
+  if (hasTauri()) return [];
 
   try {
-    const raw = storage.getItem(BOOKMARKS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY);
     if (raw === null) return [];
     return sanitizeBookmarks(JSON.parse(raw) as unknown);
   } catch {
@@ -103,19 +96,30 @@ function loadBookmarks(): Bookmark[] {
   }
 }
 
-function persistBookmarks(bookmarks: Bookmark[]): void {
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks));
-  } catch {
-    // Quota exceeded, private mode, or blocked storage: keep bookmarks in memory.
-  }
-}
+const writeBookmarks = createKeyWriter(BOOKMARKS_STORAGE_KEY);
 
 function createBookmarksStore(): Writable<Bookmark[]> {
   const store = writable<Bookmark[]>(loadBookmarks());
+
+  /** Set when a mutation lands before the SQLite snapshot has been applied. */
+  let changedSinceBoot = false;
+
+  function persistBookmarks(bookmarks: Bookmark[]): void {
+    changedSinceBoot = true;
+    void writeBookmarks(JSON.stringify(bookmarks));
+  }
+
+  // Desktop hydration: apply the persisted snapshot only when no mutation
+  // landed while reading, so bookmarks made during boot are kept.
+  void (async () => {
+    const raw = await loadPersistedRaw(BOOKMARKS_STORAGE_KEY);
+    if (raw === null || changedSinceBoot) return;
+    try {
+      store.set(sanitizeBookmarks(JSON.parse(raw) as unknown));
+    } catch {
+      // Malformed legacy blob: the session starts with no bookmarks.
+    }
+  })();
 
   return {
     subscribe: store.subscribe,

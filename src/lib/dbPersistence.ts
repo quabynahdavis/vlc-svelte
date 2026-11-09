@@ -59,3 +59,31 @@ export async function savePersistedRaw(key: string, value: string): Promise<void
 
   await invokeCommand('db_set', { key, value });
 }
+
+/**
+ * Serialize saves for one key so they never land in SQLite out of order, and
+ * collapse bursts (every write while another is in flight is coalesced to the
+ * newest value). The returned writer never rejects; failures degrade exactly
+ * like `savePersistedRaw`.
+ */
+export function createKeyWriter(key: string): (value: string) => Promise<void> {
+  let chain: Promise<unknown> = Promise.resolve();
+  let pending: string | null = null;
+
+  return (value) => {
+    pending = value;
+
+    const write = (): Promise<void> => {
+      const next = pending;
+      pending = null;
+      if (next === null) return Promise.resolve();
+      return savePersistedRaw(key, next).catch(() => {
+        // Keep the queue alive; the next iteration still writes.
+      });
+    };
+
+    const nextChain = chain.then(write, write);
+    chain = nextChain;
+    return nextChain;
+  };
+}

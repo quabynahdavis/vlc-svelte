@@ -1,5 +1,7 @@
 import { writable, derived, get, type Writable } from 'svelte/store';
+import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
 import type { WatchType } from './watch';
+import { hasTauri } from '../lib/tauriFs';
 
 export interface WatchLaterEntry {
   id: string;
@@ -18,15 +20,6 @@ export const MAX_WATCH_LATER = 200;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 function createId(): string {
@@ -61,10 +54,11 @@ function sanitizeWatchLater(value: unknown): WatchLaterEntry[] {
 }
 
 function loadWatchLater(): WatchLaterEntry[] {
-  const storage = getStorage();
-  if (!storage) return [];
+  // Desktop shell: start empty; the snapshot is applied by the boot hydration.
+  if (hasTauri()) return [];
+
   try {
-    const raw = storage.getItem(WATCH_LATER_STORAGE_KEY);
+    const raw = window.localStorage.getItem(WATCH_LATER_STORAGE_KEY);
     if (raw === null) return [];
     return sanitizeWatchLater(JSON.parse(raw) as unknown);
   } catch {
@@ -72,18 +66,31 @@ function loadWatchLater(): WatchLaterEntry[] {
   }
 }
 
-function persistWatchLater(entries: WatchLaterEntry[]): void {
-  const storage = getStorage();
-  if (!storage) return;
-  try {
-    storage.setItem(WATCH_LATER_STORAGE_KEY, JSON.stringify(entries));
-  } catch {
-    // private mode / quota
-  }
-}
+const writeWatchLater = createKeyWriter(WATCH_LATER_STORAGE_KEY);
 
 function createWatchLaterStore(): Writable<WatchLaterEntry[]> {
   const store = writable<WatchLaterEntry[]>(loadWatchLater());
+
+  /** Set when a mutation lands before the SQLite snapshot has been applied. */
+  let changedSinceBoot = false;
+
+  function persistWatchLater(entries: WatchLaterEntry[]): void {
+    changedSinceBoot = true;
+    void writeWatchLater(JSON.stringify(entries));
+  }
+
+  // Desktop hydration: apply the persisted snapshot only when no mutation
+  // landed while reading, so items added during boot are kept.
+  void (async () => {
+    const raw = await loadPersistedRaw(WATCH_LATER_STORAGE_KEY);
+    if (raw === null || changedSinceBoot) return;
+    try {
+      store.set(sanitizeWatchLater(JSON.parse(raw) as unknown));
+    } catch {
+      // Malformed legacy blob: the session starts with an empty list.
+    }
+  })();
+
   return {
     subscribe: store.subscribe,
     set(value) {
