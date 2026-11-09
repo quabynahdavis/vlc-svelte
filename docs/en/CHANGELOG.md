@@ -4,6 +4,13 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-08
 
+### Added — SQLite storage layer for persisted blobs (first stage)
+
+- The desktop shell now persists through an SQLite database instead of webview localStorage: `rusqlite` (bundled) writes to a single `kanea.db` file in the app data directory, with WAL journaling and a `kv` table (`key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER`) exposed to the webview via `db_get`/`db_set` commands in `src-tauri/src/db.rs`. The table mirrors the existing versioned `vlc.*.v1` keys one-to-one so store modules adopt it without reshaping data; Rust unit tests cover roundtrip, upsert and key independence (7/7 passing).
+- New front-end bridge `src/lib/dbPersistence.ts`: `loadPersistedRaw`/`savePersistedRaw` use SQLite in the desktop shell and keep the localStorage path in browser preview. First-run legacy migration copies a key's webview-storage blob into SQLite when the key is missing there, so existing user data survives; localStorage is never consulted again once SQLite answers.
+- The settings store (`vlc.settings.v1`) is the first domain fully on SQLite (committed as `548baee`): it starts synchronously from defaults, then `hydrateSettings` applies the validated SQLite snapshot after boot, discarding it when the user made a change during the load window; writes stay debounced 250 ms with a pagehide flush.
+- Committed as `9f5fd8b`; `svelte-check` 0 errors / 0 warnings, `vite build` clean, `cargo test` 7/7.
+
 ### Added — Video and folder thumbnails
 
 - Library cards now show real video frames: file cards (grid and list) and folder cards (grid and list) render a captured frame; failed or not-yet-captured items keep their existing placeholder styling.
