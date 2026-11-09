@@ -2,6 +2,7 @@
 
 mod db;
 mod library;
+mod thumb;
 
 fn main() {
     use tauri::Manager;
@@ -28,6 +29,8 @@ fn main() {
             library::default_media_dir,
             db::db_get,
             db::db_set,
+            thumb::thumb_get,
+            thumb::thumb_generate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
