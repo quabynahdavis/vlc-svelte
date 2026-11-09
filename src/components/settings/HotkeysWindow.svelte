@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
   import { AlertTriangle, GripVertical, Keyboard, RotateCcw, Search, X } from 'lucide-svelte';
+  import { createKeyWriter, loadPersistedRaw } from '../../lib/dbPersistence';
+  import { hasTauri } from '../../lib/tauriFs';
   import {
     DEFAULT_HOTKEYS,
     resetHotkeysToDefault,
@@ -83,33 +85,41 @@
     };
   }
 
+  /** Validate an arbitrary parsed JSON position. */
+  function parseStoredPosition(parsed: unknown): StoredPosition | null {
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const candidate = parsed as Partial<StoredPosition>;
+    if (
+      typeof candidate.x !== 'number' ||
+      !Number.isFinite(candidate.x) ||
+      typeof candidate.y !== 'number' ||
+      !Number.isFinite(candidate.y)
+    ) {
+      return null;
+    }
+    return { x: candidate.x, y: candidate.y };
+  }
+
   function readStoredPosition(): StoredPosition | null {
+    // Browser preview keeps the direct localStorage read; the desktop shell
+    // hydrates through the SQLite bridge in onMount.
+    if (hasTauri()) return null;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as unknown;
-      if (typeof parsed !== 'object' || parsed === null) return null;
-      const candidate = parsed as Partial<StoredPosition>;
-      if (
-        typeof candidate.x !== 'number' ||
-        !Number.isFinite(candidate.x) ||
-        typeof candidate.y !== 'number' ||
-        !Number.isFinite(candidate.y)
-      ) {
-        return null;
-      }
-      return { x: candidate.x, y: candidate.y };
+      return parseStoredPosition(JSON.parse(raw));
     } catch {
       return null;
     }
   }
 
+  const writePosition = createKeyWriter(STORAGE_KEY);
+  /** Persistence starts only after the boot snapshot has settled. */
+  let readyToPersist = false;
+
   function persistPosition(): void {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(position));
-    } catch {
-      // Position is a convenience only; keep working without storage.
-    }
+    if (!readyToPersist) return;
+    void writePosition(JSON.stringify(position));
   }
 
   function close(): void {
@@ -331,8 +341,29 @@
   }
 
   onMount(() => {
-    const stored = readStoredPosition();
-    if (stored) position = clampPosition(stored.x, stored.y);
+    const applyStored = (stored: StoredPosition | null): void => {
+      if (stored) position = clampPosition(stored.x, stored.y);
+      readyToPersist = true;
+    };
+
+    if (hasTauri()) {
+      // Desktop shell: the last position lives in the SQLite kv store (the
+      // legacy webview blob migrates on this first pass).
+      void (async () => {
+        const raw = await loadPersistedRaw(STORAGE_KEY);
+        if (raw === null) {
+          applyStored(null);
+          return;
+        }
+        try {
+          applyStored(parseStoredPosition(JSON.parse(raw)));
+        } catch {
+          applyStored(null);
+        }
+      })();
+    } else {
+      applyStored(readStoredPosition());
+    }
 
     document.addEventListener('keydown', handleKeydownCapture, true);
     document.addEventListener('pointerdown', handlePointerDownOutside, true);
