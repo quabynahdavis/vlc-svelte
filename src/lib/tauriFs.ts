@@ -13,6 +13,23 @@ export async function invokeCommand<T>(cmd: string, args?: any): Promise<T | nul
 }
 
 /**
+ * Sync the desktop asset‑protocol scope to the user's configured library roots.
+ * No‑op in the browser preview. The Rust side diffs old vs new roots and
+ * allow/forbids directories (recursive). Called after settings hydration and
+ * whenever `libraryFolders` changes so the webview may read `asset://` files
+ * only inside those roots.
+ */
+export async function syncLibraryAssetScope(folders: string[]): Promise<void> {
+	if (!hasTauri()) return;
+	try {
+		const { invoke } = await import('@tauri-apps/api/core');
+		await invoke('scope_assets', { roots: folders });
+	} catch (e) {
+		console.warn('Failed to sync library asset scope:', e);
+	}
+}
+
+/**
  * Native OS folder picker shown by the desktop shell (Tauri dialog plugin).
  * Returns the picked absolute folder path, or null when cancelled or when the
  * dialog is unavailable. Browser callers fall back to the webkitdirectory

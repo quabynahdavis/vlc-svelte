@@ -1,11 +1,11 @@
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import {
   loadSettings,
   parseSettingsJson,
   scheduleSettingsSave,
   hydrateSettings,
 } from '../lib/settingsPersistence';
-import { hasTauri } from '../lib/tauriFs';
+import { hasTauri, syncLibraryAssetScope } from '../lib/tauriFs';
 
 /**
  * A single typed settings store keeps the panel bindings simple:
@@ -364,30 +364,69 @@ export const DEFAULT_SETTINGS: SettingsState = defaultSettings;
 
 export const settings = writable<SettingsState>(loadSettings(defaultSettings));
 
+// Resolves once the desktop SQLite snapshot has been applied (or immediately
+// in the browser preview). Library bootstrap awaits this so the asset-protocol
+// scope is synced before the first scan/probe creates `asset://` URLs.
+let resolveSettingsHydrated: () => void = () => {};
+export const settingsHydrated: Promise<void> = hasTauri()
+  ? new Promise<void>((resolve) => {
+      resolveSettingsHydrated = resolve;
+    })
+  : Promise.resolve();
+
 // Persist changes only. Boot emissions — the initial value and the async
 // SQLite hydration below — bypass this reaction so nothing is written back.
 let bypassPersistence = true;
 let changedSinceBoot = false;
+// Track last libraryFolders to sync asset scope only on actual changes.
+let lastSyncedLibraryFolders: string[] | null = null;
 
 settings.subscribe((state) => {
   if (bypassPersistence) return;
   changedSinceBoot = true;
   scheduleSettingsSave(state);
+
+  // Reactive sync: whenever libraryFolders change (user edits), update the
+  // asset-protocol scope. Idempotent; no-op in browser preview.
+  if (hasTauri()) {
+    const folders = state.libraryFolders;
+    if (lastSyncedLibraryFolders === null || folders.join('\0') !== lastSyncedLibraryFolders.join('\0')) {
+      lastSyncedLibraryFolders = [...folders];
+      void syncLibraryAssetScope(folders);
+    }
+  }
 });
 
 // Desktop shell: swap in the SQLite snapshot once resolved (legacy webview
 // storage is migrated on this first pass). Live edits that beat the load
 // window win and the snapshot is dropped, so nothing user-made is overwritten.
 if (hasTauri()) {
+  let scopeSyncAfterHydration: Promise<void> | null = null;
   void hydrateSettings(
     defaultSettings,
     (state) => {
       bypassPersistence = true;
       settings.set(state);
       bypassPersistence = false;
+      // Sync scope immediately after hydration applies. The hydration promise
+      // (awaited by library bootstrap) resolves only after this sync completes,
+      // ensuring roots are allowed before any toFileSrc/probe/scan.
+      lastSyncedLibraryFolders = [...state.libraryFolders];
+      scopeSyncAfterHydration = syncLibraryAssetScope(state.libraryFolders);
     },
     () => changedSinceBoot,
-  );
+  ).then(async () => {
+    // If hydration discarded the snapshot (live changes or no data), still
+    // sync scope for the current state and unblock bootstrap.
+    if (scopeSyncAfterHydration) {
+      await scopeSyncAfterHydration;
+    } else if (lastSyncedLibraryFolders === null) {
+      const current = get(settings);
+      lastSyncedLibraryFolders = [...current.libraryFolders];
+      await syncLibraryAssetScope(current.libraryFolders);
+    }
+    resolveSettingsHydrated();
+  });
 }
 
 /** Deep clone of the defaults, safe to hand to `settings.set` (including nested arrays). */
