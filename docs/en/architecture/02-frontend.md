@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-**Status:** the application shell, six browse views, player, right dock, settings modal, welcome screen, layout editor and local persistence are implemented. Library, music, playlist, recent and network data are still mock data; library file/folder/stream imports and blob-backed playlist tracks are session-only, and native file access and media metadata are planned. Last updated 2026-10-31.
+**Status:** the application shell, six browse views, player, right dock, settings modal, welcome screen, layout editor and local persistence are implemented. Library, music, playlist, recent and network data are still mock data; library file/folder/stream imports and blob-backed playlist tracks are session-only, and native file access and media metadata are planned. Last updated 2026-11-11.
 
 The frontend builds and type-checks: `bun run check` reports 0 errors and 0 warnings, and `bunx vite build` writes `src-tauri/gen/dist/`.
 
@@ -29,7 +29,7 @@ The frontend builds and type-checks: `bun run check` reports 0 errors and 0 warn
 - `<SettingsModal>` renders as a full-window overlay when `showSettings` is true. `openSettingsAt(category)` opens it and clicks the matching category button after mount.
 - `<WelcomeScreen>` shows on first run (`vlc.onboarding.v1`) and can be reopened from the menu. It edits theme, accent, language and library folders.
 - `<AddToPlaylistDialog>` is mounted once at shell level and driven by `stores/playlistTarget.ts`; library and music rows open it with the selected track.
-- `<ContextMenu>` is mounted at shell level. The title-bar menu button opens the full menu anchored under the button; right-clicking `<main>` opens the compact playback menu. `handleMenuAction` maps ids to player actions, fullscreen, dock opens, queue clearing, media pickers, settings/layout/welcome and quit.
+- `<ContextMenu>` is mounted at shell level. The title-bar menu button opens the full menu anchored under the button; right-clicking `<main>` on empty space opens the compact playback menu, while right-clicking a folder card, a media card/row or a compact-overlay entry opens a purpose-matched per-item menu (`stores/ui.ts` records `currentContext`/`contextItemId`). `handleMenuAction` maps ids to player actions, fullscreen, dock opens, queue clearing, media pickers, settings/layout/welcome and quit, plus the per-item cases (folder open/rescan/copy-path/remove-from-library, media play/queue/playlist/watch-later/show-info, and the overlay entry actions for Watch Later, History and Bookmarks).
 - `hideChrome` toggles the `chrome-hidden` class, which hides the title bar and icon rail.
 
 There is no URL router. `activeNav`, `showSettings`, the property dock and `hideChrome` are in-memory and reset on reload.
@@ -132,9 +132,9 @@ A full-window modal with a dimmed `bg-vlc-app/95` backdrop and a `12px` panel on
 | `FuzzySearch` | `src/components/FuzzySearch.svelte` | Debounced search input that dispatches `search`. |
 | `RightDock` | `src/components/RightDock.svelte` | 340 px dock with compact tabs, overflow chevrons, keyboard navigation and lazy-loaded panels. |
 | `SettingsModal` | `src/components/SettingsModal.svelte` | Modal shell, search, category navigation and reset. |
-| `ContextMenu` | `src/components/ContextMenu.svelte` | Full title-bar menu and compact right-click menu, submenus, shortcuts, viewport clamping. |
+| `ContextMenu` | `src/components/ContextMenu.svelte` | Full title-bar menu and compact right-click menu, purpose-matched folder/media/overlay-entry menus, submenus, shortcuts, viewport clamping. |
 | `WelcomeScreen` | `src/components/WelcomeScreen.svelte` | First-run theme/accent/language/folder setup with focus trap and persistence. |
-| `CompactLibraryOverlay` | `src/components/CompactLibraryOverlay.svelte` | Player library drawer with search, filter, sort, drag-to-queue and focus return. |
+| `CompactLibraryOverlay` | `src/components/CompactLibraryOverlay.svelte` | Player library drawer with search, filter, sort, drag-to-queue, per-entry right-click menus on the Watch Later/History/Bookmarks tabs and focus return. |
 | `AddToPlaylistDialog` | `src/components/AddToPlaylistDialog.svelte` | Playlist picker with inline creation, driven by `stores/playlistTarget.ts`. |
 | `AddStreamDialog` | `src/components/AddStreamDialog.svelte` | Saved-stream add/edit dialog with URL validation. |
 | `CreatePlaylistDialog` | `src/components/CreatePlaylistDialog.svelte` | Playlist name plus optional file picking and duration probing. |
@@ -261,13 +261,13 @@ src/
 ## State and data
 
 - **`stores/player.ts`** — `player` holds `queue`, `currentIndex`, `isPlaying`, `currentTime`, `duration`, `volume`, `muted`, `repeat` and `shuffle`; `currentTrack` is derived. Helpers: `setQueue`, `playAt`, `addToQueue`, `clearQueue`, `next`, `prev`, `toggle`, `stop`, `seek`, `setVolume`, `toggleMute`. The `<video>` element remains the time source while playing; the view writes element events back into the store.
-- **`stores/library.ts`** — `breadcrumb`, `libraryItems`, `searchQuery`, `filteredItems`, `librarySortKey`, `librarySortDirection`, `libraryWatchFilter`, `libraryImportLog` and derived `sortedItems`. `isItemWatched` treats any progress above zero as watched. `addImportedItems` appends entries with the next episode numbers; `updateLibraryItemDuration` applies a probed duration. Demo data comes from `lib/mock.ts`.
+- **`stores/library.ts`** — `breadcrumb`, `libraryItems`, `searchQuery`, `filteredItems`, `librarySortKey`, `librarySortDirection`, `libraryWatchFilter`, `libraryImportLog` and derived `sortedItems`. `isItemWatched` treats any progress above zero as watched. `addImportedItems` appends entries with the next episode numbers; `updateLibraryItemDuration` applies a probed duration. Demo data comes from `lib/mock.ts`. `scanSingleRoot(rootPath, includeHidden)` holds one configured root's scan body and the exported `rescanLibraryRoot(rootPath)` rescans a single root on demand (no-op in the browser, ignores `scanOnStartup`).
 - **`stores/music.ts`** — `musicBreadcrumb`, `selectedArtistId`, `selectedAlbumId`, `musicSearch`, `musicSort` and `musicSortDirection`. A legacy `musicViewMode` store remains here, but the view uses `stores/viewModes.ts`.
 - **`stores/playlists.ts`** — `playlistsData`, `playlistsSelectedId`, `playlistsSearch`, `playlistsSort`, `playlistsSortDirection` and `pinnedPlaylistIds`. `addTrackToPlaylist` and `createPlaylistWithTrack` power the add-to-playlist dialog; blob-backed tracks are session-only, while pins persist.
 - **`stores/recent.ts`** — `recentActiveTab`, `recentSearch` and `recentFilterType`.
 - **`stores/network.ts`** — `networkSelectedCategory`, `networkPath`, `networkSearch`, `networkViewSubPath` and `savedStreams` with add/update/remove helpers, persisted under `vlc.network.streams.v1`.
 - **`stores/navigation.ts`** — `activeNav` and `navigate(id)`.
-- **`stores/ui.ts`** — `contextMenu`, `propertiesPanel`, `dockMode` and `openDock(mode)`; selecting the active dock mode closes it.
+- **`stores/ui.ts`** — `contextMenu`, `propertiesPanel`, `dockMode` and `openDock(mode)`; selecting the active dock mode closes it. The per-item context menus add `currentContext` (`'global' | 'folder' | 'media' | 'watchLater' | 'history' | 'bookmark'`, exported as `ContextMenuContext`), `contextItemId` and the openers `openFolderContextMenu`, `openMediaContextMenu`, `openWatchLaterContextMenu`, `openHistoryContextMenu` and `openBookmarkContextMenu`.
 - **`stores/settings.ts`** — one `SettingsState` writable with `bind:value={$settings.field}` support. Exports `defaultSettings`, `createDefaultSettings`, `resetSettings`, `importSettingsFromJson`, `EQ_BANDS`, `ACCENT_COLORS`, `DEFAULT_HOTKEYS` and helpers for EQ, hotkeys, folders, video filters and extensions.
 - **`stores/viewModes.ts`** — one writable per scope (`library`, `music`, `playlists`, `recent`, `network`), backed by one versioned JSON object.
 - **`stores/layout.ts`** — `layout` holds rail order, dock-tab order and secondary player-control visibility; validated and persisted under `vlc.layout.v1`.

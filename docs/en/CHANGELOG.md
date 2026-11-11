@@ -2,6 +2,20 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-11
+
+### Changed — Purpose-matched per-item context menus (v2)
+
+- Replaced the v1 filler menus: folder cards no longer show "Add to Watch Later"/"Settings"/"Quit", media cards no longer show "Stop"/"Settings"/"Quit". Every option now maps to a real supported action.
+- `src/stores/ui.ts`: context union extended to `'global' | 'folder' | 'media' | 'watchLater' | 'history' | 'bookmark'` (exported as `ContextMenuContext`); added `openWatchLaterContextMenu`/`openHistoryContextMenu`/`openBookmarkContextMenu` (entry id as item id).
+- Folder menu (`src/components/ContextMenu.svelte`): `folder-open` **Open**, divider, `folder-rescan` **Rescan**, `folder-copy-path` **Copy Path**, plus `folder-remove` **Remove from Library** shown only when the folder is a configured library root (hidden for subfolders/import-derived groups).
+- Media menu: **Play** (resolves from `$libraryItems`, `setQueue` + navigate home like double-click), **Add to Queue**, **Add to Playlist** (`openPlaylistTarget`), dynamic **Add to / Remove from Watch Later** (reactive against `$watchLater`), **Show Info**.
+- Player overlay entry menus (`src/components/CompactLibraryOverlay.svelte`): Watch Later tab → **Play**, **Add to Playlist**, **Remove from Watch Later**; History tab → **Play**, **Add to Watch Later**, **Remove from History**; Bookmarks tab → **Play** (resumes at timestamp), **Remove Bookmark**. `on:contextmenu` added to grid and list renderings of all three tabs.
+- `src/App.svelte`: 17 new `handleMenuAction` cases plus `trackFromMediaItem`/`contextMediaItem`/`trackFromEntry` helpers; "Show Info" dispatches a `vlc-show-media-info` window CustomEvent that `src/views/LibraryView.svelte` listens for (mirroring `vlc-open-media`) to open `LibraryDetails`.
+- `src/stores/library.ts`: per-root scan body extracted to `scanSingleRoot(rootPath, includeHidden)`; new exported `rescanLibraryRoot(rootPath)` powers the folder menu's Rescan action (no-op in browser, ignores `scanOnStartup` for explicit rescans).
+- No fake shortcuts: none of the new actions have real hotkey bindings, so the `shortcut` field is omitted.
+- Committed as `6171109`; `bun run check` 0 errors / 0 warnings; `vite build` success.
+
 ## 2026-11-09
 
 ### Added — Per-item context menus for folders and media cards
