@@ -2,18 +2,40 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use serde::{Serialize, Deserialize};
 
-/// Media file extensions (case-insensitive filter)
-const MEDIA_EXTENSIONS: &[&str] = &[
-    "mp4", "m4v", "mkv", "webm", "mov", "avi", "ogv", "mp3", "m4a", "aac",
-    "flac", "ogg", "oga", "opus", "wav", "wma", "mka",
+/// Video file extensions (case-insensitive filter)
+const VIDEO_EXTENSIONS: &[&str] = &["mp4", "m4v", "mkv", "webm", "mov", "avi", "ogv"];
+
+/// Audio file extensions — the music half of the media filter. Shared with
+/// `audio_meta.rs`, which gates its metadata/cover-art commands on it.
+pub(crate) const AUDIO_EXTENSIONS: &[&str] = &[
+    "mp3", "m4a", "aac", "flac", "ogg", "oga", "opus", "wav", "wma", "mka",
 ];
 
+/// Lowercased extension of `name`, whenever it has one.
+fn extension_of(name: &str) -> String {
+    Path::new(name)
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
+}
+
+/// True when the lowercase extension matches a known media extension. The
+/// split lists keep the exact same coverage as the previous single
+/// `MEDIA_EXTENSIONS` list.
 fn is_media_extension(name: &str) -> bool {
-    let ext = Path::new(name)
+    let ext = extension_of(name);
+    VIDEO_EXTENSIONS.contains(&ext.as_str()) || AUDIO_EXTENSIONS.contains(&ext.as_str())
+}
+
+/// True when `path` points at a file with a known audio extension.
+/// Extension check only — whether lofty can actually parse the container
+/// is decided by the caller.
+pub(crate) fn is_audio_path(path: &Path) -> bool {
+    let ext = path
         .extension()
         .map(|e| e.to_string_lossy().to_lowercase())
         .unwrap_or_default();
-    MEDIA_EXTENSIONS.iter().any(|e| **e == ext)
+    !ext.is_empty() && AUDIO_EXTENSIONS.contains(&ext.as_str())
 }
 
 /// True when the final path component starts with a dot (hidden on unix).
@@ -226,16 +248,13 @@ fn count_media_files(dir: &Path, include_hidden: bool) -> u32 {
     count
 }
 
-/// Get the default videos directory path
-pub fn default_media_dir_fn(kind: &str) -> Option<PathBuf> {
-    if kind != "videos" {
-        return None;
-    }
-
+/// Resolve a well-known user directory: `xdg-user-dir <kind>` first on Linux,
+/// then `~/<fallback_name>`.
+fn xdg_user_dir(kind: &str, fallback_name: &str) -> Option<PathBuf> {
     // Try xdg-user-dir on Linux
     if cfg!(target_os = "linux") {
         if let Ok(output) = std::process::Command::new("xdg-user-dir")
-            .arg("VIDEOS")
+            .arg(kind)
             .output()
         {
             if let Ok(path) = String::from_utf8(output.stdout) {
@@ -250,15 +269,25 @@ pub fn default_media_dir_fn(kind: &str) -> Option<PathBuf> {
         }
     }
 
-    // Fallback: HOME + Videos
+    // Fallback: HOME + <fallback_name>
     if let Some(home) = dirs::home_dir() {
-        let videos = home.join("Videos");
-        if videos.is_dir() {
-            return Some(videos);
+        let fallback = home.join(fallback_name);
+        if fallback.is_dir() {
+            return Some(fallback);
         }
     }
 
     None
+}
+
+/// Get the default media directory path for a library kind
+/// (`"videos"` → ~/Videos, `"music"` → ~/Music).
+pub fn default_media_dir_fn(kind: &str) -> Option<PathBuf> {
+    match kind {
+        "videos" => xdg_user_dir("VIDEOS", "Videos"),
+        "music" => xdg_user_dir("MUSIC", "Music"),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -365,5 +394,78 @@ mod tests {
     #[test]
     fn test_default_media_dir_videos() {
         let _ = default_media_dir_fn("videos");
+    }
+
+    #[test]
+    fn test_default_media_dir_unknown_kinds() {
+        assert_eq!(default_media_dir_fn("photos"), None);
+        assert_eq!(default_media_dir_fn("musics"), None);
+        assert_eq!(default_media_dir_fn(""), None);
+        // Kind names are matched exactly (case-sensitive).
+        assert_eq!(default_media_dir_fn("Music"), None);
+        assert_eq!(default_media_dir_fn("Videos"), None);
+    }
+
+    /// Fallback resolution with a fake HOME: with a real `xdg-user-dir`
+    /// missing, unconfigured, or pointing at the fake home, both kinds must
+    /// resolve to `<fake_home>/<Kind>` (either through xdg-user-dir's own
+    /// `$HOME/<NAME>` default or the `dirs` fallback here).
+    #[test]
+    fn test_default_media_dir_music_with_fake_home() {
+        let fake_home = env::temp_dir().join("kanea_test_fake_home");
+        let _ = fs::remove_dir_all(&fake_home);
+        fs::create_dir_all(fake_home.join("Music")).unwrap();
+        fs::create_dir_all(fake_home.join("Videos")).unwrap();
+
+        // Hide any real user-dirs configuration so `xdg-user-dir` cannot
+        // resolve outside the fake home.
+        let saved_home = env::var("HOME").ok();
+        let saved_xdg_config = env::var("XDG_CONFIG_HOME").ok();
+        env::set_var("HOME", &fake_home);
+        env::set_var("XDG_CONFIG_HOME", fake_home.join(".config"));
+
+        let music = default_media_dir_fn("music");
+        let videos = default_media_dir_fn("videos");
+
+        match saved_home {
+            Some(home) => env::set_var("HOME", home),
+            None => env::remove_var("HOME"),
+        }
+        match saved_xdg_config {
+            Some(dir) => env::set_var("XDG_CONFIG_HOME", dir),
+            None => env::remove_var("XDG_CONFIG_HOME"),
+        }
+
+        assert_eq!(
+            music.as_deref(),
+            Some(fake_home.join("Music").as_path()),
+            "music kind resolves under the (fake) home"
+        );
+        assert_eq!(
+            videos.as_deref(),
+            Some(fake_home.join("Videos").as_path()),
+            "videos kind resolves under the (fake) home"
+        );
+
+        let _ = fs::remove_dir_all(&fake_home);
+    }
+
+    #[test]
+    fn test_is_audio_path() {
+        // Every shared audio extension, case-insensitively.
+        for ext in AUDIO_EXTENSIONS {
+            let path = PathBuf::from(format!("/home/u/Music/track.{}", ext.to_uppercase()));
+            assert!(is_audio_path(&path), "expected {path:?} to be audio");
+        }
+
+        assert!(is_audio_path(Path::new("/home/u/Music/song.mp3")));
+        assert!(is_audio_path(Path::new("/home/u/Music/Pokèmon.flac")));
+        assert!(!is_audio_path(Path::new("/home/u/Videos/clip.mp4")));
+        assert!(!is_audio_path(Path::new("/home/u/Pictures/image.jpg")));
+        assert!(!is_audio_path(Path::new("/home/u/notes.txt")));
+        assert!(!is_audio_path(Path::new("/u/v/no/extension")));
+        assert!(!is_audio_path(Path::new("")));
+        // Extension-only dot files are not audio paths either.
+        assert!(!is_audio_path(Path::new("/u/v/hidden/.mp3")));
     }
 }
