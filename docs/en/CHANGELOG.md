@@ -4,6 +4,16 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-11
 
+### Added — Music folders setting with scoped asset allowlist
+
+- `src/stores/settings.ts`: new `musicLibraryFolders: string[]` setting (default `[]`) persisted under the unchanged `vlc.settings.v1` blob; exported `scopedLibraryFolders()` returning the deduped union of video + music roots; scope-sync tracker renamed to `lastSyncedScopedFolders` and compares the combined array (edits to either list trigger exactly one re-sync); hydration-order guarantee intact (`settingsHydrated` resolves after the tracker is seeded and `scopeSyncAfterHydration` started); new `addMusicLibraryFolder` / `removeMusicLibraryFolder(index)` / `moveMusicLibraryFolder(from, to)` mirroring the video-folder helpers.
+- `src/lib/settingsPersistence.ts`: `sanitizeArray` string-list rule extended to cover `musicLibraryFolders` — without it the generic empty-default path would have silently wiped saved music folders on every reload.
+- `src/stores/library.ts`: the settings subscriber that triggers rescans now passes `scopedLibraryFolders(newSettings)` to the asset scope instead of only video roots, so music roots are never denied by the Rust `scope_assets` replace-on-sync behavior.
+- `src/components/settings/LibraryPanel.svelte`: new "Music folders" section mirroring the video list (add via text input + Enter/button, move up/down, remove, empty-state copy).
+- `src/i18n/en.json`: `settings.labels.music_folders`, `settings.hints.music_folders`, `settings.labels.add_music_folder_placeholder`, `settings.library.hints.music_folders`.
+- Backward compatibility: old saved blobs without the field get the `[]` default via defaults-keyed validation; stale profiles re-validated through `validateSettings(…, DEFAULT_SETTINGS)`.
+- Committed as `4c0736c`; `bun run check` 0 errors / 0 warnings; `vite build` success.
+
 ### Changed — Purpose-matched per-item context menus (v2)
 
 - Replaced the v1 filler menus: folder cards no longer show "Add to Watch Later"/"Settings"/"Quit", media cards no longer show "Stop"/"Settings"/"Quit". Every option now maps to a real supported action.
