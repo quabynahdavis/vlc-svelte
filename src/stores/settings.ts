@@ -129,6 +129,8 @@ export interface SettingsState {
 
   // Library
   libraryFolders: string[];
+  /** Music library roots; scoped into the asset allowlist alongside `libraryFolders`. */
+  musicLibraryFolders: string[];
   libraryDefaultSeeded: boolean;
   scanOnStartup: boolean;
   includeHiddenFiles: boolean;
@@ -315,6 +317,7 @@ export const defaultSettings: SettingsState = {
 
   // Library
   libraryFolders: [],
+  musicLibraryFolders: [],
   libraryDefaultSeeded: false,
   scanOnStartup: true,
   includeHiddenFiles: false,
@@ -378,20 +381,32 @@ export const settingsHydrated: Promise<void> = hasTauri()
 // SQLite hydration below — bypass this reaction so nothing is written back.
 let bypassPersistence = true;
 let changedSinceBoot = false;
-// Track last libraryFolders to sync asset scope only on actual changes.
-let lastSyncedLibraryFolders: string[] | null = null;
+// Track the last combined (video + music) folder list so the asset scope is
+// synced only when either list actually changes.
+let lastSyncedScopedFolders: string[] | null = null;
+
+/**
+ * Combined asset-protocol scope: video library roots plus music library roots,
+ * deduped so a folder configured in both lists is allowed exactly once.
+ */
+export function scopedLibraryFolders(
+  state: Pick<SettingsState, 'libraryFolders' | 'musicLibraryFolders'>,
+): string[] {
+  return Array.from(new Set([...state.libraryFolders, ...state.musicLibraryFolders]));
+}
 
 settings.subscribe((state) => {
   if (bypassPersistence) return;
   changedSinceBoot = true;
   scheduleSettingsSave(state);
 
-  // Reactive sync: whenever libraryFolders change (user edits), update the
-  // asset-protocol scope. Idempotent; no-op in browser preview.
+  // Reactive sync: whenever the combined library roots change (user edits to
+  // either the video or the music list), update the asset-protocol scope.
+  // Idempotent; no-op in browser preview.
   if (hasTauri()) {
-    const folders = state.libraryFolders;
-    if (lastSyncedLibraryFolders === null || folders.join('\0') !== lastSyncedLibraryFolders.join('\0')) {
-      lastSyncedLibraryFolders = [...folders];
+    const folders = scopedLibraryFolders(state);
+    if (lastSyncedScopedFolders === null || folders.join('\0') !== lastSyncedScopedFolders.join('\0')) {
+      lastSyncedScopedFolders = [...folders];
       void syncLibraryAssetScope(folders);
     }
   }
@@ -411,8 +426,9 @@ if (hasTauri()) {
       // Sync scope immediately after hydration applies. The hydration promise
       // (awaited by library bootstrap) resolves only after this sync completes,
       // ensuring roots are allowed before any toFileSrc/probe/scan.
-      lastSyncedLibraryFolders = [...state.libraryFolders];
-      scopeSyncAfterHydration = syncLibraryAssetScope(state.libraryFolders);
+      const scoped = scopedLibraryFolders(state);
+      lastSyncedScopedFolders = [...scoped];
+      scopeSyncAfterHydration = syncLibraryAssetScope(scoped);
     },
     () => changedSinceBoot,
   ).then(async () => {
@@ -420,10 +436,11 @@ if (hasTauri()) {
     // sync scope for the current state and unblock bootstrap.
     if (scopeSyncAfterHydration) {
       await scopeSyncAfterHydration;
-    } else if (lastSyncedLibraryFolders === null) {
+    } else if (lastSyncedScopedFolders === null) {
       const current = get(settings);
-      lastSyncedLibraryFolders = [...current.libraryFolders];
-      await syncLibraryAssetScope(current.libraryFolders);
+      const scoped = scopedLibraryFolders(current);
+      lastSyncedScopedFolders = [...scoped];
+      await syncLibraryAssetScope(scoped);
     }
     resolveSettingsHydrated();
   });
@@ -496,6 +513,29 @@ export function moveLibraryFolder(fromIndex: number, toIndex: number): void {
     const [removed] = folders.splice(fromIndex, 1);
     folders.splice(toIndex, 0, removed);
     return { ...state, libraryFolders: folders };
+  });
+}
+
+export function addMusicLibraryFolder(folder: string): void {
+  settings.update((state) => ({
+    ...state,
+    musicLibraryFolders: [...state.musicLibraryFolders, folder],
+  }));
+}
+
+export function removeMusicLibraryFolder(index: number): void {
+  settings.update((state) => ({
+    ...state,
+    musicLibraryFolders: state.musicLibraryFolders.filter((_, i) => i !== index),
+  }));
+}
+
+export function moveMusicLibraryFolder(fromIndex: number, toIndex: number): void {
+  settings.update((state) => {
+    const folders = [...state.musicLibraryFolders];
+    const [removed] = folders.splice(fromIndex, 1);
+    folders.splice(toIndex, 0, removed);
+    return { ...state, musicLibraryFolders: folders };
   });
 }
 

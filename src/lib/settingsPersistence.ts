@@ -76,7 +76,7 @@ function sanitizeArray(key: string, fallback: unknown[], value: unknown): unknow
     return value.map((gain) => Math.max(-20, Math.min(20, gain as number)));
   }
 
-  if (key === 'libraryFolders') {
+  if (key === 'libraryFolders' || key === 'musicLibraryFolders') {
     const folders = value
       .filter((folder): folder is string => typeof folder === 'string')
       .map((folder) => folder.trim())

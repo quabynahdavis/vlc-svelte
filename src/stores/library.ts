@@ -1,5 +1,5 @@
 import { derived, get, writable, type Readable, type Writable } from 'svelte/store';
-import { settings, settingsHydrated } from './settings';
+import { settings, settingsHydrated, scopedLibraryFolders } from './settings';
 import { hasTauri } from '../lib/tauriFs';
 import { invokeCommand, syncLibraryAssetScope } from '../lib/tauriFs';
 import { toFileSrc } from '../lib/tauriFs';
@@ -996,9 +996,10 @@ settings.subscribe((newSettings) => {
     if (foldersKey !== lastScannedFolders) {
         lastScannedFolders = foldersKey;
         // Reactive sync: asset-protocol scope follows libraryFolders changes
-        // (in addition to the subscription in settings.ts). No-op in browser,
-        // idempotent via previous-value diff.
-        void syncLibraryAssetScope(newSettings.libraryFolders);
+        // (in addition to the subscription in settings.ts). Always pass the
+        // full video + music union so video-list edits never deny music roots.
+        // No-op in browser, idempotent via previous-value diff.
+        void syncLibraryAssetScope(scopedLibraryFolders(newSettings));
         scanRoots();
     }
 });

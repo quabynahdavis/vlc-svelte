@@ -1,5 +1,13 @@
 <script lang="ts">
-  import { settings, addLibraryFolder, removeLibraryFolder, moveLibraryFolder } from '../../stores/settings';
+  import {
+    settings,
+    addLibraryFolder,
+    removeLibraryFolder,
+    moveLibraryFolder,
+    addMusicLibraryFolder,
+    removeMusicLibraryFolder,
+    moveMusicLibraryFolder,
+  } from '../../stores/settings';
   import Section from './Section.svelte';
   import SettingRow from './SettingRow.svelte';
   import Toggle from './Toggle.svelte';
@@ -7,6 +15,7 @@
   import { ChevronUp, ChevronDown, Plus, Trash2, FolderOpen } from 'lucide-svelte';
 
   let newFolder = '';
+  let newMusicFolder = '';
   let fileTypesOpen = true;
 
   function handleAddFolder(): void {
@@ -18,6 +27,17 @@
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter') handleAddFolder();
+  }
+
+  function handleAddMusicFolder(): void {
+    if (newMusicFolder.trim()) {
+      addMusicLibraryFolder(newMusicFolder.trim());
+      newMusicFolder = '';
+    }
+  }
+
+  function handleMusicKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') handleAddMusicFolder();
   }
 
   const fileTypeCategories = [
@@ -88,6 +108,68 @@
           </div>
         {:else}
           <p class="text-[13px] text-vlc-muted py-4">No folders configured. Add a folder to start building your library.</p>
+        {/if}
+      </div>
+    </SettingRow>
+
+    <SettingRow label="Music folders" info hint="Folders to scan for music files.">
+      <div class="flex flex-col gap-3 w-[500px]">
+        <div class="flex gap-3">
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div class="min-w-0 flex-1" on:keydown={handleMusicKeydown}>
+            <TextInput
+              bind:value={newMusicFolder}
+              placeholder="Add music folder path"
+              ariaLabel="New music library folder"
+            />
+          </div>
+          <button
+            type="button"
+            class="h-9 shrink-0 rounded-[8px] px-4 bg-vlc-orange/20 border border-vlc-orange/50 text-vlc-orange text-[13px] transition-colors hover:bg-vlc-orange/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+            on:click={handleAddMusicFolder}
+          >
+            <Plus size={16} strokeWidth={1.8} class="mr-1" />
+            Add
+          </button>
+        </div>
+
+        {#if $settings.musicLibraryFolders.length > 0}
+          <div class="space-y-2 max-h-64 overflow-y-auto">
+            {#each $settings.musicLibraryFolders as folder, index (folder)}
+              <div class="flex items-center gap-3 p-3 rounded-[8px] bg-vlc-card border border-vlc-border">
+                <FolderOpen size={18} strokeWidth={1.7} class="text-vlc-secondary shrink-0" />
+                <span class="flex-1 min-w-0 text-[13px] text-vlc-text truncate font-mono">{folder}</span>
+                <button
+                  type="button"
+                  class="h-8 w-8 rounded-[6px] bg-transparent text-vlc-dim hover:text-vlc-text hover:bg-vlc-raised transition-colors"
+                  aria-label="Move up"
+                  disabled={index === 0}
+                  on:click={() => moveMusicLibraryFolder(index, index - 1)}
+                >
+                  <ChevronUp size={14} strokeWidth={1.8} />
+                </button>
+                <button
+                  type="button"
+                  class="h-8 w-8 rounded-[6px] bg-transparent text-vlc-dim hover:text-vlc-text hover:bg-vlc-raised transition-colors"
+                  aria-label="Move down"
+                  disabled={index === $settings.musicLibraryFolders.length - 1}
+                  on:click={() => moveMusicLibraryFolder(index, index + 1)}
+                >
+                  <ChevronDown size={14} strokeWidth={1.8} />
+                </button>
+                <button
+                  type="button"
+                  class="h-8 w-8 rounded-[6px] bg-transparent text-vlc-dim hover:text-vlc-danger hover:bg-vlc-danger/10 transition-colors"
+                  aria-label="Remove music folder"
+                  on:click={() => removeMusicLibraryFolder(index)}
+                >
+                  <Trash2 size={14} strokeWidth={1.8} />
+                </button>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p class="text-[13px] text-vlc-muted py-4">No music folders configured. Add a folder to start building your music library.</p>
         {/if}
       </div>
     </SettingRow>
