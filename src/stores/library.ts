@@ -863,73 +863,89 @@ async function probeDurationsForScanned(items: MediaItem[]): Promise<void> {
     }
 }
 
+/** Playback progress (0..1) recorded for a scanned file path, or 0. */
+function watchProgressFor(path: string): number {
+    const entry = get(watchEntries).find((w) => w.mediaKey === path && w.type === 'video');
+    if (!entry) return 0;
+    if (entry.watched) return 1;
+    return entry.duration > 0 ? Math.min(1, entry.position / entry.duration) : 0;
+}
+
+/**
+ * Scan one configured root and replace its previous results. Shared by the
+ * startup/reactive scans and the explicit per-root rescan.
+ */
+function scanSingleRoot(rootPath: string, includeHidden: boolean): void {
+    void invokeCommand<ScanResult>('scan_library_dir', { root: rootPath, maxDepth: 4, includeHidden })
+        .then(async (scanResult) => {
+            if (!scanResult) return;
+
+            // Convert ScannedFile -> MediaItem; root basename leads the chain
+            // so imports and scans share one tree layout.
+            const rootBasename = scanResult.root;
+            const mediaItems: MediaItem[] = await Promise.all(
+                scanResult.files.map(async (file): Promise<MediaItem> => {
+                    const rel = file.relativePath ?? '';
+                    const parts = rel.split('/').filter(Boolean);
+                    return {
+                        id: file.path,
+                        title: file.name,
+                        season: 1,
+                        episode: 0,
+                        durationSeconds: 0,
+                        progress: watchProgressFor(file.path),
+                        src: (await toFileSrc(file.path)) ?? '',
+                        relativePath: [rootBasename, ...parts].join('/'),
+                    };
+                }),
+            );
+
+            // Replace this root's previous items instead of appending.
+            scannedItems.update((current) => [
+                ...current.filter((item) => !isUnderRoot(item.id, rootPath)),
+                ...mediaItems,
+            ]);
+
+            scanTree.update((tree) => ({
+                roots: [
+                    ...tree.roots.filter((r) => r.rootPath !== rootPath),
+                    { rootPath, rootName: rootBasename, result: scanResult },
+                ],
+                ready: true,
+            }));
+
+            // Probe durations in background
+            void probeDurationsForScanned(mediaItems);
+        })
+        .catch((e) => {
+            console.warn(`Scan failed for ${rootPath}:`, e);
+        });
+}
+
 /**
  * Scan all roots in settings.libraryFolders and update scannedItems/scanTree.
- * Skipped entirely when the user disabled startup scanning; replaces each
- * root's previous results so rescans never duplicate items.
+ * Skipped entirely when the user disabled startup scanning, unless `force` is
+ * set; replaces each root's previous results so rescans never duplicate items.
  */
-function scanRoots(): void {
+function scanRoots(force = false): void {
     const state = get(settings);
-    if (state.scanOnStartup === false) return;
-
-    const roots = state.libraryFolders;
-    const includeHidden = state.includeHiddenFiles;
-    const currentWatch = get(watchEntries);
-    const progressFor = (path: string): number => {
-        const entry = currentWatch.find((w) => w.mediaKey === path && w.type === 'video');
-        if (!entry) return 0;
-        if (entry.watched) return 1;
-        return entry.duration > 0 ? Math.min(1, entry.position / entry.duration) : 0;
-    };
+    if (state.scanOnStartup === false && !force) return;
 
     // uses shared isUnderRoot(path, root)
 
-    for (const rootPath of roots) {
-        void invokeCommand<ScanResult>('scan_library_dir', { root: rootPath, maxDepth: 4, includeHidden })
-            .then(async (scanResult) => {
-                if (!scanResult) return;
-
-                // Convert ScannedFile -> MediaItem; root basename leads the chain
-                // so imports and scans share one tree layout.
-                const rootBasename = scanResult.root;
-                const mediaItems: MediaItem[] = await Promise.all(
-                    scanResult.files.map(async (file): Promise<MediaItem> => {
-                        const rel = file.relativePath ?? '';
-                        const parts = rel.split('/').filter(Boolean);
-                        return {
-                            id: file.path,
-                            title: file.name,
-                            season: 1,
-                            episode: 0,
-                            durationSeconds: 0,
-                            progress: progressFor(file.path),
-                            src: (await toFileSrc(file.path)) ?? '',
-                            relativePath: [rootBasename, ...parts].join('/'),
-                        };
-                    }),
-                );
-
-                // Replace this root's previous items instead of appending.
-                scannedItems.update((current) => [
-                    ...current.filter((item) => !isUnderRoot(item.id, rootPath)),
-                    ...mediaItems,
-                ]);
-
-                scanTree.update((tree) => ({
-                    roots: [
-                        ...tree.roots.filter((r) => r.rootPath !== rootPath),
-                        { rootPath, rootName: rootBasename, result: scanResult },
-                    ],
-                    ready: true,
-                }));
-
-                // Probe durations in background
-                void probeDurationsForScanned(mediaItems);
-            })
-            .catch((e) => {
-                console.warn(`Scan failed for ${rootPath}:`, e);
-            });
+    for (const rootPath of state.libraryFolders) {
+        scanSingleRoot(rootPath, state.includeHiddenFiles);
     }
+}
+
+/**
+ * Rescan a single configured library root on demand (folder context menu).
+ * Explicit rescans ignore the scanOnStartup preference because the user asked
+ * for them; the call is a no-op outside the desktop shell.
+ */
+export function rescanLibraryRoot(rootPath: string): void {
+    if (!hasTauri()) return;
+    scanSingleRoot(rootPath, get(settings).includeHiddenFiles);
 }
 
 /** Settings watch that seeds the default Videos folder once, then rescans on changes. */

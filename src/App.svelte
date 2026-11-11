@@ -18,23 +18,41 @@
   import { t } from './lib/t';
   import { applyWindowDecorations } from './lib/windowChrome';
   import {
+    addToQueue,
     clearQueue,
     currentTrack,
     next as nextTrack,
     player,
     prev as prevTrack,
+    requestSeek,
     seek,
+    setQueue,
     setVolume,
     stop as stopPlayer,
     toggle as togglePlayback,
     toggleMute,
+    type Track,
   } from './stores/player';
   import { activeNav, navigate } from './stores/navigation';
-  import { libraryImportLog } from './stores/library';
+  import type { MediaItem } from './lib/mock';
+  import {
+    currentFolders,
+    libraryImportLog,
+    libraryItems,
+    openLibraryFolder,
+    rescanLibraryRoot,
+    searchQuery,
+  } from './stores/library';
   import { completeOnboarding, onboarding } from './stores/onboarding';
-  import { settings } from './stores/settings';
+  import { openPlaylistTarget } from './stores/playlistTarget';
+  import { removeLibraryFolder, settings } from './stores/settings';
+  import { bookmarks, removeBookmark } from './stores/bookmarks';
+  import { history, removeHistory } from './stores/history';
+  import { watchEntries } from './stores/watch';
+  import { addWatchLater, removeWatchLater, toggleWatchLater, watchLater } from './stores/watchLater';
   import {
     closeContextMenu,
+    contextItemId,
     contextMenu,
     openContextMenu,
     openDock,
@@ -162,6 +180,40 @@
     window.dispatchEvent(new CustomEvent('vlc-open-media', { detail: kind }));
   }
 
+  /** Track payload for a library item, mirroring the card/row drag mapping. */
+  function trackFromMediaItem(item: MediaItem): Track {
+    return {
+      id: item.id,
+      title: item.title,
+      duration: item.durationSeconds,
+      src: item.src ?? '',
+    };
+  }
+
+  /** Resolve the library media item the context menu was opened on. */
+  function contextMediaItem(): MediaItem | null {
+    const id = get(contextItemId);
+    if (!id) return null;
+    return get(libraryItems).find((item) => item.id === id) ?? null;
+  }
+
+  /** Queue-ready track for a stored entry (watch later, history or watch). */
+  function trackFromEntry(entry: {
+    mediaKey: string;
+    title: string;
+    artist?: string;
+    duration: number;
+    src?: string;
+  }): Track {
+    return {
+      id: entry.mediaKey,
+      title: entry.title,
+      artist: entry.artist || undefined,
+      duration: entry.duration,
+      src: entry.src ?? '',
+    };
+  }
+
   function handleMenuAction(id: string): void {
     switch (id) {
       case 'play-pause':
@@ -243,6 +295,132 @@
       case 'open-disc':
         navigate('videos');
         libraryImportLog.set('Insert a disc, then open it from the system file manager.');
+        break;
+      // ---- Folder context menu (contextItemId = folder path) ----
+      case 'folder-open': {
+        const folder = get(currentFolders).find((candidate) => candidate.path === get(contextItemId));
+        if (!folder) break;
+        searchQuery.set('');
+        openLibraryFolder({ name: folder.name, path: folder.path });
+        break;
+      }
+      case 'folder-rescan': {
+        const folderPath = get(contextItemId);
+        if (!folderPath) break;
+        rescanLibraryRoot(folderPath);
+        break;
+      }
+      case 'folder-copy-path': {
+        const folderPath = get(contextItemId);
+        if (!folderPath) break;
+        navigator.clipboard?.writeText(folderPath).catch(() => {});
+        libraryImportLog.set('Path copied to clipboard');
+        break;
+      }
+      case 'folder-remove': {
+        const folderPath = get(contextItemId);
+        if (!folderPath) break;
+        const pathKey = (value: string): string => value.replace(/[\\/]+$/, '').toLowerCase();
+        const rootIndex = get(settings).libraryFolders.findIndex(
+          (configured) => pathKey(configured) === pathKey(folderPath),
+        );
+        if (rootIndex >= 0) removeLibraryFolder(rootIndex);
+        break;
+      }
+      // ---- Media context menu (contextItemId = library item id) ----
+      case 'media-play': {
+        const item = contextMediaItem();
+        if (!item || !item.src) break;
+        setQueue([trackFromMediaItem(item)], 0);
+        navigate('home');
+        break;
+      }
+      case 'media-add-to-queue': {
+        const item = contextMediaItem();
+        if (!item || !item.src) break;
+        addToQueue(trackFromMediaItem(item));
+        break;
+      }
+      case 'media-add-to-playlist': {
+        const item = contextMediaItem();
+        if (!item || !item.src) break;
+        openPlaylistTarget(trackFromMediaItem(item), null);
+        break;
+      }
+      case 'media-toggle-watch-later': {
+        const item = contextMediaItem();
+        if (!item) break;
+        toggleWatchLater({
+          mediaKey: item.id,
+          type: 'video',
+          title: item.title,
+          thumbnail: item.thumbnailPath,
+          src: item.src,
+          duration: item.durationSeconds,
+        });
+        break;
+      }
+      case 'media-show-info': {
+        const itemId = get(contextItemId);
+        if (!itemId) break;
+        window.dispatchEvent(new CustomEvent<string>('vlc-show-media-info', { detail: itemId }));
+        break;
+      }
+      // ---- Watch Later entries in the player-view library overlay ----
+      case 'watchlater-play': {
+        const entry = get(watchLater).find((candidate) => candidate.id === get(contextItemId));
+        if (!entry || !entry.src) break;
+        setQueue([trackFromEntry(entry)], 0);
+        break;
+      }
+      case 'watchlater-add-to-playlist': {
+        const entry = get(watchLater).find((candidate) => candidate.id === get(contextItemId));
+        if (!entry || !entry.src) break;
+        openPlaylistTarget(trackFromEntry(entry), null);
+        break;
+      }
+      case 'watchlater-remove':
+        removeWatchLater(get(contextItemId));
+        break;
+      // ---- History entries in the player-view library overlay ----
+      case 'history-play': {
+        const entry = get(history).find((candidate) => candidate.id === get(contextItemId));
+        if (!entry || !entry.src) break;
+        setQueue([trackFromEntry(entry)], 0);
+        break;
+      }
+      case 'history-add-to-watch-later': {
+        const entry = get(history).find((candidate) => candidate.id === get(contextItemId));
+        if (!entry) break;
+        addWatchLater({
+          mediaKey: entry.mediaKey,
+          type: entry.type,
+          title: entry.title,
+          artist: entry.artist,
+          thumbnail: entry.thumbnail,
+          src: entry.src,
+          duration: entry.duration,
+        });
+        break;
+      }
+      case 'history-remove':
+        removeHistory(get(contextItemId));
+        break;
+      // ---- Bookmark entries in the player-view library overlay ----
+      case 'bookmark-play': {
+        const bookmark = get(bookmarks).find((candidate) => candidate.id === get(contextItemId));
+        const watchEntry = bookmark
+          ? get(watchEntries).find((candidate) => candidate.mediaKey === bookmark.mediaKey)
+          : null;
+        if (!bookmark || !watchEntry || !watchEntry.src) break;
+        // Mirrors the overlay's playBookmark: the pending seek lands after the
+        // queued media loads.
+        requestSeek(bookmark.time);
+        setQueue([trackFromEntry(watchEntry)], 0);
+        break;
+      }
+      case 'bookmark-remove':
+        removeBookmark(get(contextItemId));
         break;
       case 'keyboard-shortcuts':
         openHotkeys();

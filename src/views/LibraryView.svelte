@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import { Check, ChevronRight, EyeOff, Film, Folder, Pencil, SearchX, X } from 'lucide-svelte';
   import LibraryDetails from '../components/LibraryDetails.svelte';
@@ -185,6 +185,18 @@
     event.preventDefault();
     void closeDetails();
   }
+
+  onMount(() => {
+    /** Context-menu "Show Info": open the details view for the requested item. */
+    function handleShowMediaInfo(event: Event): void {
+      const itemId = (event as CustomEvent<string>).detail;
+      if (!itemId) return;
+      detailsItemId = itemId;
+    }
+
+    window.addEventListener('vlc-show-media-info', handleShowMediaInfo);
+    return () => window.removeEventListener('vlc-show-media-info', handleShowMediaInfo);
+  });
 </script>
 
 <svelte:window on:keydown={handleWindowKeydown} />

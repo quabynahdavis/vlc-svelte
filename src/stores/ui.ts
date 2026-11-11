@@ -15,10 +15,18 @@ const initialContextMenu: ContextMenuState = {
 /** Position and visibility for the shell-level right-click menu. */
 export const contextMenu = writable<ContextMenuState>(initialContextMenu);
 
-/** Which kind of context menu is active – global, folder, or media. */
-export const currentContext = writable<'global' | 'folder' | 'media'>('global');
+/** Which kind of context menu is active – global, folder, media, or a player-view library entry. */
+export type ContextMenuContext =
+  | 'global'
+  | 'folder'
+  | 'media'
+  | 'watchLater'
+  | 'history'
+  | 'bookmark';
 
-/** Identifier of the item the context menu is for (folder path or media id). */
+export const currentContext = writable<ContextMenuContext>('global');
+
+/** Identifier of the item the context menu is for (folder path or entry id). */
 export const contextItemId = writable<string>('');
 
 /** Whether the docked property/effects panel is visible. */
@@ -76,6 +84,30 @@ export function openMediaContextMenu(event: MouseEvent, id: string): void {
   event.preventDefault();
   contextItemId.set(id);
   currentContext.set('media');
+  openContextMenu(event);
+}
+
+/** Open a Watch Later entry context menu (player-view library overlay). */
+export function openWatchLaterContextMenu(event: MouseEvent, id: string): void {
+  event.preventDefault();
+  contextItemId.set(id);
+  currentContext.set('watchLater');
+  openContextMenu(event);
+}
+
+/** Open a history entry context menu (player-view library overlay). */
+export function openHistoryContextMenu(event: MouseEvent, id: string): void {
+  event.preventDefault();
+  contextItemId.set(id);
+  currentContext.set('history');
+  openContextMenu(event);
+}
+
+/** Open a bookmark context menu (player-view library overlay). */
+export function openBookmarkContextMenu(event: MouseEvent, id: string): void {
+  event.preventDefault();
+  contextItemId.set(id);
+  currentContext.set('bookmark');
   openContextMenu(event);
 }
 

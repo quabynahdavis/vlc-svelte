@@ -8,6 +8,11 @@
   import { history, removeHistory, clearHistory } from '../stores/history';
   import { player, requestSeek, setQueue, type Track } from '../stores/player';
   import { watchEntries, removeWatch } from '../stores/watch';
+  import {
+    openBookmarkContextMenu,
+    openHistoryContextMenu,
+    openWatchLaterContextMenu,
+  } from '../stores/ui';
   import type { ViewMode } from '../stores/viewModes';
   import SortMenu from './SortMenu.svelte';
   import ViewModeToggle from './ViewModeToggle.svelte';
@@ -300,7 +305,12 @@
         {#if tabViewModes[0] === 'grid'}
           <div class="grid grid-cols-2 gap-x-3 gap-y-3 pb-2" role="group" aria-label="Bookmarks, grid view">
             {#each filteredBookmarks as bm (bm.id)}
-              <div class="group relative">
+              <div
+                class="group relative"
+                role="group"
+                aria-label={`${bm.label || formatTimestamp(bm.time)} actions`}
+                on:contextmenu={(event) => openBookmarkContextMenu(event, bm.id)}
+              >
                 <button
                   type="button"
                   class="block w-full text-left focus:outline-none"
@@ -338,7 +348,12 @@
         {:else}
           <div class="mb-2 overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel" role="group" aria-label="Bookmarks, list view">
             {#each filteredBookmarks as bm (bm.id)}
-              <div class="group flex items-center gap-1 border-b border-vlc-border px-2 py-1.5 transition-colors last:border-b-0 hover:bg-vlc-raised">
+              <div
+                class="group flex items-center gap-1 border-b border-vlc-border px-2 py-1.5 transition-colors last:border-b-0 hover:bg-vlc-raised"
+                role="group"
+                aria-label={`${bm.label || formatTimestamp(bm.time)} actions`}
+                on:contextmenu={(event) => openBookmarkContextMenu(event, bm.id)}
+              >
                 <div class="min-w-0 flex-1">
                   <p class="truncate text-[13px] text-vlc-text">{bm.label || formatTimestamp(bm.time)}</p>
                   <p class="font-mono text-[10px] tabular-nums text-vlc-muted">{formatTimestamp(bm.time)}</p>
@@ -405,6 +420,7 @@
                 draggable={Boolean(wl.src)}
                 title={`${wl.title} — drag to the queue`}
                 on:dragstart={(event) => startEntryDrag(event, wl)}
+                on:contextmenu={(event) => openWatchLaterContextMenu(event, wl.id)}
               >
                 <button
                   type="button"
@@ -462,6 +478,7 @@
                 role="group"
                 draggable={Boolean(wl.src)}
                 on:dragstart={(event) => startEntryDrag(event, wl)}
+                on:contextmenu={(event) => openWatchLaterContextMenu(event, wl.id)}
               >
                 <div class="h-10 w-10 flex-shrink-0 overflow-hidden rounded bg-vlc-app flex items-center justify-center">
                   {#if wl.thumbnail}
@@ -543,6 +560,7 @@
                 draggable={Boolean(h.src)}
                 title={`${h.title} — drag to the queue`}
                 on:dragstart={(event) => startEntryDrag(event, h)}
+                on:contextmenu={(event) => openHistoryContextMenu(event, h.id)}
               >
                 <button
                   type="button"
@@ -605,6 +623,7 @@
                 role="group"
                 draggable={Boolean(h.src)}
                 on:dragstart={(event) => startEntryDrag(event, h)}
+                on:contextmenu={(event) => openHistoryContextMenu(event, h.id)}
               >
                 <div class="h-10 w-10 flex-shrink-0 overflow-hidden rounded bg-vlc-app flex items-center justify-center">
                   {#if h.thumbnail}

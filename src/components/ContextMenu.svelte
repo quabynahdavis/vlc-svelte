@@ -4,24 +4,34 @@
     Captions,
     ChevronRight,
     Clapperboard,
+    Clock,
+    Copy,
     EyeOff,
+    FolderMinus,
     FolderOpen,
+    Info,
     Keyboard,
     LayoutDashboard,
+    ListMusic,
+    ListPlus,
     ListVideo,
     LogOut,
     Play,
     PlayCircle,
+    RefreshCw,
     Settings,
     SkipBack,
     SkipForward,
     Sparkles,
     Square,
+    Trash2,
     X,
   } from 'lucide-svelte';
   import { onMount, tick } from 'svelte';
   import type { ComponentType } from 'svelte';
-  import { currentContext } from '../stores/ui';
+  import { currentContext, contextItemId } from '../stores/ui';
+  import { settings } from '../stores/settings';
+  import { watchLater } from '../stores/watchLater';
 
   export let x = 0;
   export let y = 0;
@@ -208,38 +218,105 @@
   const SUBMENU_FLIP_THRESHOLD = 340;
   const VIEWPORT_MARGIN = 8;
 
-  // Substitute menu based on UI context – global, folder, or media.
+  /** Normalized path key: trailing separators stripped, case folded. */
+  function pathKey(path: string): string {
+    return path.replace(/[\\/]+$/, '').toLowerCase();
+  }
+
+  /**
+   * True when the right-clicked folder is one of the configured library roots
+   * (Settings > Library). Only configured roots can be rescanned or removed;
+   * subfolders and import-derived groups get the shorter menu.
+   */
+  $: contextFolderIsRoot = (() => {
+    const id = $contextItemId;
+    if (!id) return false;
+    return $settings.libraryFolders.some((folder) => pathKey(folder) === pathKey(id));
+  })();
+
+  /** Watch-later membership of the right-clicked media item (drives the toggle label). */
+  $: contextMediaInWatchLater = (() => {
+    const id = $contextItemId;
+    if (!id) return false;
+    return $watchLater.some((entry) => entry.mediaKey === id && entry.type === 'video');
+  })();
+
+  // Substitute menu based on UI context – global, folder, media, or a
+  // player-view library entry. Every action is handled in App.svelte.
   $: activeMenuItems = (() => {
     const ctx = $currentContext;
     // Global: all items (already defined in menuItems).
     if (ctx === 'global') return compact ? compactMenuItems : menuItems;
 
-    // Folder context – minimal actions.
+    // Folder context – navigate, refresh and manage this library folder.
     if (ctx === 'folder') {
       const items: MenuItem[] = [
-        { id: 'open-folder', label: 'Open Folder', shortcut: 'Enter', icon: FolderOpen, tone: 'accent' },
-        { id: 'add-to-watch-later', label: 'Add to Watch Later', shortcut: 'W', icon: Play, tone: 'accent' },
+        { id: 'folder-open', label: 'Open', icon: FolderOpen, tone: 'accent' },
+      ];
+      if (contextFolderIsRoot) {
+        items.push({ id: 'folder-rescan', label: 'Rescan', icon: RefreshCw, tone: 'neutral' });
+      }
+      items.push({ type: 'divider' });
+      items.push({ id: 'folder-copy-path', label: 'Copy Path', icon: Copy, tone: 'neutral' });
+      if (contextFolderIsRoot) {
+        items.push({
+          id: 'folder-remove',
+          label: 'Remove from Library',
+          icon: FolderMinus,
+          tone: 'neutral',
+        });
+      }
+      return items;
+    }
+
+    // Media context – play, queue and collection actions for this item.
+    if (ctx === 'media') {
+      const items: MenuItem[] = [
+        { id: 'media-play', label: 'Play', icon: Play, tone: 'accent' },
         { type: 'divider' },
-        { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
-        { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+        { id: 'media-add-to-queue', label: 'Add to Queue', icon: ListMusic, tone: 'neutral' },
+        { id: 'media-add-to-playlist', label: 'Add to Playlist', icon: ListPlus, tone: 'neutral' },
+        {
+          id: 'media-toggle-watch-later',
+          label: contextMediaInWatchLater ? 'Remove from Watch Later' : 'Add to Watch Later',
+          icon: Clock,
+          tone: 'neutral',
+        },
+        { type: 'divider' },
+        { id: 'media-show-info', label: 'Show Info', icon: Info, tone: 'neutral' },
       ];
       return items;
     }
 
-    // Media context – playback‑centric actions.
-    if (ctx === 'media') {
+    // Watch Later tab of the player-view library overlay.
+    if (ctx === 'watchLater') {
       const items: MenuItem[] = [
-        { id: 'play-pause', label: 'Play', shortcut: 'Space', icon: Play, tone: 'accent' },
-        { id: 'stop', label: 'Stop', shortcut: 'S', icon: Square, tone: 'accent' },
-        { type: 'divider' },
-        { id: 'add-to-playlist', label: 'Add to Playlist', shortcut: 'P', icon: ListVideo, tone: 'accent' },
-        { id: 'remove-from-watch-later', label: 'Remove from Watch Later', shortcut: 'W', icon: X, tone: 'neutral' },
-        { type: 'divider' },
-        { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
-        { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+        { id: 'watchlater-play', label: 'Play', icon: Play, tone: 'accent' },
+        { id: 'watchlater-add-to-playlist', label: 'Add to Playlist', icon: ListPlus, tone: 'neutral' },
+        { id: 'watchlater-remove', label: 'Remove from Watch Later', icon: X, tone: 'neutral' },
       ];
       return items;
     }
+
+    // History tab of the player-view library overlay.
+    if (ctx === 'history') {
+      const items: MenuItem[] = [
+        { id: 'history-play', label: 'Play', icon: Play, tone: 'accent' },
+        { id: 'history-add-to-watch-later', label: 'Add to Watch Later', icon: Clock, tone: 'neutral' },
+        { id: 'history-remove', label: 'Remove from History', icon: Trash2, tone: 'neutral' },
+      ];
+      return items;
+    }
+
+    // Bookmarks tab of the player-view library overlay.
+    if (ctx === 'bookmark') {
+      const items: MenuItem[] = [
+        { id: 'bookmark-play', label: 'Play', icon: Play, tone: 'accent' },
+        { id: 'bookmark-remove', label: 'Remove Bookmark', icon: Trash2, tone: 'neutral' },
+      ];
+      return items;
+    }
+
     return compact ? compactMenuItems : menuItems;
   })();
   $: submenuItems = new Map(
