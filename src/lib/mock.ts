@@ -99,6 +99,7 @@ export type RecentItemType = 'media' | 'device' | 'network';
 export interface RecentMediaItem {
   id: string;
   type: RecentItemType;
+  mediaType?: 'music' | 'video';
   title: string;
   source: string;
   timestamp: number; // epoch ms
@@ -223,18 +224,18 @@ function daysAgo(d: number) {
 }
 
 export const recentMediaItems: RecentMediaItem[] = [
-  { id: 'r1', type: 'media', title: 'The_Wand_S01E05.mp4', source: 'Videos/Shows/The Wand', timestamp: daysAgo(0), duration: 1384 },
-  { id: 'r2', type: 'media', title: 'Track 03 - Nirvana Album 1.mp3', source: 'Music/Nirvana', timestamp: daysAgo(0), duration: 210 },
-  { id: 'r3', type: 'device', title: '/media/external/Drive1', source: 'Devices', timestamp: daysAgo(1) },
-  { id: 'r4', type: 'network', title: 'Station 12 FM', source: 'Internet Radio', timestamp: daysAgo(1) },
-  { id: 'r5', type: 'media', title: 'The_Wand_S01E06.mp4', source: 'Videos/Shows/The Wand', timestamp: daysAgo(2), duration: 1461 },
-  { id: 'r6', type: 'media', title: 'The_Wand_S01E07.mp4', source: 'Videos/Shows/The Wand', timestamp: daysAgo(3), duration: 1402 },
-  { id: 'r7', type: 'device', title: 'Network Share - Living Room', source: 'Local Network', timestamp: daysAgo(4) },
-  { id: 'r8', type: 'network', title: 'Podcast Show 3 - Episode 4', source: 'Podcasts', timestamp: daysAgo(5), duration: 1200 },
-  { id: 'r9', type: 'media', title: 'Fleetwood Mac Album 2 Track 5.mp3', source: 'Music/Fleetwood Mac', timestamp: daysAgo(7), duration: 240 },
-  { id: 'r10', type: 'media', title: 'The_Wand_S01E01.mp4', source: 'Videos/Shows/The Wand', timestamp: daysAgo(10), duration: 1391 },
-  { id: 'r11', type: 'device', title: '/media/usb/Backup', source: 'Devices', timestamp: daysAgo(12) },
-  { id: 'r12', type: 'network', title: 'Station 2 FM', source: 'Internet Radio', timestamp: daysAgo(15) },
+  { id: 'r1', type: 'media', mediaType: 'video', title: 'The_Wand_S01E05.mp4', source: 'Videos/Shows/The Wand', timestamp: daysAgo(0), duration: 1384 },
+  { id: 'r2', type: 'media', mediaType: 'music', title: 'Track 03 - Nirvana Album 1.mp3', source: 'Music/Nirvana', timestamp: daysAgo(0), duration: 210 },
+  { id: 'r3', type: 'device', mediaType: 'video', title: '/media/external/Drive1', source: 'Devices', timestamp: daysAgo(1) },
+  { id: 'r4', type: 'network', mediaType: 'video', title: 'Station 12 FM', source: 'Internet Radio', timestamp: daysAgo(1) },
+  { id: 'r5', type: 'media', mediaType: 'video', title: 'The_Wand_S01E06.mp4', source: 'Videos/Shows/The Wand', timestamp: daysAgo(2), duration: 1461 },
+  { id: 'r6', type: 'media', mediaType: 'video', title: 'The_Wand_S01E07.mp4', source: 'Videos/Shows/The Wand', timestamp: daysAgo(3), duration: 1402 },
+  { id: 'r7', type: 'device', mediaType: 'video', title: 'Network Share - Living Room', source: 'Local Network', timestamp: daysAgo(4) },
+  { id: 'r8', type: 'network', mediaType: 'video', title: 'Podcast Show 3 - Episode 4', source: 'Podcasts', timestamp: daysAgo(5), duration: 1200 },
+  { id: 'r9', type: 'media', mediaType: 'music', title: 'Fleetwood Mac Album 2 Track 5.mp3', source: 'Music/Fleetwood Mac', timestamp: daysAgo(7), duration: 240 },
+  { id: 'r10', type: 'media', mediaType: 'video', title: 'The_Wand_S01E01.mp4', source: 'Videos/Shows/The Wand', timestamp: daysAgo(10), duration: 1391 },
+  { id: 'r11', type: 'device', mediaType: 'video', title: '/media/usb/Backup', source: 'Devices', timestamp: daysAgo(12) },
+  { id: 'r12', type: 'network', mediaType: 'video', title: 'Station 2 FM', source: 'Internet Radio', timestamp: daysAgo(15) },
 ];
 
 export const recentItems = recentMediaItems.sort((a, b) => b.timestamp - a.timestamp);

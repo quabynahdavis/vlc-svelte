@@ -1,15 +1,17 @@
 <script lang="ts">
   import type { ComponentType } from 'svelte';
-  import { HardDrive, Play, Radio, Trash2 } from 'lucide-svelte';
+  import { HardDrive, Play, Radio, Trash2, Music, Film } from 'lucide-svelte';
   import {
     recentActiveTab,
     recentFilterType,
     recentSearch,
+    recentMediaTypeFilter,
   } from '../stores/recent';
   import { history, clearHistory as clearPersistedHistory } from '../stores/history';
   import { recentViewMode, type ViewMode } from '../stores/viewModes';
   import FuzzySearch from '../components/FuzzySearch.svelte';
   import ViewModeToggle from '../components/ViewModeToggle.svelte';
+  import SortMenu from '../components/SortMenu.svelte';
 
   type RecentTab = 'media' | 'devices' | 'network';
   type RecentItemType = 'media' | 'device' | 'network';
@@ -17,6 +19,7 @@
   interface RecentMediaItem {
     id: string;
     type: RecentItemType;
+    mediaType: 'music' | 'video';
     title: string;
     source: string;
     timestamp: number; // epoch ms (lastPlayedAt)
@@ -53,6 +56,16 @@
     network: Radio,
   };
 
+  const mediaTypeLabels: Record<'music' | 'video', string> = {
+    music: 'Music',
+    video: 'Video',
+  };
+
+  const mediaTypeIcons: Record<'music' | 'video', ComponentType> = {
+    music: Music,
+    video: Film,
+  };
+
   let query = '';
   let searchKey = 0;
 
@@ -61,12 +74,21 @@
     recentSearch.set(query);
   }
 
+  const sortOptions = [
+    { key: 'newest', label: 'Newest first' },
+    { key: 'oldest', label: 'Oldest first' },
+    { key: 'az', label: 'A-Z' },
+    { key: 'za', label: 'Z-A' },
+  ];
+  let activeSortKey = 'newest';
+
   $: filter = $recentFilterType;
 
   /** Map SQLite-backed history entries to the view shape; newest first. */
-  $: historyItems = ($history ?? []).map((e) => ({
+  $: historyItems = ($history ?? []).map((e): RecentMediaItem => ({
     id: e.id,
     type: historyTypeToRecent(e.type),
+    mediaType: e.type === 'music' ? 'music' : 'video',
     title: e.title,
     source: e.artist || e.src || 'Library',
     timestamp: e.lastPlayedAt ?? e.createdAt ?? 0,
@@ -74,11 +96,25 @@
     position: e.position,
   })).sort((a, b) => b.timestamp - a.timestamp);
 
-  $: filtered = historyItems.filter(item => {
+  $: sorted = (() => {
+    const direction = activeSortKey === 'oldest' ? 'asc' : 'desc';
+    return historyItems.slice().sort((a, b) => {
+      switch (activeSortKey) {
+        case 'newest': return b.timestamp - a.timestamp;
+        case 'oldest': return a.timestamp - b.timestamp;
+        case 'az': return a.title.localeCompare(b.title);
+        case 'za': return b.title.localeCompare(a.title);
+        default: return b.timestamp - a.timestamp;
+      }
+    });
+  })();
+
+  $: filtered = sorted.filter(item => {
     const matchesQuery = !query || item.title.toLowerCase().includes(query) || item.source.toLowerCase().includes(query);
     const matchesType = !filter || item.type === filter;
     const matchesTab = $recentActiveTab === 'media' ? item.type === 'media' : $recentActiveTab === 'devices' ? item.type === 'device' : item.type === 'network';
-    return matchesQuery && matchesType && matchesTab;
+    const matchesMediaType = $recentMediaTypeFilter === 'all' || item.mediaType === $recentMediaTypeFilter;
+    return matchesQuery && matchesType && matchesTab && matchesMediaType;
   });
 
   function formatTimestamp(ts: number) {
@@ -179,6 +215,35 @@
       {/each}
     </nav>
 
+    {#if $recentActiveTab === 'media'}
+      <nav class="ml-6 flex shrink-0 gap-2" aria-label="Media type filter">
+        <button
+          type="button"
+          class="rounded-control px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app {$recentMediaTypeFilter === 'all' ? 'bg-vlc-orange/20 text-vlc-orange' : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
+          aria-pressed={$recentMediaTypeFilter === 'all'}
+          on:click={() => recentMediaTypeFilter.set('all')}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          class="rounded-control px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app {$recentMediaTypeFilter === 'music' ? 'bg-vlc-orange/20 text-vlc-orange' : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
+          aria-pressed={$recentMediaTypeFilter === 'music'}
+          on:click={() => recentMediaTypeFilter.set('music')}
+        >
+          Music
+        </button>
+        <button
+          type="button"
+          class="rounded-control px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app {$recentMediaTypeFilter === 'video' ? 'bg-vlc-orange/20 text-vlc-orange' : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
+          aria-pressed={$recentMediaTypeFilter === 'video'}
+          on:click={() => recentMediaTypeFilter.set('video')}
+        >
+          Video
+        </button>
+      </nav>
+    {/if}
+
     <div class="ml-auto flex min-w-0 items-center gap-2">
       <span class="mr-1 hidden whitespace-nowrap text-xs text-vlc-muted md:inline" aria-live="polite">
         {filtered.length} items
@@ -188,6 +253,12 @@
           <FuzzySearch placeholder="Search…" on:search={handleSearch} />
         {/key}
       </div>
+      <SortMenu
+        options={sortOptions}
+        value={activeSortKey}
+        onValueChange={(key) => activeSortKey = key}
+        label="Sort recent"
+      />
       <ViewModeToggle
         value={$recentViewMode}
         onChange={setViewMode}
