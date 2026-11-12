@@ -20,18 +20,34 @@
   export let onPlay: (item: MediaItem) => void = () => {};
 
   let backButton: HTMLButtonElement | null = null;
+  let videoEl: HTMLVideoElement | null = null;
 
   $: progress = Math.min(Math.max(item.progress, 0), 1);
   $: progressPercent = `${progress * 100}%`;
   $: watched = isItemWatched(item);
   $: progressLabel = watched ? `${Math.round(progress * 100)}% watched` : 'Not started';
-  $: episodeCode = `S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`;
   $: durationLabel = formatDuration(item.durationSeconds);
   $: pathLabel = breadcrumb.join(' / ');
   $: hasSource = Boolean(item.src);
   // `description` is not part of the current MediaItem contract yet; read it
   // defensively so the panel picks it up when the mock or a future import adds it.
   $: description = (item as MediaItem & { description?: string }).description?.trim() ?? '';
+
+  // Detect if this looks like a TV episode (has season/episode > 0)
+  $: isEpisode = item.season > 0 && item.episode > 0;
+  $: episodeCode = isEpisode
+    ? `S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`
+    : '';
+  $: typeLabel = isEpisode ? 'TV episode' : 'Video';
+
+  function trackFromItem(): Track {
+    return {
+      id: item.id,
+      title: item.title,
+      duration: item.durationSeconds,
+      src: item.src ?? '',
+    };
+  }
 
   const primaryActionClass =
     'flex h-8 items-center gap-1.5 rounded-control bg-vlc-orange px-3 text-[12px] font-medium text-[var(--selection-ink)] transition-[filter,background-color] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app disabled:cursor-not-allowed disabled:opacity-40';
@@ -42,15 +58,6 @@
   onMount(() => {
     backButton?.focus();
   });
-
-  function trackFromItem(): Track {
-    return {
-      id: item.id,
-      title: item.title,
-      duration: item.durationSeconds,
-      src: item.src ?? '',
-    };
-  }
 
   function queueItem(): void {
     if (!hasSource) return;
@@ -97,35 +104,46 @@
       class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6 lg:flex-row lg:items-start lg:gap-8"
     >
       <div class="w-full shrink-0 lg:max-w-[520px] lg:flex-1">
-        <div
-          class="relative aspect-video w-full overflow-hidden rounded-panel border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)]"
-        >
-          {#if item.thumbnailPath}
-            <img
-              src={item.thumbnailPath}
-              alt=""
-              class="h-full w-full object-cover"
-              draggable="false"
-            />
-          {:else}
-            <div class="flex h-full w-full items-center justify-center" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="h-16 w-16 text-white opacity-[0.16]" fill="currentColor">
-                <path d="M9 6.4v11.2L18.8 12 9 6.4Z" />
-              </svg>
-            </div>
-          {/if}
+          <div
+            class="relative aspect-video w-full overflow-hidden rounded-panel border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)]"
+          >
+            {#if hasSource}
+              <video
+                bind:this={videoEl}
+                src={item.src}
+                preload="none"
+                muted
+                playsinline
+                class="h-full w-full object-cover"
+                on:mouseenter={() => videoEl?.play?.()}
+                on:mouseleave={() => videoEl?.pause?.()}
+              />
+            {:else if item.thumbnailPath}
+              <img
+                src={item.thumbnailPath}
+                alt=""
+                class="h-full w-full object-cover"
+                draggable="false"
+              />
+            {:else}
+              <div class="flex h-full w-full items-center justify-center" aria-hidden="true">
+                <svg viewBox="0 0 24 24" class="h-16 w-16 text-white opacity-[0.16]" fill="currentColor">
+                  <path d="M9 6.4v11.2L18.8 12 9 6.4Z" />
+                </svg>
+              </div>
+            {/if}
 
-          {#if watched}
-            <div class="absolute inset-x-0 bottom-0 h-1 bg-black/45" aria-hidden="true">
-              <div class="h-full bg-vlc-orange" style={`width: ${progressPercent}`}></div>
-            </div>
-          {/if}
+            {#if watched}
+              <div class="absolute inset-x-0 bottom-0 h-1 bg-black/45" aria-hidden="true">
+                <div class="h-full bg-vlc-orange" style={`width: ${progressPercent}`}></div>
+              </div>
+            {/if}
+          </div>
         </div>
-      </div>
 
       <div class="min-w-0 flex-1">
         <p class="text-[11px] font-medium uppercase tracking-[0.08em] text-vlc-muted">
-          TV episode
+          {typeLabel}
         </p>
 
         <h1 class="mt-1.5 break-words text-xl font-semibold leading-tight text-vlc-text lg:text-2xl">
@@ -133,8 +151,10 @@
         </h1>
 
         <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-vlc-secondary">
-          <span class="tabular-nums">{episodeCode}</span>
-          <span class="text-vlc-dim" aria-hidden="true">·</span>
+          {#if episodeCode}
+            <span class="tabular-nums">{episodeCode}</span>
+            <span class="text-vlc-dim" aria-hidden="true">·</span>
+          {/if}
           <span class="tabular-nums">{durationLabel}</span>
           <span class="text-vlc-dim" aria-hidden="true">·</span>
           <span class={watched ? 'text-vlc-orangeText' : 'text-vlc-muted'}>
