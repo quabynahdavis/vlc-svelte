@@ -47,7 +47,7 @@ VLC is a dependable player with a famously utilitarian interface. Kanea explores
 | 🎬 **Player** | Previous / play / next on the left; settings, fullscreen, queue, audio and subtitles on the right. Cone-shaped volume, a thick seek bar with hover thumbnails, and a next-episode prompt. |
 | 🖥️ **Fullscreen** | Auto-hiding chrome that returns on hover, picture-in-picture, a library drawer and a transport overlay. |
 | 🗂️ **Library** | Breadcrumbs, search, watched/unwatched filtering, sorting, grid/list/details, imports and drag-to-queue. |
-| 🎵 **Music** | Songs, Albums, Artists and Genres, with large cover art and an optional waveform strip. |
+| 🎵 **Music** | Artists, Albums, Songs, Genres and Folders over the real music library store, with large cover art and an optional waveform strip. |
 | 📚 **Queue and playlists** | Kept distinct, with create, pin, add-to-playlist and drag-to-queue flows. |
 | 🌐 **Network** | Saved streams with add, edit, play and remove actions. |
 | 🎛️ **Sidebar** | Subtitle timeline, audio track and output device, video filters, playback controls, bookmarks and chapters. |
@@ -116,10 +116,10 @@ The canonical documentation is written in English under [`docs/en/`](en/OVERVIEW
 
 | Label | Meaning |
 | --- | --- |
-| ✅ **Implemented** | Shell, player, six browse views, right dock, sixteen settings categories, themes, persistence, drag-to-queue and add-to-playlist, the next-episode countdown prompt, an editable library address bar with a details view, saved-items tabs (bookmarks, watch later, history) with per-tab search, sorting and grid/list views, repeat/shuffle controls in the queue, a Videos folder tree backed by Tauri disk scanning (the default Videos folder is seeded on the first desktop run), and Rust audio metadata/cover-art extraction via the `lofty`-backed `read_audio_metadata`/`cover_get`/`cover_extract` commands. |
+| ✅ **Implemented** | Shell, player, six browse views, right dock, sixteen settings categories, themes, persistence, drag-to-queue and add-to-playlist, the next-episode countdown prompt, an editable library address bar with a details view, saved-items tabs (bookmarks, watch later, history) with per-tab search, sorting and grid/list views, repeat/shuffle controls in the queue, a Videos folder tree backed by Tauri disk scanning (the default Videos folder is seeded on the first desktop run), tabbed Videos \| Music library-folder sections in onboarding and Settings → Library, the music library store (`src/stores/musicLibrary.ts`, scan/enrich/group/persist under `vlc.musicLibrary.v1`) rendered by the Music page (Artists / Albums / Songs / Genres / Folders), and Rust audio metadata/cover-art extraction via the `lofty`-backed `read_audio_metadata`/`cover_get`/`cover_extract` commands. |
 | 🗓️ **Planned** | Native playback, OS media keys and persistent `blob:` imports. |
 
-Library folders are read from disk on desktop; in a browser preview without Tauri, scans are unavailable, imports still drive the tree and the default Videos folder is not seeded. Music, playlist and network data remain mock data. Imported media and playlist tracks with `blob:` sources are session-only; pins, saved streams, subtitle profiles, bookmarks, layout and onboarding persist across reloads.
+Library folders are read from disk on desktop; in a browser preview without Tauri, scans are unavailable, imports still drive the tree and the default Videos folder is not seeded. Music browses the real `musicLibrary` store; playlist and network data remain mock data. Imported media and playlist tracks with `blob:` sources are session-only; pins, saved streams, subtitle profiles, bookmarks, layout and onboarding persist across reloads.
 
 ## Tech stack
 

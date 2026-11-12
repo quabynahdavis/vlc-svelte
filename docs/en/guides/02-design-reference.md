@@ -150,7 +150,7 @@ Alternate accents appear in `Player-2.png` (purple), `Player-3.png` (pink) and `
 
 ## Current gaps
 
-- Library, music, playlist, recent and network content is mock data. Mock items use `public/demo/sample.mp4`; imported files and stream URLs are session-only and are not persisted.
+- Library, playlist and network content is mock data; music browses the real `musicLibrary` store and recent rows render the persisted history store. Mock items use `public/demo/sample.mp4`; imported files and stream URLs are session-only and are not persisted.
 - The player queue is not persisted, and no media is queued at startup.
 - The full next-episode prompt, subtitle timeline, audio track/output-device selection, video filter previews, bookmarks/chapters, saved network streams, editable address bar, details view and add actions in the library empty state are planned. See [../design/02-redesign-vision.md](../design/02-redesign-vision.md).
 - Recent and network selections are inert; create-playlist and per-track playlist menus are present but no-ops.

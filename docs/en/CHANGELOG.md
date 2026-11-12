@@ -4,6 +4,24 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-11
 
+### Changed — MusicView rewired to the real music library
+
+- The Music browse page now renders the real `musicLibrary` store instead of `lib/mock.ts`. Tabs are **Artists / Albums / Songs / Genres / Folders** — Folders last and filesystem-only (folder structure is never reorganized by tag) — with the drilldown Artists → albums → tracks preserved and per-level sort, search and grid/list/compact view modes.
+- The Folders tab replicates the Videos library's navigation rules: root-scoped identity (`musicFolderRootPath` plus a segment trail with case-insensitive chain matching under `relativePartsUnder`), `Name[ParentName]` display-only disambiguation for same-name roots, representative track covers on folder cards, and duplicate-named roots kept as distinct cards.
+- `src/stores/musicLibrary.ts`: new exported `rescanMusicRoot(rootPath)` (single-root rescan replacing its own slice, mirroring `rescanLibraryRoot`) plus the `compareAlbumOrder` album-order comparator.
+- Context menus: the folder-root membership check extended to `musicLibraryFolders`, so **Remove from Library** works for music roots; the media menu now resolves music ids (`contextMenuTrack()` via `musicTracks` + `toPlayerTrack`) and hides the Watch Later toggle for music ids — playlists are the music equivalent.
+- `src/App.svelte`: folder Open/Rescan/Remove actions route between music and video roots via a `vlc-open-music-folder` window event (the same idiom as `vlc-open-media`); media menu actions resolve music tracks with their real sources — no `DEMO_MEDIA_SRC` remains in the music paths.
+- Play-history hook: `recordMusicListen` wired at both sites — MusicView's queue path and a global hook in `src/views/PlayerView.svelte` `handleLoadedMetadata` (fires once per track start, never on seek/pause; history upserts by mediaKey so the two sites cannot duplicate an entry).
+- `src/components/MusicCover.svelte`: new `src` prop renders real artwork as an `<img>`, keeping the emoji/gradient fallback for covers that fail to resolve.
+- i18n (`src/i18n/en.json`): `music.breadcrumb_root` fixed to "Music"; new `music.tabs.*`, empty-state and unknown-artist/genre keys.
+- Committed as `b2f01fd`; `bun run check` 0/0; `vite build` success.
+
+### Added — Tabbed video and music library folders
+
+- Onboarding (`src/components/WelcomeScreen.svelte`) and settings (`src/components/settings/LibraryPanel.svelte`) library-folder sections are now tabbed **Videos | Music** using the accessible `role="tablist"` segmented-pill idiom with arrow-key switching; each tab writes its own store through the existing `libraryFolders` / `musicLibraryFolders` helpers.
+- Per-tab add input and browse picker, duplicate checks and empty states; the shared scan/file-type settings are unchanged.
+- Committed as `2bd210f`; `bun run check` 0/0; `vite build` success.
+
 ### Added — Music library store with artist and album grouping
 
 - New `src/stores/musicLibrary.ts`: the first real music data store. It scans the configured `musicLibraryFolders` roots through the same `scan_library_dir` pipeline the video library uses, keeps only audio files (filtered client-side via the new shared `src/lib/audio.ts` with `AUDIO_EXTENSIONS` and `isAudioFile`), and mirrors the video library's lifecycle: the bootstrap awaits `settingsHydrated` (so the asset scope already covers the combined video + music roots), a reactive settings watcher rescans whenever the joined folder list changes, each finished scan replaces only its own root's slice, roots removed from settings are pruned from the store, and `scanOnStartup` is respected.
@@ -396,7 +414,7 @@ Recorded here as one entry — feature plus companion fixes — since the bulk o
 ## Known gaps
 
 - Tauri native integration is now substantive: window capabilities and custom/system decorations exist, `tauri-plugin-dialog` backs the native folder picker, and the ten commands registered through `invoke_handler` cover SQLite persistence (`db_get`/`db_set`), disk scanning (`scan_library_dir`, `default_media_dir` for both `videos` and `music`), the ffmpeg thumbnail pipeline (`thumb_get`/`thumb_generate`), audio metadata and cover art (`read_audio_metadata`, `cover_get`, `cover_extract`) and the runtime asset scope (`scope_assets`). `app.security.csp` is still `null`.
-- Library folder trees for configured roots are scanned from disk on the desktop (seeded with the default Videos folder), and the music library store (`src/stores/musicLibrary.ts`) scans configured music roots, enriches files with Rust metadata and persists under `vlc.musicLibrary.v1` — but the MusicView browse page still renders mock data until the view-rewire phase lands. Playlist and network browse data remain mock data; recent rows render the real persisted history store (`vlc.history.v1`). Mock items use the bundled `public/demo/sample.mp4`, while imported files/streams — and everything in a browser preview, where scans are unavailable — are session-only.
+- Library folder trees for configured roots are scanned from disk on the desktop (seeded with the default Videos folder), and the music library store (`src/stores/musicLibrary.ts`) scans configured music roots, enriches files with Rust metadata and persists under `vlc.musicLibrary.v1`; the MusicView browse page now renders that store (Artists / Albums / Songs / Genres / Folders tabs, real artwork, real playback sources). Playlist and network browse data remain mock data; recent rows render the real persisted history store (`vlc.history.v1`). Mock items use the bundled `public/demo/sample.mp4`, while imported files/streams — and everything in a browser preview, where scans are unavailable — are session-only.
 - There is no URL router; navigation, settings visibility, the property dock and hidden chrome are in-memory and reset on reload.
 - Settings and view modes persist; the player queue does not.
 - The full next-episode prompt, subtitle timeline, audio output-device selection, video filter previews, saved network streams, editable address bar, details view and library empty-state add actions are planned, not implemented. Picture-in-picture, fullscreen chrome auto-hide, watched filtering and library imports exist in the working tree but are uncommitted.

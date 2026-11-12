@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Kanea is a community redesign that rebuilds the VLC desktop player UI as a web-technology desktop application. Svelte renders the interface inside a Tauri window; Rust supplies the native shell, SQLite persistence, disk scanning, thumbnails and audio metadata/cover-art access. The application plays a bundled demo clip for mock items, can import local files/folders and stream URLs for the current session, and browses mock library data; persistent media integration is still in progress.
+Kanea is a community redesign that rebuilds the VLC desktop player UI as a web-technology desktop application. Svelte renders the interface inside a Tauri window; Rust supplies the native shell, SQLite persistence, disk scanning, thumbnails and audio metadata/cover-art access. The application plays a bundled demo clip for mock items, can import local files/folders and stream URLs for the current session, and browses real disk-scanned data — the Videos library tree and the Music page both read the configured roots through the library and music library stores, while playlist and network content stays mock; persistent media integration is still in progress.
 
 ## Tech stack
 
@@ -112,7 +112,7 @@ The Svelte UI and the Tauri v2 shell are implemented, including ten registered T
 | Vite + Svelte + Tailwind frontend | Implemented; `bun run check` passes; `bun run dev:frontend` serves the browser build |
 | Player screen | Implemented: playlist panel, synced `<video>`, stage gestures, fullscreen shell with auto-hiding chrome and PiP (working tree), right dock, transport, demo and imported playback |
 | Library screen | Implemented: breadcrumb toolbar, search, watched filter, sorting, grid/list/compact, add file/folder/stream (working tree); selecting an item queues it and opens the player |
-| Music, Playlists, Recent, Network | Implemented browse screens with sorting and/or view modes; data is mock; network and recent selections are inert |
+| Music, Playlists, Recent, Network | Implemented browse screens with sorting and/or view modes; Music renders the real music library store (`Artists / Albums / Songs / Genres / Folders`), recent rows render the persisted history store, while playlist and network content is mock and network and recent-Devices selections are inert |
 | Settings | Sixteen categories implemented, including Layout and Profiles; persistence, reset and JSON import/export |
 | Tauri v2 shell | Implemented; v2 config, `main.rs`, window capabilities and custom/system decorations |
 | Native plugins, commands, metadata | Implemented (`tauri-plugin-dialog` plus ten registered commands) |
