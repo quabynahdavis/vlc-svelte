@@ -374,10 +374,10 @@ export function seek(time: number): void {
   });
 }
 
-/** Set volume from 0 to 100. Raising volume out of zero unmutes. */
+/** Set volume from 0 to 200. Raising volume out of zero unmutes. */
 export function setVolume(volume: number): void {
   player.update((state) => {
-    const value = Math.round(clamp(Number.isFinite(volume) ? volume : 0, 0, 100));
+    const value = Math.round(clamp(Number.isFinite(volume) ? volume : 0, 0, 200));
     return { ...state, volume: value, muted: value === 0 };
   });
 }

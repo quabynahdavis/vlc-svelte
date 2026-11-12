@@ -58,6 +58,8 @@
   let bookmarkHudTimer: ReturnType<typeof setTimeout> | null = null;
   /** Fractional wheel notches carried across trackpad events. */
   let wheelRemainder = 0;
+  let audioCtx: AudioContext | null = null;
+  let gainNode: GainNode | null = null;
   let volumeHudVisible = false;
   let volumeHudVolume = 0;
   let bookmarkHudVisible = false;
@@ -176,7 +178,17 @@
   function syncVolume(el: HTMLVideoElement | null, volume: number, muted: boolean): void {
     if (!el) return;
 
-    el.volume = clamp(volume / 100, 0, 1);
+    // Initialize AudioContext + GainNode on first interaction
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioCtx.createMediaElementSource(el);
+      gainNode = audioCtx.createGain();
+      source.connect(gainNode).connect(audioCtx.destination);
+    }
+
+    if (gainNode) {
+      gainNode.gain.value = muted ? 0 : clamp(volume / 100, 0, 2);
+    }
     el.muted = muted;
   }
 
@@ -652,7 +664,7 @@
     wheelRemainder -= steps;
 
     const stepSize = event.shiftKey ? WHEEL_VOLUME_FINE_STEP : WHEEL_VOLUME_STEP;
-    const nextVolume = clamp(get(player).volume - steps * stepSize, 0, 100);
+    const nextVolume = clamp(get(player).volume - steps * stepSize, 0, 200);
 
     // The store stays the source of truth; the reactive sync updates the element.
     setVolume(nextVolume);
@@ -927,7 +939,7 @@
         <span class="h-1 w-16 overflow-hidden rounded-full bg-white/20" aria-hidden="true">
           <span
             class="block h-full rounded-full bg-vlc-orange transition-[width] duration-150"
-            style={`width: ${volumeHudVolume}%`}
+            style={`width: ${volumeHudVolume / 2}%`}
           ></span>
         </span>
       </div>

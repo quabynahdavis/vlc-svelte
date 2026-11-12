@@ -99,7 +99,7 @@
   $: volumeMuted = $player.muted || $player.volume === 0;
   $: volumeThumbLeft =
     VOLUME_THUMB_SIZE / 2 +
-    (VOLUME_TRACK_WIDTH - VOLUME_THUMB_SIZE) * ($player.volume / 100);
+    (VOLUME_TRACK_WIDTH - VOLUME_THUMB_SIZE) * ($player.volume / 200);
   $: remaining = duration > 0 ? duration - elapsed : Number.POSITIVE_INFINITY;
   $: nextQueueItem = resolveNextItem($player);
   $: nextPromptEligible =
@@ -920,7 +920,7 @@
       tabindex="0"
       aria-label="Volume"
       aria-valuemin="0"
-      aria-valuemax="100"
+      aria-valuemax="200"
       aria-valuenow={$player.volume}
       aria-valuetext={volumeMuted ? 'Muted' : `${$player.volume}%`}
       title={`Volume ${$player.volume}%`}
@@ -936,7 +936,7 @@
           <div class="absolute inset-0 bg-vlc-secondary/35 transition-colors group-hover:bg-vlc-secondary/50 group-focus-visible:bg-vlc-secondary/50"></div>
           <div
             class="absolute inset-y-0 left-0 bg-vlc-orange"
-            style={`width: ${$player.volume}%`}
+            style={`width: ${$player.volume / 2}%`}
           ></div>
         </div>
         <span
