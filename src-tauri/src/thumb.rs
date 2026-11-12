@@ -26,8 +26,9 @@ use tauri::State;
 use crate::db::Database;
 
 /// ffmpeg lives in PATH for the shipped desktop targets; a fixed absolute
-/// path keeps the command inventory explicit.
-const FFMPEG_PATH: &str = "/usr/bin/ffmpeg";
+/// path keeps the command inventory explicit. Shared with `waveform.rs`,
+/// which decodes audio through the same binary.
+pub(crate) const FFMPEG_PATH: &str = "/usr/bin/ffmpeg";
 
 /// Video containers accepted for frame extraction (lowercase, no dot).
 const VIDEO_EXTENSIONS: &[&str] = &[
@@ -178,7 +179,11 @@ fn run_ffmpeg_frame(ffmpeg: &str, path: &str, seek: f64) -> Option<Vec<u8>> {
 }
 
 /// Drain `stdout` into a `MAX_OUTPUT_BYTES`-capped buffer on a worker thread.
-fn spawn_stdout_reader(mut stdout: impl Read + Send + 'static, copied: Arc<AtomicUsize>) -> std::thread::JoinHandle<Vec<u8>> {
+/// Shared with `waveform.rs`, which caps its own decode output the same way.
+pub(crate) fn spawn_stdout_reader(
+    mut stdout: impl Read + Send + 'static,
+    copied: Arc<AtomicUsize>,
+) -> std::thread::JoinHandle<Vec<u8>> {
     std::thread::spawn(move || {
         let mut buffer = Vec::new();
         let mut chunk = [0u8; 8192];

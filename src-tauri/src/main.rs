@@ -5,6 +5,7 @@ mod audio_meta;
 mod db;
 mod library;
 mod thumb;
+mod waveform;
 
 fn main() {
     use tauri::Manager;
@@ -42,6 +43,9 @@ fn main() {
             audio_meta::read_audio_metadata,
             audio_meta::cover_get,
             audio_meta::cover_extract,
+            waveform::waveform_peaks,
+            waveform::waveform_get,
+            waveform::waveform_generate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

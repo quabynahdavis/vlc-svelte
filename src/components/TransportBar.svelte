@@ -16,6 +16,7 @@
     VolumeX,
   } from 'lucide-svelte';
   import {
+    currentTrack,
     next as nextTrack,
     player,
     prev as prevTrack,
@@ -25,6 +26,8 @@
     toggleMute,
   } from '../stores/player';
   import type { PlayerState, Track } from '../stores/player';
+  import { isAudioFile } from '../lib/audio';
+  import { waveformGenerate, waveformGet } from '../lib/audioMeta';
   import { toggleFullscreen } from '../lib/gestures';
   import { layout } from '../stores/layout';
   import { dockMode, openDock } from '../stores/ui';
@@ -52,6 +55,27 @@
   let scrubbing = false;
   let volumeDragging = false;
   let isFullscreen = false;
+
+  // ── Waveform seekbar (audio tracks only) ────────────────────────────────
+  // Audio detection: Phase 4 guarantees `MusicTrack.id === file path`, so a
+  // track whose id carries an audio extension is a music track. Video ids
+  // are media keys of video files (video extensions) or http(s) streams, so
+  // the same extension check never fires for them — video/stream/src-less
+  // tracks keep the plain bar below.
+  const WAVEFORM_BUCKETS = 800;
+  const WAVEFORM_BAR_WIDTH = 2;
+  const WAVEFORM_BAR_GAP = 2;
+
+  /** Session cache: resolved peaks per track path (survives track switches). */
+  const waveformCache = new Map<string, number[]>();
+
+  let waveCanvas: HTMLCanvasElement | null = null;
+  /** Peaks of the current audio track, or null while resolving/unavailable. */
+  let wavePeaks: number[] | null = null;
+  /** Path the current peaks belong to; guards against stale async fills. */
+  let wavePeaksKey = '';
+  /** Incremented on every track change; stale resolves are dropped. */
+  let waveLoadToken = 0;
 
   let previewVisible = false;
   let previewFrameReady = false;
@@ -97,6 +121,135 @@
     $layout.playerControls.settings ||
     $layout.playerControls.fullscreen ||
     $layout.playerControls.queue;
+
+  $: currentTrackPath = $currentTrack?.id ?? '';
+  $: isAudioTrack = isAudioFile(currentTrackPath);
+  $: resolveWavePeaks(isAudioTrack, currentTrackPath);
+  // Waveform strip only once peaks exist; before that (resolving, or the
+  // Rust pipeline returned nothing) the plain bar stays — no layout jump.
+  $: waveActive = isAudioTrack && wavePeaks !== null && wavePeaks.length > 0;
+  // Redraw whenever the playhead moves (timeupdate, scrubbing) or peaks load.
+  $: if (waveCanvas && waveActive) drawWaveCanvas(elapsed, duration);
+
+  /**
+   * Resolve peaks for the current audio track: session cache → persisted
+   * row (`waveform_get`) → fresh decode (`waveform_generate`, which itself
+   * persists). While resolving or when nothing can be produced, `wavePeaks`
+   * stays null and the plain bar is kept.
+   */
+  async function resolveWavePeaks(audio: boolean, path: string): Promise<void> {
+    if (!audio || !path) {
+      waveLoadToken += 1;
+      wavePeaks = null;
+      wavePeaksKey = '';
+      return;
+    }
+
+    if (wavePeaksKey === path) return;
+    wavePeaksKey = path;
+
+    const token = ++waveLoadToken;
+    const cached = waveformCache.get(path);
+    if (cached) {
+      wavePeaks = cached;
+      return;
+    }
+    wavePeaks = null;
+
+    const stored = await waveformGet(path);
+    let peaks = stored && stored.length > 0 ? stored : null;
+    if (!peaks) {
+      const generated = await waveformGenerate(path, WAVEFORM_BUCKETS);
+      peaks = generated && generated.length > 0 ? generated : null;
+    }
+
+    if (token !== waveLoadToken) return; // the track changed while resolving
+    if (peaks) {
+      waveformCache.set(path, peaks);
+      wavePeaks = peaks;
+    }
+  }
+
+  /** DPR-aware backing-store sizing for the waveform strip. */
+  function resizeWaveCanvas(canvas: HTMLCanvasElement): void {
+    const bounds = canvas.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(bounds.width * dpr));
+    const height = Math.max(1, Math.round(bounds.height * dpr));
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+  }
+
+  /**
+   * Colors resolve from CSS so the strip follows the app theme: the accent
+   * custom property wins, otherwise the canvas' `text-vlc-orange` colour;
+   * unplayed bars reuse the seekbar's muted border token.
+   */
+  function waveColorsOf(canvas: HTMLCanvasElement): { accent: string; muted: string } {
+    const styles = getComputedStyle(canvas);
+    const accent = styles.getPropertyValue('--vlc-accent').trim() || styles.color;
+    const border = styles.getPropertyValue('--border-rgb').trim();
+    return {
+      accent,
+      muted: border ? `rgb(${border} / 0.9)` : 'rgba(128, 128, 128, 0.9)',
+    };
+  }
+
+  /** Thin centered bars; the played head is the accent, the rest muted. */
+  function drawWaveCanvas(currentTime = 0, totalDuration = 0): void {
+    const canvas = waveCanvas;
+    const peaks = wavePeaks;
+    if (!canvas || !peaks || peaks.length === 0) return;
+
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.width / dpr;
+    const height = canvas.height / dpr;
+
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, width, height);
+
+    const slot = WAVEFORM_BAR_WIDTH + WAVEFORM_BAR_GAP;
+    const barCount = Math.max(1, Math.floor(width / slot));
+    const { accent, muted } = waveColorsOf(canvas);
+    const progress = totalDuration > 0 ? clamp(currentTime / totalDuration, 0, 1) : 0;
+    // Playhead bucket boundary: bars strictly before it count as played.
+    const playedBars = Math.floor(progress * barCount);
+
+    for (let index = 0; index < barCount; index += 1) {
+      const peak =
+        peaks[Math.min(peaks.length - 1, Math.floor((index / barCount) * peaks.length))] ?? 0;
+      const barHeight = Math.max(1, peak * height);
+      const x = index * slot;
+
+      context.fillStyle = index < playedBars ? accent : muted;
+      context.fillRect(x, (height - barHeight) / 2, WAVEFORM_BAR_WIDTH, barHeight);
+    }
+  }
+
+  /** Svelte action: attach the resize observer for the waveform strip. */
+  function waveformCanvasAction(node: HTMLCanvasElement): { destroy(): void } {
+    const observer = new ResizeObserver(() => {
+      resizeWaveCanvas(node);
+      drawWaveCanvas(elapsed, duration);
+    });
+    observer.observe(node.parentElement ?? node);
+    resizeWaveCanvas(node);
+    drawWaveCanvas(elapsed, duration);
+
+    return {
+      destroy() {
+        observer.disconnect();
+      },
+    };
+  }
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -210,6 +363,10 @@
     previewTime = ratio * duration;
     previewX = clamp(ratio * bounds.width, half, bounds.width - half);
     previewVisible = true;
+
+    // Waveform mode: the timestamp card is enough — audio files are never
+    // decoded into the hover preview element.
+    if (waveActive) return;
     schedulePreviewSeek(previewTime);
   }
 
@@ -661,21 +818,33 @@
     on:blur={handleSeekBlur}
     on:keydown={handleSeekKeydown}
   >
-    <div
-      class="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-vlc-border transition-[height] duration-150 group-hover:h-2 group-focus-visible:h-2"
-      aria-hidden="true"
-    >
-      {#if bufferedPct > 0}
-        <div
-          class="absolute inset-y-0 left-0 bg-vlc-borderStrong"
-          style={`width: ${bufferedPct}%`}
-        ></div>
-      {/if}
+    {#if waveActive}
+      <!-- Audio tracks: SoundCloud-style peak strip. Click/drag/keyboard
+           seeking and the hover timestamp card are the bar's own handlers
+           (seekTrack below), reused unchanged. -->
+      <canvas
+        bind:this={waveCanvas}
+        use:waveformCanvasAction
+        class="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 text-vlc-orange transition-[height] duration-150 group-hover:h-2 group-focus-visible:h-2"
+        aria-hidden="true"
+      ></canvas>
+    {:else}
       <div
-        class="absolute inset-y-0 left-0 rounded-full bg-vlc-orange"
-        style={`width: ${progressPct}%`}
-      ></div>
-    </div>
+        class="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-vlc-border transition-[height] duration-150 group-hover:h-2 group-focus-visible:h-2"
+        aria-hidden="true"
+      >
+        {#if bufferedPct > 0}
+          <div
+            class="absolute inset-y-0 left-0 bg-vlc-borderStrong"
+            style={`width: ${bufferedPct}%`}
+          ></div>
+        {/if}
+        <div
+          class="absolute inset-y-0 left-0 rounded-full bg-vlc-orange"
+          style={`width: ${progressPct}%`}
+        ></div>
+      </div>
+    {/if}
 
     <span
       class="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-vlc-text opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"

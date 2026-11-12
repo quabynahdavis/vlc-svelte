@@ -26,3 +26,21 @@ export async function coverGet(path: string): Promise<number[] | Uint8Array | nu
 export async function coverExtract(path: string): Promise<number[] | Uint8Array | null> {
   return await invokeCommand<number[] | Uint8Array>('cover_extract', { path });
 }
+
+/**
+ * Waveform peaks for the seekbar, mirroring the thumb/cover commands.
+ * `waveform_get` reads a previously persisted peak array (little-endian f32
+ * decoded Rust-side), `waveform_generate` computes + persists + returns in a
+ * single IPC roundtrip. Both resolve null on any failure so callers fall
+ * back to the plain progress bar.
+ */
+export async function waveformGet(path: string): Promise<number[] | null> {
+  return await invokeCommand<number[]>('waveform_get', { path });
+}
+
+export async function waveformGenerate(
+  path: string,
+  buckets = 800,
+): Promise<number[] | null> {
+  return await invokeCommand<number[]>('waveform_generate', { path, buckets });
+}

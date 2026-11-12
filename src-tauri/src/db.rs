@@ -19,6 +19,11 @@
 //! under a `cover:` key prefix: the two tables are separate domains (video
 //! frames vs. artwork), and prefix-stuffing a file-path primary key would
 //! conflate the key namespaces.
+//!
+//! A fourth domain, same story: audio waveform peaks are decoded by
+//! `waveform.rs` and stored as little-endian f32 blobs in the `waveforms`
+//! table, keyed the same way, in yet another separate table so the domains
+//! (video frames, artwork, seekbar peaks) never share a namespace.
 
 use rusqlite::{Connection, OptionalExtension, params};
 use std::sync::Mutex;
@@ -28,7 +33,8 @@ use tauri::State;
 /// Connection state shared across command calls.
 pub struct Database(pub(crate) Mutex<Connection>);
 
-/// Create the persistence schema (`kv`, `thumbnails`, `covers`). Idempotent.
+/// Create the persistence schema (`kv`, `thumbnails`, `covers`, `waveforms`).
+/// Idempotent.
 pub(crate) fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS kv (
@@ -48,6 +54,14 @@ pub(crate) fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
         "CREATE TABLE IF NOT EXISTS covers (
             path       TEXT PRIMARY KEY,
             data       BLOB NOT NULL,
+            updated_at INTEGER NOT NULL
+        );",
+    )?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS waveforms (
+            path       TEXT PRIMARY KEY,
+            peaks      BLOB NOT NULL,
+            buckets    INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         );",
     )
@@ -155,7 +169,7 @@ mod tests {
         assert_eq!(journal_mode, "wal");
 
         // All persistence tables exist after opening.
-        for table in ["kv", "thumbnails", "covers"] {
+        for table in ["kv", "thumbnails", "covers", "waveforms"] {
             let count: i64 = conn
                 .query_row(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
