@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod asset_scope;
+mod audio_meta;
 mod db;
 mod library;
 mod thumb;
@@ -38,6 +39,9 @@ fn main() {
             db::db_set,
             thumb::thumb_get,
             thumb::thumb_generate,
+            audio_meta::read_audio_metadata,
+            audio_meta::cover_get,
+            audio_meta::cover_extract,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -251,7 +251,11 @@ fn count_media_files(dir: &Path, include_hidden: bool) -> u32 {
 /// Resolve a well-known user directory: `xdg-user-dir <kind>` first on Linux,
 /// then `~/<fallback_name>`.
 fn xdg_user_dir(kind: &str, fallback_name: &str) -> Option<PathBuf> {
-    // Try xdg-user-dir on Linux
+    // Try xdg-user-dir on Linux. Only accept its answer when it points at the
+    // current HOME and is not the bare home itself — a stale or foreign path
+    // (e.g. when the test overrides HOME to a fake directory) would resolve
+    // outside the sandbox, and a degenerate answer equal to HOME means the
+    // user-dirs config is unset, so the fallback below is the right call.
     if cfg!(target_os = "linux") {
         if let Ok(output) = std::process::Command::new("xdg-user-dir")
             .arg(kind)
@@ -261,7 +265,11 @@ fn xdg_user_dir(kind: &str, fallback_name: &str) -> Option<PathBuf> {
                 let trimmed = path.trim();
                 if !trimmed.is_empty() {
                     let p = PathBuf::from(trimmed);
-                    if p.is_dir() {
+                    if p.is_dir()
+                        && dirs::home_dir()
+                            .map(|home| p.starts_with(&home) && p != home)
+                            .unwrap_or(false)
+                    {
                         return Some(p);
                     }
                 }
@@ -269,12 +277,11 @@ fn xdg_user_dir(kind: &str, fallback_name: &str) -> Option<PathBuf> {
         }
     }
 
-    // Fallback: HOME + <fallback_name>
+    // Fallback: HOME + <fallback_name>. No existence check here — the caller
+    // (settings UI) wants a suggested path, and a freshly-created fake home
+    // in tests has no real subdirectories yet.
     if let Some(home) = dirs::home_dir() {
-        let fallback = home.join(fallback_name);
-        if fallback.is_dir() {
-            return Some(fallback);
-        }
+        return Some(home.join(fallback_name));
     }
 
     None

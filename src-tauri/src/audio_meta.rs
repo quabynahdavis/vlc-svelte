@@ -156,11 +156,26 @@ fn metadata_from_file(file: &TaggedFile) -> AudioMetadata {
 
 /// Release year of a tag's date item (`RecordingDate`/`Year` keys).
 ///
-/// Both keys parse through lofty's relaxed `Timestamp`; a zero year (empty or
-/// placeholder date tag) is no year.
+/// Year text persists under `ItemKey::Year` in Vorbis Comments and APE, but
+/// on ID3v2 it is silently dropped — TDRC (`ItemKey::RecordingDate`) is the
+/// frame real MP3/AAC files carry. Both keys parse through lofty's relaxed
+/// `Timestamp`; a zero year (empty or placeholder date tag) is no year.
 fn year_of(tag: &Tag) -> Option<u32> {
-    let year = u32::from(tag.date()?.year);
-    (year != 0).then_some(year)
+    // `ItemKey::Year` text is the common case where the container supports it
+    // (Vorbis YEAR / APE Year), but ID3v2 drops it, so `RecordingDate` (TDRC)
+    // must be checked too. `tag.date()` only resolves when a proper Timestamp
+    // item exists, so parse the text ourselves (accepting "1987" and
+    // "1999-03-21") and fall back to the timestamp only when no text is
+    // present.
+    let raw = tag
+        .get_string(ItemKey::Year)
+        .or_else(|| tag.get_string(ItemKey::RecordingDate))
+        .map(|s| s.to_string());
+    let year = raw
+        .as_deref()
+        .and_then(|s| s.split('-').next()?.parse::<u32>().ok())
+        .or_else(|| tag.date().map(|d| u32::from(d.year)));
+    year.filter(|&y| y != 0)
 }
 
 /// The embedded artwork to serve for a file: the largest picture across all
@@ -319,7 +334,8 @@ mod tests {
         tag.push_picture(picture_with_len(40));
         tag.push_picture(picture_with_len(20));
 
-        let best = best_picture(&[tag]).unwrap();
+        let tags: Vec<Tag> = vec![tag];
+        let best = best_picture(&tags).unwrap();
         assert_eq!(best.data().len(), 40);
 
         // Empty tag data resolves to no picture at all.
@@ -329,8 +345,11 @@ mod tests {
 
     #[test]
     fn test_year_of_accepts_and_rejects() {
+        // ID3v2 reality: `ItemKey::Year` text is silently dropped there, so
+        // a bare-year tag must go through the TDRC date frame
+        // (`ItemKey::RecordingDate`) — which is what real MP3/AAC files carry.
         let mut tag = Tag::new(TagType::Id3v2);
-        tag.insert_text(ItemKey::Year, "1987".to_string());
+        tag.insert_text(ItemKey::RecordingDate, "1987".to_string());
         assert_eq!(year_of(&tag), Some(1987));
 
         // Full dates resolve to their year component.
@@ -338,9 +357,10 @@ mod tests {
         dated.insert_text(ItemKey::RecordingDate, "1999-03-21".to_string());
         assert_eq!(year_of(&dated), Some(1999));
 
-        // Placeholder/absent years resolve to None.
+        // Placeholder/absent years resolve to None (a "0000" year text is
+        // filtered out even when the relaxed parse accepts it).
         let mut zero = Tag::new(TagType::Id3v2);
-        zero.insert_text(ItemKey::Year, "0000".to_string());
+        zero.insert_text(ItemKey::RecordingDate, "0000".to_string());
         assert_eq!(year_of(&zero), None);
         assert_eq!(year_of(&Tag::new(TagType::Id3v2)), None);
     }
@@ -348,9 +368,11 @@ mod tests {
     #[test]
     fn test_year_of_timestamp_shape() {
         // The relaxed Timestamp parse keeps only what is present; a bare
-        // year keeps `year` and drops the rest.
+        // year keeps `year` and drops the rest. (ID3v2: the insert must use
+        // `ItemKey::RecordingDate` — `ItemKey::Year` text does not persist
+        // on ID3v2 and would leave the tag empty.)
         let mut tag = Tag::new(TagType::Id3v2);
-        tag.insert_text(ItemKey::Year, "2024".to_string());
+        tag.insert_text(ItemKey::RecordingDate, "2024".to_string());
         let date: Option<Timestamp> = tag.date();
         assert_eq!(date.map(|d| d.year), Some(2024));
         assert_eq!(date.and_then(|d| d.month), None);
