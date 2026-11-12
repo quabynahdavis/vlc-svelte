@@ -822,33 +822,24 @@
 
     if (currentLevel === 'artist' && artist) {
       // Artists mode: [Music] → [Artists] → [Artist Name]
-      segments.push({ label: modeLabel, action: () => {
-        selectedArtistId.set(null);
-      }});
       segments.push({ label: artist.name, isCurrent: true });
     } else if (currentLevel === 'album' && albumEntry) {
       // Artists mode: [Music] → [Artists] → [Artist Name] → [Album Name]
       // Albums mode: [Music] → [Albums] → [Album Name]
       if (mode === 'artists') {
-        segments.push({ label: modeLabel, action: () => {
-          selectedArtistId.set(null);
-        }});
         segments.push({ label: albumEntry.artist, action: () => {
           selectedAlbumId.set(null);
         }});
       } else {
-        // Albums mode
-        segments.push({ label: modeLabel, action: () => {
+        // Albums mode: back to albums root
+        segments[1] = { label: modeLabel, action: () => {
           selectedAlbumId.set(null);
           selectedArtistId.set(null);
-        }});
+        }};
       }
       segments.push({ label: albumEntry.title, isCurrent: true });
     } else if (currentLevel === 'genre' && genreName) {
       // Genres mode: [Music] → [Genres] → [Genre Name]
-      segments.push({ label: modeLabel, action: () => {
-        selectedGenre.set(null);
-      }});
       segments.push({ label: genreName, isCurrent: true });
     } else if (mode === 'songs') {
       // Songs mode: [Music] → [Songs] (already at root, no action)
@@ -857,10 +848,10 @@
       // Artists root: [Music] → [Artists]
       segments[1] = { label: modeLabel, isCurrent: true };
     } else if (mode === 'albums') {
-      // Albums root: [Albums]
+      // Albums root: [Music] → [Albums]
       segments[1] = { label: modeLabel, isCurrent: true };
     } else if (mode === 'genres') {
-      // Genres root: [Genres]
+      // Genres root: [Music] → [Genres]
       segments[1] = { label: modeLabel, isCurrent: true };
     }
 
