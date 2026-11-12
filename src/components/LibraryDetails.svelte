@@ -13,6 +13,7 @@
   import { isItemWatched, libraryImportLog, toggleItemWatched } from '../stores/library';
   import { addToQueue, type Track } from '../stores/player';
   import { openPlaylistTarget } from '../stores/playlistTarget';
+  import { ensureItemThumbnail, mediaThumbnails } from '../lib/thumbnails';
 
   export let item: MediaItem;
   export let breadcrumb: string[] = [];
@@ -29,6 +30,12 @@
   $: durationLabel = formatDuration(item.durationSeconds);
   $: pathLabel = breadcrumb.join(' / ');
   $: hasSource = Boolean(item.src);
+  // Thumbnail from the same cache the grid cards use (Rust ffmpeg JPEG frames).
+  $: thumbSrc = $mediaThumbnails.get(item.id) ?? item.thumbnailPath ?? '';
+  // Kick off thumbnail generation if not cached yet.
+  onMount(() => {
+    ensureItemThumbnail(item);
+  });
   // `description` is not part of the current MediaItem contract yet; read it
   // defensively so the panel picks it up when the mock or a future import adds it.
   $: description = (item as MediaItem & { description?: string }).description?.trim() ?? '';
@@ -118,7 +125,14 @@
           <div
             class="relative aspect-video w-full overflow-hidden rounded-panel border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)]"
           >
-            {#if hasSource}
+            {#if thumbSrc}
+              <img
+                src={thumbSrc}
+                alt=""
+                class="h-full w-full object-cover"
+                draggable="false"
+              />
+            {:else if hasSource}
               <video
                 bind:this={videoEl}
                 src={item.src}
@@ -129,13 +143,6 @@
                 on:loadedmetadata={seekToPreview}
                 on:mouseenter={() => videoEl?.play?.()}
                 on:mouseleave={() => videoEl?.pause?.()}
-              />
-            {:else if item.thumbnailPath}
-              <img
-                src={item.thumbnailPath}
-                alt=""
-                class="h-full w-full object-cover"
-                draggable="false"
               />
             {:else}
               <div class="flex h-full w-full items-center justify-center" aria-hidden="true">
