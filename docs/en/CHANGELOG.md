@@ -4,6 +4,23 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-11
 
+### Added — Music library store with artist and album grouping
+
+- New `src/stores/musicLibrary.ts`: the first real music data store. It scans the configured `musicLibraryFolders` roots through the same `scan_library_dir` pipeline the video library uses, keeps only audio files (filtered client-side via the new shared `src/lib/audio.ts` with `AUDIO_EXTENSIONS` and `isAudioFile`), and mirrors the video library's lifecycle: the bootstrap awaits `settingsHydrated` (so the asset scope already covers the combined video + music roots), a reactive settings watcher rescans whenever the joined folder list changes, each finished scan replaces only its own root's slice, roots removed from settings are pruned from the store, and `scanOnStartup` is respected.
+- Enrichment runs `readAudioMetadata` per file through a 6-way worker pool in scan order, with the documented fallback chain: title = tag ?? filename stem; artist/albumArtist = tag ?? `Unknown Artist`; album = tag ?? containing-folder basename; year/track/disc/genre = tags ?? null (only positive tag numbers count); durations come from the Rust metadata reader (0 while unknown).
+- Grouping deriveds: `musicArtists` groups tracks by albumArtist falling back to artist, alphabetical with the `Unknown Artist` bucket last, each group carrying album and track counts; parametrized derived factories `albumsForArtist(artistName)` (case-insensitive album keys, year-ascending with unknown years last, then title) and `tracksForAlbum(artistName, albumName)` (disc number → track number → title playback order); `musicGenres` counts tag genres alphabetically with `Unknown Genre` last.
+- Covers: `ensureMusicCover(track)` lazily fills the `musicCovers` map (track id → object URL) — `cover_get` first, `cover_extract` as the extracting fallback — with bytes magic-byte sniffed into JPEG/PNG Blob object URLs, bounded by a 4-way pool with per-session pending/failed sets; `clearMusicCoverCache()` revokes every URL so the cache refills lazily on demand.
+- Playback: `toPlayerTrack(track)` builds a player queue track with the real asset-protocol source, so queued music no longer plays the mock `DEMO_MEDIA_SRC`; `recordMusicListen` records a `type: 'music'` history entry keyed by the absolute file path.
+- Persistence: enriched tracks persist under `vlc.musicLibrary.v1` through `dbPersistence` with paths only (`src` is re-derived after hydration and never persisted); a `changedSinceBoot` guard keeps a late SQLite snapshot from overwriting scan mutations that landed first, so the Music tab shows data before the first scan completes.
+- `src/views/RecentView.svelte`: `historyTypeToRecent` maps music history entries into the Media bucket (replacing the temporary device-bucket mapping), and music rows show their artist as the `source` subtitle.
+- Committed as `2f8fc59`; `bun run check` 0/0; `vite build` success.
+
+### Fixed — Skip zero-byte media files in scan
+
+- `src-tauri/src/library.rs`: `scan_media_dir`, `count_media_files` and the folder direct-children counter now skip files with `size_bytes == 0` — a zero-length file can never play because the webview asset handler answers range requests with 416, so interrupted-copy leftovers no longer surface as playable library cards or inflate folder counts.
+- New test `test_scan_media_dir_skips_zero_byte_files` covers an empty media file, an empty non-media file and folder direct/recursive counters agreeing with the scan.
+- Committed as `01c197d`; `cargo test` 30/30.
+
 ### Added — Rust audio metadata and cover art commands
 
 - New module `src-tauri/src/audio_meta.rs` using the `lofty` crate (0.25): `read_audio_metadata(path)` returns title/artist/albumArtist/album/year/trackNumber/discNumber/genre/durationSeconds/hasCover (serde camelCase), `None` (never a panic) for non-audio extensions, unreadable files, or unparsable containers (e.g. WMA/ASF and Matroska audio are not lofty-parsable); duration comes from container properties, a zero duration maps to `None` so the frontend keeps its own probing.
@@ -379,9 +396,9 @@ Recorded here as one entry — feature plus companion fixes — since the bulk o
 ## Known gaps
 
 - Tauri native integration is now substantive: window capabilities and custom/system decorations exist, `tauri-plugin-dialog` backs the native folder picker, and the ten commands registered through `invoke_handler` cover SQLite persistence (`db_get`/`db_set`), disk scanning (`scan_library_dir`, `default_media_dir` for both `videos` and `music`), the ffmpeg thumbnail pipeline (`thumb_get`/`thumb_generate`), audio metadata and cover art (`read_audio_metadata`, `cover_get`, `cover_extract`) and the runtime asset scope (`scope_assets`). `app.security.csp` is still `null`.
-- Library folder trees for configured roots are scanned from disk on the desktop (seeded with the default Videos folder); music, playlist, recent and network data are mock data, mock items use the bundled `public/demo/sample.mp4`, while imported files/streams — and everything in a browser preview, where scans are unavailable — are session-only.
+- Library folder trees for configured roots are scanned from disk on the desktop (seeded with the default Videos folder), and the music library store (`src/stores/musicLibrary.ts`) scans configured music roots, enriches files with Rust metadata and persists under `vlc.musicLibrary.v1` — but the MusicView browse page still renders mock data until the view-rewire phase lands. Playlist and network browse data remain mock data; recent rows render the real persisted history store (`vlc.history.v1`). Mock items use the bundled `public/demo/sample.mp4`, while imported files/streams — and everything in a browser preview, where scans are unavailable — are session-only.
 - There is no URL router; navigation, settings visibility, the property dock and hidden chrome are in-memory and reset on reload.
 - Settings and view modes persist; the player queue does not.
 - The full next-episode prompt, subtitle timeline, audio output-device selection, video filter previews, saved network streams, editable address bar, details view and library empty-state add actions are planned, not implemented. Picture-in-picture, fullscreen chrome auto-hide, watched filtering and library imports exist in the working tree but are uncommitted.
 - `src-tauri/icons/` still contains default Tauri placeholder icons; Inter is loaded from Google Fonts rather than self-hosted; true two-tone menu glyphs are not rendered.
-- No automated test suite is configured.
+- Rust unit tests run through `cargo test` (30 passing: asset scope, scanner, database, thumbnails, audio metadata); the frontend has no unit, component or end-to-end test suite — type checking runs through `bun run check`.

@@ -117,4 +117,4 @@ The Svelte UI and the Tauri v2 shell are implemented, including ten registered T
 | Tauri v2 shell | Implemented; v2 config, `main.rs`, window capabilities and custom/system decorations |
 | Native plugins, commands, metadata | Implemented (`tauri-plugin-dialog` plus ten registered commands) |
 | Native file dialogs, directory listing, persistent media sources | Implemented: native folder dialog, SQLite-backed persistence and Rust disk scanning; native playback itself is still planned |
-| Tests | Rust unit tests only (`cargo test`, 29 passing: asset scope, scanner, database, thumbnails, audio metadata); no frontend test suite — type checking runs through `bun run check` |
+| Tests | Rust unit tests only (`cargo test`, 30 passing: asset scope, scanner, database, thumbnails, audio metadata); no frontend test suite — type checking runs through `bun run check` |

@@ -1,6 +1,6 @@
 # Redesign Vision
 
-**Status:** target document. This file records the intended direction for the next redesign pass. Items under **Planned** are **not implemented**; do not treat them as current behaviour. Implemented and in-progress items are called out in [Current status](#current-status). Last updated 2026-11-11.
+**Status:** target document. This file records the intended direction for the next redesign pass. Items under **Planned** are **not implemented**; do not treat them as current behaviour. Implemented and in-progress items are called out in [Current status](#current-status). Last updated 2026-11-12.
 
 ## Direction
 
@@ -145,7 +145,7 @@ This section separates what exists in `src/` from the target above.
 | Subtitles | Timeline sync, formatting, presets, per-show default track/language, human-readable matching and a dedicated dock panel. Profiles persist under `vlc.subtitles.v1`. |
 | Audio and video | Audio track plus output-device selection; video filter previews and effect controls in the right dock. |
 | Bookmarks and chapters | A dedicated right-dock tab; bookmarks persist under `vlc.bookmarks.v1`. |
-| Music | Songs / Albums / Artists / Genres browse modes, large cover art, genre detail levels and an optional waveform strip. |
+| Music | Songs / Albums / Artists / Genres browse modes, large cover art, genre detail levels and an optional waveform strip. **Still mock-driven at the view level:** a real music library store (`src/stores/musicLibrary.ts`) now scans the configured music roots, enriches files with Rust audio metadata, groups artists/albums/genres, resolves embedded covers and persists under `vlc.musicLibrary.v1` — but the MusicView browse page has not been rewired to it yet. |
 | Network | Saved streams with add, edit, play and remove flows, persisted under `vlc.network.streams.v1`; the saved list replaces the redundant Custom URL category. |
 | Settings | Sixteen categories including Layout and Profiles, a separate hotkeys window, info tips, human-readable subtitle matching and JSON export/import. |
 | Profiles | Named settings profiles can be saved, applied and deleted. |
@@ -162,6 +162,7 @@ This section separates what exists in `src/` from the target above.
 
 ### Planned — not implemented
 
+- Rewiring the Music browse page to the real `musicLibrary` store: the store ships (scan, metadata enrichment, artist/album/genre grouping, covers, `vlc.musicLibrary.v1` persistence), but `MusicView` still renders `lib/mock.ts` data and queues the demo clip.
 - Metadata and artwork extraction for scanned *video* library content (episode parsing); Rust audio tag/cover-art extraction (`read_audio_metadata`, `cover_get`/`cover_extract`) is implemented, and a browser preview without Tauri cannot scan.
 - Persistent imported media and playlist tracks whose sources are `blob:` URLs; these remain session-only by design.
 - Native Tauri playback, disc playback and OS media-key integration; the browser `<video>` element remains the playback engine.
