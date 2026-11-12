@@ -796,14 +796,10 @@
     if (mode === 'folders') {
       if (currentLevel === 'folder' && rootCard) {
         // Folders: [Music] → [Folders] → [Root] → [Subfolder...]
-        // "Folders" goes to roots
-        segments.push({ label: modeLabel, action: () => {
+        // modeLabel ("Folders") is already in segments[1]; navigate back to roots from the root segment.
+        segments.push({ label: rootCard.displayName, action: () => {
           musicFolderRootPath.set(null);
           musicFolderSegments.set([]);
-        }});
-        // Root display name
-        segments.push({ label: rootCard.displayName, action: () => {
-          musicFolderSegments.set([rootCard.name]);
         }});
         // Chain segments
         for (let i = 0; i < chain.length; i++) {
