@@ -24,6 +24,10 @@
 //! `waveform.rs` and stored as little-endian f32 blobs in the `waveforms`
 //! table, keyed the same way, in yet another separate table so the domains
 //! (video frames, artwork, seekbar peaks) never share a namespace.
+//!
+//! A fifth domain: container durations probed by `duration.rs` (ffmpeg `-i`,
+//! no decode) live in the `durations` table as REAL seconds, keyed the same
+//! way, so library cards do not re-probe a file on every scan.
 
 use rusqlite::{Connection, OptionalExtension, params};
 use std::sync::Mutex;
@@ -33,8 +37,8 @@ use tauri::State;
 /// Connection state shared across command calls.
 pub struct Database(pub(crate) Mutex<Connection>);
 
-/// Create the persistence schema (`kv`, `thumbnails`, `covers`, `waveforms`).
-/// Idempotent.
+/// Create the persistence schema (`kv`, `thumbnails`, `covers`, `waveforms`,
+/// `durations`). Idempotent.
 pub(crate) fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS kv (
@@ -62,6 +66,13 @@ pub(crate) fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
             path       TEXT PRIMARY KEY,
             peaks      BLOB NOT NULL,
             buckets    INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        );",
+    )?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS durations (
+            path       TEXT PRIMARY KEY,
+            seconds    REAL NOT NULL,
             updated_at INTEGER NOT NULL
         );",
     )
