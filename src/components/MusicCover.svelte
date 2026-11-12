@@ -2,6 +2,8 @@
   type CoverSize = 'sm' | 'md' | 'lg' | 'xl' | 'fill';
 
   export let emoji = '💿';
+  /** Real cover image URL (object URL from the music cover cache); the emoji fallback shows when empty. */
+  export let src = '';
   export let size: CoverSize = 'md';
   export let className = '';
 
@@ -26,7 +28,11 @@
   class="relative flex shrink-0 items-center justify-center overflow-hidden border border-vlc-border bg-gradient-to-br from-vlc-raised via-vlc-card to-vlc-panel {sizeClasses[size]} {radiusClasses[size]} {className}"
   aria-hidden="true"
 >
-  <span class="absolute inset-0 bg-vlc-accent opacity-[0.10]"></span>
-  <span class="absolute -right-5 -top-5 h-16 w-16 rounded-full bg-vlc-orange/10 blur-xl"></span>
-  <span class="relative select-none leading-none drop-shadow-sm">{emoji}</span>
+  {#if src}
+    <img {src} alt="" class="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable="false" />
+  {:else}
+    <span class="absolute inset-0 bg-vlc-accent opacity-[0.10]"></span>
+    <span class="absolute -right-5 -top-5 h-16 w-16 rounded-full bg-vlc-orange/10 blur-xl"></span>
+    <span class="relative select-none leading-none drop-shadow-sm">{emoji}</span>
+  {/if}
 </div>

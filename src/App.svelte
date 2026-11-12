@@ -37,15 +37,22 @@
   import type { MediaItem } from './lib/mock';
   import {
     currentFolders,
+    isUnderRoot,
     libraryImportLog,
     libraryItems,
     openLibraryFolder,
     rescanLibraryRoot,
     searchQuery,
   } from './stores/library';
+  import {
+    musicTracks,
+    rescanMusicRoot,
+    toPlayerTrack,
+    type MusicTrack,
+  } from './stores/musicLibrary';
   import { completeOnboarding, onboarding } from './stores/onboarding';
   import { openPlaylistTarget } from './stores/playlistTarget';
-  import { removeLibraryFolder, settings } from './stores/settings';
+  import { removeLibraryFolder, removeMusicLibraryFolder, settings } from './stores/settings';
   import { bookmarks, removeBookmark } from './stores/bookmarks';
   import { history, removeHistory } from './stores/history';
   import { watchEntries } from './stores/watch';
@@ -197,6 +204,31 @@
     return get(libraryItems).find((item) => item.id === id) ?? null;
   }
 
+  /** True when the id (a file path) belongs to the music library. */
+  function contextMusicTrack(): MusicTrack | null {
+    const id = get(contextItemId);
+    if (!id) return null;
+    return get(musicTracks).find((track) => track.id === id) ?? null;
+  }
+
+  /**
+   * Queue-ready track for the right-clicked item: music tracks resolve from
+   * the music library (real tagged metadata + cover-backed src), everything
+   * else from the video library items.
+   */
+  function contextMenuTrack(): Track | null {
+    const musicTrack = contextMusicTrack();
+    if (musicTrack) return toPlayerTrack(musicTrack);
+    const item = contextMediaItem();
+    return item ? trackFromMediaItem(item) : null;
+  }
+
+  /** Configured music root containing `path` (the root itself or a subfolder). */
+  function musicRootFor(path: string): string | null {
+    const root = get(settings).musicLibraryFolders.find((candidate) => isUnderRoot(path, candidate));
+    return root ?? null;
+  }
+
   /** Queue-ready track for a stored entry (watch later, history or watch). */
   function trackFromEntry(entry: {
     mediaKey: string;
@@ -298,7 +330,23 @@
         break;
       // ---- Folder context menu (contextItemId = folder path) ----
       case 'folder-open': {
-        const folder = get(currentFolders).find((candidate) => candidate.path === get(contextItemId));
+        const folderPath = get(contextItemId);
+        if (!folderPath) break;
+
+        // Music roots and their subfolders open in the Music tab's Folders
+        // level. MusicView is only mounted after navigation, so the path is
+        // handed over through a window event (same idiom as `vlc-open-media`).
+        if (musicRootFor(folderPath)) {
+          navigate('music');
+          void tick().then(() => {
+            window.dispatchEvent(
+              new CustomEvent<string>('vlc-open-music-folder', { detail: folderPath }),
+            );
+          });
+          break;
+        }
+
+        const folder = get(currentFolders).find((candidate) => candidate.path === folderPath);
         if (!folder) break;
         searchQuery.set('');
         openLibraryFolder({ name: folder.name, path: folder.path });
@@ -307,7 +355,10 @@
       case 'folder-rescan': {
         const folderPath = get(contextItemId);
         if (!folderPath) break;
-        rescanLibraryRoot(folderPath);
+        // A music root rescans only its own slice of the music library; video
+        // roots keep flowing through the video library rescan.
+        if (musicRootFor(folderPath)) rescanMusicRoot(folderPath);
+        else rescanLibraryRoot(folderPath);
         break;
       }
       case 'folder-copy-path': {
@@ -321,6 +372,13 @@
         const folderPath = get(contextItemId);
         if (!folderPath) break;
         const pathKey = (value: string): string => value.replace(/[\\/]+$/, '').toLowerCase();
+        const musicIndex = get(settings).musicLibraryFolders.findIndex(
+          (configured) => pathKey(configured) === pathKey(folderPath),
+        );
+        if (musicIndex >= 0) {
+          removeMusicLibraryFolder(musicIndex);
+          break;
+        }
         const rootIndex = get(settings).libraryFolders.findIndex(
           (configured) => pathKey(configured) === pathKey(folderPath),
         );
@@ -329,22 +387,22 @@
       }
       // ---- Media context menu (contextItemId = library item id) ----
       case 'media-play': {
-        const item = contextMediaItem();
-        if (!item || !item.src) break;
-        setQueue([trackFromMediaItem(item)], 0);
+        const track = contextMenuTrack();
+        if (!track || !track.src) break;
+        setQueue([track], 0);
         navigate('home');
         break;
       }
       case 'media-add-to-queue': {
-        const item = contextMediaItem();
-        if (!item || !item.src) break;
-        addToQueue(trackFromMediaItem(item));
+        const track = contextMenuTrack();
+        if (!track || !track.src) break;
+        addToQueue(track);
         break;
       }
       case 'media-add-to-playlist': {
-        const item = contextMediaItem();
-        if (!item || !item.src) break;
-        openPlaylistTarget(trackFromMediaItem(item), null);
+        const track = contextMenuTrack();
+        if (!track || !track.src) break;
+        openPlaylistTarget(track, null);
         break;
       }
       case 'media-toggle-watch-later': {

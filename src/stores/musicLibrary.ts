@@ -346,6 +346,17 @@ settings.subscribe((newSettings) => {
   }
 });
 
+/**
+ * Rescan a single configured music root on demand (folder context menu).
+ * Explicit rescans ignore the scanOnStartup preference because the user asked
+ * for them; the call is a no-op outside the desktop shell. Mirrors the video
+ * library's `rescanLibraryRoot` and replaces only that root's slice.
+ */
+export function rescanMusicRoot(rootPath: string): void {
+  if (!hasTauri()) return;
+  scanSingleMusicRoot(rootPath, get(settings).includeHiddenFiles);
+}
+
 /* ---------- Grouping ---------- */
 
 export interface MusicArtistGroup {
@@ -430,7 +441,7 @@ export function albumsForArtist(artistName: string): Readable<MusicAlbumGroup[]>
 }
 
 /** Album playback order: discNumber → trackNumber → title. */
-function compareAlbumOrder(a: MusicTrack, b: MusicTrack): number {
+export function compareAlbumOrder(a: MusicTrack, b: MusicTrack): number {
   const discA = a.discNumber ?? 1;
   const discB = b.discNumber ?? 1;
   if (discA !== discB) return discA - discB;

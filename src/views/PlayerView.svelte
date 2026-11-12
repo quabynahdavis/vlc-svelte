@@ -19,6 +19,7 @@
   import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
   import { markWatched, removeWatch, watchEntries, upsertWatch, type WatchEntry } from '../stores/watch';
+  import { musicTracks, recordMusicListen } from '../stores/musicLibrary';
 
   const dispatch = createEventDispatcher<{ settings: void; advancedSettings: string }>();
 
@@ -175,9 +176,25 @@
     el.muted = muted;
   }
 
+  /**
+   * Record a listen in the shared history when the media that just loaded is a
+   * music-library track (track id === file path === history mediaKey). This
+   * fires once per track start — a new `src` load — never on seek or resume,
+   * and `recordMusicListen` upserts by mediaKey so double calls never create
+   * duplicate history entries.
+   */
+  function recordMusicListenForCurrentTrack(): void {
+    const track = get(currentTrack);
+    if (!track) return;
+    const musicTrack = get(musicTracks).find((candidate) => candidate.id === track.id);
+    if (musicTrack) recordMusicListen(musicTrack);
+  }
+
   function handleLoadedMetadata(): void {
     const el = videoEl;
     if (!el) return;
+
+    recordMusicListenForCurrentTrack();
 
     const mediaDuration =
       Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0;

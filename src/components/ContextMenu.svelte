@@ -32,6 +32,7 @@
   import { currentContext, contextItemId } from '../stores/ui';
   import { settings } from '../stores/settings';
   import { watchLater } from '../stores/watchLater';
+  import { musicTracks } from '../stores/musicLibrary';
 
   export let x = 0;
   export let y = 0;
@@ -225,13 +226,28 @@
 
   /**
    * True when the right-clicked folder is one of the configured library roots
-   * (Settings > Library). Only configured roots can be rescanned or removed;
-   * subfolders and import-derived groups get the shorter menu.
+   * (Settings > Library) or music roots (Settings > Music Library). Only
+   * configured roots can be rescanned or removed; subfolders and
+   * import-derived groups get the shorter menu.
    */
   $: contextFolderIsRoot = (() => {
     const id = $contextItemId;
     if (!id) return false;
-    return $settings.libraryFolders.some((folder) => pathKey(folder) === pathKey(id));
+    const isVideoRoot = $settings.libraryFolders.some((folder) => pathKey(folder) === pathKey(id));
+    const isMusicRoot = $settings.musicLibraryFolders.some(
+      (folder) => pathKey(folder) === pathKey(id),
+    );
+    return isVideoRoot || isMusicRoot;
+  })();
+
+  /**
+   * True when the right-clicked media item is a music-library track. Music has
+   * no Watch Later list (playlists fill that role), so the toggle is hidden.
+   */
+  $: contextMediaIsMusic = (() => {
+    const id = $contextItemId;
+    if (!id) return false;
+    return $musicTracks.some((track) => track.id === id);
   })();
 
   /** Watch-later membership of the right-clicked media item (drives the toggle label). */
@@ -276,15 +292,18 @@
         { type: 'divider' },
         { id: 'media-add-to-queue', label: 'Add to Queue', icon: ListMusic, tone: 'neutral' },
         { id: 'media-add-to-playlist', label: 'Add to Playlist', icon: ListPlus, tone: 'neutral' },
-        {
+      ];
+      // Watch Later is a video-only collection; music tracks use playlists.
+      if (!contextMediaIsMusic) {
+        items.push({
           id: 'media-toggle-watch-later',
           label: contextMediaInWatchLater ? 'Remove from Watch Later' : 'Add to Watch Later',
           icon: Clock,
           tone: 'neutral',
-        },
-        { type: 'divider' },
-        { id: 'media-show-info', label: 'Show Info', icon: Info, tone: 'neutral' },
-      ];
+        });
+      }
+      items.push({ type: 'divider' });
+      items.push({ id: 'media-show-info', label: 'Show Info', icon: Info, tone: 'neutral' });
       return items;
     }
 
