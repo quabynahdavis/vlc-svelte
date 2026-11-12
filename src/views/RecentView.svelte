@@ -31,8 +31,8 @@
 
   function historyTypeToRecent(type: string): RecentItemType {
     if (type === 'stream') return 'network';
-    if (type === 'music') return 'device'; // map music to devices tab bucket? keep compatible
-    return 'media';
+    return 'media'; // music and video entries both live in the Media tab;
+    // music rows show their artist as the `source` subtitle.
   }
 
   const recentTabs: { id: RecentTab; label: string }[] = [
