@@ -19,7 +19,7 @@
   $: hasProgress = progress > 0;
   $: progressPercent = `${progress * 100}%`;
   $: durationLabel =
-    item.durationSeconds > 0 ? formatDuration(item.durationSeconds) : '';
+    item.durationSeconds > 0 ? formatDuration(item.durationSeconds) : '—:—';
 
   // Frame thumbnail: session cache first, then a persisted path if any. The
   // capture itself is queued on mount so empty cards fill in as frames land.
@@ -107,13 +107,11 @@
         </div>
       {/if}
 
-      {#if durationLabel}
-        <span
-          class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] tabular-nums text-vlc-secondary"
-        >
-          {durationLabel}
-        </span>
-      {/if}
+      <span
+        class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] tabular-nums text-vlc-secondary"
+      >
+        {durationLabel}
+      </span>
 
       {#if hasProgress}
         <div class="absolute inset-x-0 bottom-0 h-[2px] bg-black/40" aria-hidden="true">
