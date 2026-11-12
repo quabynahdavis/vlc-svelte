@@ -1,10 +1,10 @@
 # Architecture Overview
 
-**Status:** UI shell, six browse views, player, right dock, settings and local persistence are implemented. Tauri v2 configuration and window capabilities are in place; native media commands, plugins and metadata access are planned. Last updated 2026-10-29.
+**Status:** UI shell, six browse views, player, right dock, settings and local persistence are implemented. Tauri v2 configuration, window capabilities and the native backend (SQLite persistence, disk scanning, ffmpeg thumbnails, audio metadata/cover art, dialog plugin, runtime asset scope) are in place. Last updated 2026-11-12.
 
 ## Purpose
 
-Kanea is a community redesign that rebuilds the VLC desktop player UI as a web-technology desktop application. Svelte renders the interface inside a Tauri window; Rust supplies the native shell and, later, local file-system and media metadata access. The application plays a bundled demo clip for mock items, can import local files/folders and stream URLs for the current session, and browses mock library data; persistent media integration is still in progress.
+Kanea is a community redesign that rebuilds the VLC desktop player UI as a web-technology desktop application. Svelte renders the interface inside a Tauri window; Rust supplies the native shell, SQLite persistence, disk scanning, thumbnails and audio metadata/cover-art access. The application plays a bundled demo clip for mock items, can import local files/folders and stream URLs for the current session, and browses mock library data; persistent media integration is still in progress.
 
 ## Tech stack
 
@@ -12,7 +12,7 @@ Versions are taken from `package.json` and `src-tauri/Cargo.toml`.
 
 | Layer | Technology | Version | Role | Status |
 | --- | --- | --- | --- | --- |
-| Desktop shell | Tauri | Rust `tauri = "2"`, JS API/CLI `^2.0.0` | Native window, bundling, future OS integration | Implemented — v2 config, webview API and window capabilities; plugins/commands planned |
+| Desktop shell | Tauri | Rust `tauri = "2"`, JS API/CLI `^2.0.0` | Native window, bundling, future OS integration | Implemented — v2 config, webview API, window capabilities and ten registered commands (`tauri-plugin-dialog`) |
 | UI framework | Svelte | `^4.2.19` | Components and reactivity | Implemented |
 | Language | TypeScript | `^5.7.2` | Typed frontend code | Implemented |
 | Build tool / dev server | Vite | `^5.4.11` | Dev server on port 5173, production bundle | Implemented |
@@ -83,24 +83,25 @@ Build output, not source: `src-tauri/gen/dist/` (Vite output, gitignored) and `s
 │ │      Recent / Network views                │ │
 │ │  stores/, lib/, components/                │ │
 │ └──────────────────┬─────────────────────────┘ │
-│                    │ invoke() — planned        │
+│                    │ invoke()                  │
 │ ┌──────────────────▼─────────────────────────┐ │
-│ │ Rust commands — planned                    │ │
-│ │  dialog · directory listing · metadata     │ │
+│ │ Rust commands — registered                 │ │
+│ │  db · scanner · thumbnails · audio meta    │ │
+│ │  cover art · asset scope · dialog plugin   │ │
 │ └──────────────────┬─────────────────────────┘ │
 │                    │                           │
 │         OS file system / dialogs               │
 └────────────────────────────────────────────────┘
 ```
 
-The Svelte UI and the Tauri v2 shell are implemented. No Tauri commands are registered; window actions use the JavaScript window API directly, backed by `src-tauri/capabilities/default.json`.
+The Svelte UI and the Tauri v2 shell are implemented, including ten registered Tauri commands: `db_get`/`db_set` (SQLite), `scan_library_dir`/`default_media_dir` (disk scanning), `thumb_get`/`thumb_generate` (ffmpeg frames), `read_audio_metadata`/`cover_get`/`cover_extract` (lofty metadata/artwork) and `scope_assets` (runtime asset scope). Window actions also use the JavaScript window API directly, backed by `src-tauri/capabilities/default.json`.
 
 ## Design goals
 
 1. **Reference-faithful desktop player.** Reproduce the player chrome, transport strip, context menu, subtitle settings, settings modal and effect panels shown in the design exports.
 2. **Dual-theme, token-driven UI.** Dark and warm-neutral light palettes share one semantic token set (`src/app.css`); the accent is user-configurable and applied at runtime. Tokens and rules live in [../design/01-design-system.md](../design/01-design-system.md).
 3. **Custom controls over native video.** Replace the browser's native controls with the designed transport while keeping playback accessible and keyboard-operable.
-4. **Local media via Tauri.** Open files/folders and read media metadata through Rust commands (planned; none exist yet).
+4. **Local media via Tauri.** Open files/folders through the native dialog and read them through registered Rust commands: disk scanning, SQLite persistence, ffmpeg thumbnails and lofty metadata/cover art (implemented; see [03-tauri-backend.md](03-tauri-backend.md)).
 5. **Componentized, typed UI.** Compose the shell and screens from small Svelte components and typed stores (implemented; see [02-frontend.md](02-frontend.md)).
 6. **Accessible and keyboard-friendly.** Icon buttons have labels and focus states; the player has keyboard shortcuts; complete shortcut coverage and ARIA patterns remain in progress.
 
@@ -114,6 +115,6 @@ The Svelte UI and the Tauri v2 shell are implemented. No Tauri commands are regi
 | Music, Playlists, Recent, Network | Implemented browse screens with sorting and/or view modes; data is mock; network and recent selections are inert |
 | Settings | Sixteen categories implemented, including Layout and Profiles; persistence, reset and JSON import/export |
 | Tauri v2 shell | Implemented; v2 config, `main.rs`, window capabilities and custom/system decorations |
-| Native plugins, commands, metadata | Planned |
-| Native file dialogs, directory listing, persistent media sources | Planned; the library uses HTML file/folder pickers and session-only imports, with no native Tauri dialog or metadata command |
-| Tests | Not set up |
+| Native plugins, commands, metadata | Implemented (`tauri-plugin-dialog` plus ten registered commands) |
+| Native file dialogs, directory listing, persistent media sources | Implemented: native folder dialog, SQLite-backed persistence and Rust disk scanning; native playback itself is still planned |
+| Tests | Rust unit tests only (`cargo test`, 29 passing: asset scope, scanner, database, thumbnails, audio metadata); no frontend test suite — type checking runs through `bun run check` |

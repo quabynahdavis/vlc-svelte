@@ -4,6 +4,16 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-11
 
+### Added — Rust audio metadata and cover art commands
+
+- New module `src-tauri/src/audio_meta.rs` using the `lofty` crate (0.25): `read_audio_metadata(path)` returns title/artist/albumArtist/album/year/trackNumber/discNumber/genre/durationSeconds/hasCover (serde camelCase), `None` (never a panic) for non-audio extensions, unreadable files, or unparsable containers (e.g. WMA/ASF and Matroska audio are not lofty-parsable); duration comes from container properties, a zero duration maps to `None` so the frontend keeps its own probing.
+- `cover_get(path)` / `cover_extract(path)` mirror `thumb_get`/`thumb_generate`: extract embedded artwork (largest picture wins via `best_picture`), persist as a blob in a new `covers` SQLite table (path-keyed primary key, separate from `thumbnails` so video frames and artwork never share a key namespace), single IPC roundtrip on extract.
+- Year parsing reality documented: on ID3v2 the `Year` item is silently dropped — TDRC/`RecordingDate` is the frame real MP3/AAC files carry (bare years and full dates both parse, relaxed Timestamp keeps only present components); `Year` text persists on Vorbis/APE. `year_of` reads Year text, then RecordingDate text (split on `-`), then the parsed timestamp; year 0 → None.
+- `src-tauri/src/library.rs`: `MEDIA_EXTENSIONS` split into `VIDEO_EXTENSIONS` + shared `AUDIO_EXTENSIONS` with `is_audio_path`; `default_media_dir_fn` now supports `kind == "music"` (XDG MUSIC → `~/Music`) via a new `xdg_user_dir` helper that only accepts an `xdg-user-dir` answer that is a directory under the current HOME and not the bare HOME (stale/foreign configs fall through to the HOME fallback).
+- `src/lib/audioMeta.ts`: typed TS wrappers `readAudioMetadata` / `coverGet` / `coverExtract`; cover bytes follow the established `thumb_get` pattern (`number[] | Uint8Array`, null on failure).
+- Rust test suite grew 19 → 29 (metadata serde camelCase roundtrip, largest-picture selection, year parsing, unreadable-file degradation, cover table roundtrip/overwrite, extension gating, music default dir with a fake HOME).
+- Committed as `883d41b`; `cargo test` 29/29; `bun run check` 0 errors / 0 warnings; `vite build` success.
+
 ### Added — Music folders setting with scoped asset allowlist
 
 - `src/stores/settings.ts`: new `musicLibraryFolders: string[]` setting (default `[]`) persisted under the unchanged `vlc.settings.v1` blob; exported `scopedLibraryFolders()` returning the deduped union of video + music roots; scope-sync tracker renamed to `lastSyncedScopedFolders` and compares the combined array (edits to either list trigger exactly one re-sync); hydration-order guarantee intact (`settingsHydrated` resolves after the tracker is seeded and `scopeSyncAfterHydration` started); new `addMusicLibraryFolder` / `removeMusicLibraryFolder(index)` / `moveMusicLibraryFolder(from, to)` mirroring the video-folder helpers.
@@ -368,7 +378,7 @@ Recorded here as one entry — feature plus companion fixes — since the bulk o
 
 ## Known gaps
 
-- Tauri native integration is partial: window capabilities and custom/system decorations exist, and the library commands (`scan_library_dir`, `default_media_dir`) registered through `invoke_handler` are the first native bridge, but there are no plugin crates, native file dialogs or media-metadata commands, and `app.security.csp` is `null`.
+- Tauri native integration is now substantive: window capabilities and custom/system decorations exist, `tauri-plugin-dialog` backs the native folder picker, and the ten commands registered through `invoke_handler` cover SQLite persistence (`db_get`/`db_set`), disk scanning (`scan_library_dir`, `default_media_dir` for both `videos` and `music`), the ffmpeg thumbnail pipeline (`thumb_get`/`thumb_generate`), audio metadata and cover art (`read_audio_metadata`, `cover_get`, `cover_extract`) and the runtime asset scope (`scope_assets`). `app.security.csp` is still `null`.
 - Library folder trees for configured roots are scanned from disk on the desktop (seeded with the default Videos folder); music, playlist, recent and network data are mock data, mock items use the bundled `public/demo/sample.mp4`, while imported files/streams — and everything in a browser preview, where scans are unavailable — are session-only.
 - There is no URL router; navigation, settings visibility, the property dock and hidden chrome are in-memory and reset on reload.
 - Settings and view modes persist; the player queue does not.

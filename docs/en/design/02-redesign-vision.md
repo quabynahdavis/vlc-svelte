@@ -162,7 +162,7 @@ This section separates what exists in `src/` from the target above.
 
 ### Planned — not implemented
 
-- Media-library metadata and artwork extraction (episode parsing, cover art) on top of the shipped folder-tree disk scan; library content outside configured roots remains mock data, and a browser preview without Tauri cannot scan.
+- Metadata and artwork extraction for scanned *video* library content (episode parsing); Rust audio tag/cover-art extraction (`read_audio_metadata`, `cover_get`/`cover_extract`) is implemented, and a browser preview without Tauri cannot scan.
 - Persistent imported media and playlist tracks whose sources are `blob:` URLs; these remain session-only by design.
 - Native Tauri playback, disc playback and OS media-key integration; the browser `<video>` element remains the playback engine.
 - Full keyboard remapping beyond the hotkeys window, and per-profile hotkey sets.

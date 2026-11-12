@@ -103,7 +103,7 @@ The canonical documentation is written in English under [`docs/en/`](en/OVERVIEW
 | [en/OVERVIEW.md](en/OVERVIEW.md) | Project summary, documentation index and conventions. |
 | [en/architecture/01-overview.md](en/architecture/01-overview.md) | Tech stack, repository layout, architecture and design goals. |
 | [en/architecture/02-frontend.md](en/architecture/02-frontend.md) | Svelte app structure, components, stores, views, persistence keys and styling conventions. |
-| [en/architecture/03-tauri-backend.md](en/architecture/03-tauri-backend.md) | Tauri v2 configuration, Rust entry point, capabilities and planned commands. |
+| [en/architecture/03-tauri-backend.md](en/architecture/03-tauri-backend.md) | Tauri v2 configuration, Rust entry point, registered commands, persistence schema and security model. |
 | [en/design/01-design-system.md](en/design/01-design-system.md) | Canonical colour, typography, radius and component tokens for both themes. |
 | [en/design/02-redesign-vision.md](en/design/02-redesign-vision.md) | Target direction, with implemented, in-progress and planned items separated. |
 | [en/guides/01-setup.md](en/guides/01-setup.md) | Prerequisites, installation, development, build and troubleshooting. |
@@ -116,8 +116,8 @@ The canonical documentation is written in English under [`docs/en/`](en/OVERVIEW
 
 | Label | Meaning |
 | --- | --- |
-| ✅ **Implemented** | Shell, player, six browse views, right dock, sixteen settings categories, themes, persistence, drag-to-queue and add-to-playlist, the next-episode countdown prompt, an editable library address bar with a details view, saved-items tabs (bookmarks, watch later, history) with per-tab search, sorting and grid/list views, repeat/shuffle controls in the queue, and a Videos folder tree backed by Tauri disk scanning (the default Videos folder is seeded on the first desktop run). |
-| 🗓️ **Planned** | Library metadata and artwork extraction, native playback, OS media keys and persistent `blob:` imports. |
+| ✅ **Implemented** | Shell, player, six browse views, right dock, sixteen settings categories, themes, persistence, drag-to-queue and add-to-playlist, the next-episode countdown prompt, an editable library address bar with a details view, saved-items tabs (bookmarks, watch later, history) with per-tab search, sorting and grid/list views, repeat/shuffle controls in the queue, a Videos folder tree backed by Tauri disk scanning (the default Videos folder is seeded on the first desktop run), and Rust audio metadata/cover-art extraction via the `lofty`-backed `read_audio_metadata`/`cover_get`/`cover_extract` commands. |
+| 🗓️ **Planned** | Native playback, OS media keys and persistent `blob:` imports. |
 
 Library folders are read from disk on desktop; in a browser preview without Tauri, scans are unavailable, imports still drive the tree and the default Videos folder is not seeded. Music, playlist and network data remain mock data. Imported media and playlist tracks with `blob:` sources are session-only; pins, saved streams, subtitle profiles, bookmarks, layout and onboarding persist across reloads.
 

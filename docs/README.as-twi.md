@@ -103,7 +103,7 @@ Nkyerɛw a ɛyɛ nokware no wɔ Borɔfo kasa mu wɔ [`docs/en/`](en/OVERVIEW.md)
 | [en/OVERVIEW.md](en/OVERVIEW.md) | Project no ho nsɛm, nkyerɛw index ne nhyehyɛeɛ. |
 | [en/architecture/01-overview.md](en/architecture/01-overview.md) | Tech stack, repository layout, architecture ne design goals. |
 | [en/architecture/02-frontend.md](en/architecture/02-frontend.md) | Svelte app structure, components, stores, views, persistence keys ne styling nhyehyɛeɛ. |
-| [en/architecture/03-tauri-backend.md](en/architecture/03-tauri-backend.md) | Tauri v2 configuration, Rust entry point, capabilities ne commands a wɔayɛ nhyehyɛeɛ. |
+| [en/architecture/03-tauri-backend.md](en/architecture/03-tauri-backend.md) | Tauri v2 configuration, Rust entry point, capabilities ne commands a wɔakyerɛwto hɔ. |
 | [en/design/01-design-system.md](en/design/01-design-system.md) | Colour, typography, radius ne component tokens ma theme mmienu no. |
 | [en/design/02-redesign-vision.md](en/design/02-redesign-vision.md) | Target direction, a implemented, in-progress ne planned items wɔ mu. |
 | [en/guides/01-setup.md](en/guides/01-setup.md) | Prerequisites, installation, development, build ne troubleshooting. |
@@ -116,8 +116,8 @@ Nkyerɛw a ɛyɛ nokware no wɔ Borɔfo kasa mu wɔ [`docs/en/`](en/OVERVIEW.md)
 
 | Label | Nkyerɛaseɛ |
 | --- | --- |
-| ✅ **Implemented** | Shell, player, browse views 6, right dock, settings categories 16, themes, persistence, drag-to-queue ne add-to-playlist, next-episode prompt, library address bar a wobetumi asesa ne details view, saved-items tabs (bookmarks, watch later, history) a ɛwɔ per-tab search, sorting ne grid/list views, repeat/shuffle controls wɔ queue mu, ne Videos folder tree a ɛde Tauri disk scanning kenkan nea ɛwɔ disk so (default Videos folder no wɔsii hɔ bere a ɛdi kan a wɔde desktop no di dwuma). |
-| 🗓️ **Planned** | Metadata ne artwork extraction ma scanned files, native playback, OS media keys ne `blob:` imports a ɛkɔ so. |
+| ✅ **Implemented** | Shell, player, browse views 6, right dock, settings categories 16, themes, persistence, drag-to-queue ne add-to-playlist, next-episode prompt, library address bar a wobetumi asesa ne details view, saved-items tabs (bookmarks, watch later, history) a ɛwɔ per-tab search, sorting ne grid/list views, repeat/shuffle controls wɔ queue mu, ne Videos folder tree a ɛde Tauri disk scanning kenkan nea ɛwɔ disk so (default Videos folder no wɔsii hɔ bere a ɛdi kan a wɔde desktop no di dwuma), ne Rust audio metadata/cover-art extraction a ɛde `lofty`-backed `read_audio_metadata`/`cover_get`/`cover_extract` commands di dwuma. |
+| 🗓️ **Planned** | Native playback, OS media keys ne `blob:` imports a ɛkɔ so. |
 
 Desktop so no, library folders no firi disk scan mu ba; browser preview a Tauri nni mu no, scans ntumi nyɛ adwuma, imports na ɛde folder tree no di dwuma, na default Videos folder nna hɔ. Music, playlist ne network data da so yɛ mock data. Imported media ne playlist tracks a wɔde `blob:` sources no wɔ session mu nkutoo; pins, saved streams, subtitle profiles, bookmarks, layout ne onboarding na ɛkɔ so wɔ reload akyi.
 

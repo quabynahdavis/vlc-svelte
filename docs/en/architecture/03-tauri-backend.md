@@ -1,6 +1,6 @@
 # Tauri Backend
 
-**Status:** the Tauri **v2 migration is complete** for the configuration schema and the Rust webview API (commit `9d6fa1a`). Window capabilities and custom/system decorations are implemented; plugin crates, native commands and a Content Security Policy are still **planned**. Last updated 2026-10-29.
+**Status:** the Tauri **v2 backend is implemented**: the SQLite persistence layer, the disk scanner, the ffmpeg thumbnail pipeline and the audio metadata/cover-art pipeline are all live, with ten commands registered through `.invoke_handler(...)` and `tauri-plugin-dialog` as the single plugin crate. The Content Security Policy is still **planned**. Last updated 2026-11-12.
 
 ## `Cargo.toml`
 
@@ -11,7 +11,14 @@ version = "1.0.0"
 edition = "2021"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-dialog = "2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+walkdir = "2"
+dirs = "5"
+lofty = "0.25"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -20,10 +27,13 @@ tauri-build = { version = "2", features = [] }
 | Item | Notes |
 | --- | --- |
 | Package | `kanea`, version `1.0.0`, Rust edition 2021 |
-| `tauri` | Version 2, no feature flags. The v1 allowlist features (`dialog-all`, `fs-all`, `shell-all`) have been removed; v2 uses plugin crates instead. |
-| `tauri-build` | Version 2, invoked by `build.rs` |
-| Source layout | Desktop-only: only `src/main.rs` exists; there is no `lib.rs` or mobile entry point |
-| Plugins | None declared. `tauri-plugin-dialog`, `tauri-plugin-fs` and `tauri-plugin-shell` are not installed. |
+| `tauri` | Version 2 with the `protocol-asset` feature (the `asset://` protocol the library streams media through). The v1 allowlist features (`dialog-all`, `fs-all`, `shell-all`) are gone; v2 uses plugin crates instead. |
+| `tauri-plugin-dialog` | The only plugin crate. Backs the native folder picker used by "Add folder…" (`dialog:default` capability). |
+| `rusqlite` | Version 0.32, `bundled` feature; powers the persistence layer |
+| `walkdir` | Recursive media scanning for `scan_library_dir` |
+| `dirs` | `HOME`-anchored default media directory resolution |
+| `lofty` | Version 0.25; audio tag and embedded artwork parsing for the metadata/cover-art commands |
+| Source layout | Desktop-only: `src/main.rs` plus the modules `asset_scope`, `audio_meta`, `db`, `library` and `thumb`; there is no `lib.rs` or mobile entry point |
 
 ## `tauri.conf.json` (v2)
 
@@ -41,6 +51,7 @@ The file uses the v2 schema. Current keys:
 | `build.frontendDist` | `gen/dist` | Resolved relative to `src-tauri/`, i.e. `src-tauri/gen/dist/` |
 | `app.windows[0]` | title `Kanea`, 1200 × 800, resizable, not fullscreen, `decorations: false` | Main window with the in-app title bar |
 | `app.security.csp` | `null` | No CSP; tighten before release |
+| `app.security.assetProtocol` | `enable: true`, `scope.allow: []`, `requireLiteralLeadingDot: false` | The `asset://` protocol is enabled but the shipped allow list is **empty**; the real scope is managed at runtime (see [Permissions and security](#permissions-and-security)) |
 | `bundle.active` | `true` | Bundling enabled |
 | `bundle.targets` | `all` | All platform targets |
 | `bundle.icon` | 5 icon paths | See [Icons](#icons) |
@@ -52,13 +63,54 @@ There is no `allowlist` block and no `package` / `tauri` wrapper: those were v1-
 Current flow:
 
 1. `tauri::Builder::default()`
-2. `.setup(|app| { ... })`:
-   - in **debug** builds, imports `tauri::Manager`, resolves `app.get_webview_window("main")` (v2 API) and calls `window.open_devtools()`;
-   - in **release** builds, binds `app` to `_` and does nothing.
-3. `.run(tauri::generate_context!())`
-4. `.expect("error while running tauri application")`
+2. `.plugin(tauri_plugin_dialog::init())` — registers the dialog plugin
+3. `.setup(|app| { ... })`:
+   - in **debug** builds, resolves `app.get_webview_window("main")` (v2 API) and calls `window.open_devtools()`;
+   - opens the SQLite database once via `db::open_database(app.handle())` and `app.manage(...)`s it, so every command call shares one connection;
+   - manages the empty `AssetScopeRoots` state (`std::sync::Mutex<Vec<PathBuf>>`) that backs the runtime asset-protocol scope;
+4. `.invoke_handler(tauri::generate_handler![...])` — registers the ten commands listed below
+5. `.run(tauri::generate_context!())`
+6. `.expect("error while running tauri application")`
 
-No commands are registered (`.invoke_handler(...)` is absent) and no plugins are registered (`.plugin(...)` is absent). `src-tauri/capabilities/default.json` exists, but it grants only core window permissions for the custom title bar. `build.rs` contains only `fn main() { tauri_build::build() }`.
+`build.rs` contains only `fn main() { tauri_build::build() }`.
+
+## Registered Tauri commands
+
+All ten commands are wired in `main.rs`'s `generate_handler!` and each has a typed TypeScript wrapper in `src/lib/` (`tauriFs.ts`, `dbPersistence.ts`, `thumbnails.ts`, `audioMeta.ts`).
+
+| Command | Module | Signature (Rust side) | Purpose |
+| --- | --- | --- | --- |
+| `scope_assets` | `asset_scope.rs` | `(app, state: State<AssetScopeRoots>, roots: Vec<String>) -> Result<(), String>` | Runtime asset-protocol allowlist: diffs old vs new normalized roots case-insensitively, then `forbid_directory` (recursive) for removed and `allow_directory` (recursive) for added roots; replaces the managed state. Empty `roots` allows nothing. Best-effort per entry; collected errors are returned as one string. |
+| `scan_library_dir` | `library.rs` | `(root: String, max_depth: Option<u32>, include_hidden: Option<bool>) -> Result<ScanResult, String>` | Recursive media scan (`walkdir`, depth defaults to 4, hidden subtrees pruned unless `includeHidden`), filtered to `VIDEO_EXTENSIONS` + `AUDIO_EXTENSIONS`; symlinks skipped, deterministic ordering. Returns `ScanResult { root, folders, files }` with `sizeBytes` per file (serde camelCase). |
+| `default_media_dir` | `library.rs` | `(kind: String) -> Result<Option<String>, String>` | Well-known media directory: `kind == "videos"` → `~/Videos`, `kind == "music"` → `~/Music`, anything else → `None`. Linux resolution prefers `xdg-user-dir` but only accepts an answer that is a directory under the current `HOME` and not the bare `HOME`; otherwise falls back to `HOME/<Kind>`. |
+| `db_get` | `db.rs` | `(state: State<Database>, key: String) -> Result<Option<String>, String>` | Read a JSON blob from the `kv` table (`None` when never written). |
+| `db_set` | `db.rs` | `(state: State<Database>, key: String, value: String) -> Result<(), String>` | Upsert a JSON blob into `kv` (`updated_at` epoch-milliseconds). |
+| `thumb_get` | `thumb.rs` | `(state: State<Database>, path: String) -> Result<Option<Vec<u8>>, String>` | Read a persisted JPEG frame blob from `thumbnails` (`None` when never stored). |
+| `thumb_generate` | `thumb.rs` | `(state: State<Database>, path: String, seek_seconds: f64) -> Result<Option<Vec<u8>>, String>` | Extract one frame with `/usr/bin/ffmpeg` (`-frames:v 1`, scale to 240px height; seek clamped 0.05–45 s; 2 MB output cap with kill, 10 s watchdog), `INSERT OR REPLACE` into `thumbnails`, and return the JPEG bytes — the whole pipeline in a single IPC roundtrip. Any failure (non-absolute path, non-video container, missing file, missing ffmpeg binary, failed extraction) degrades to `Ok(None)`. |
+| `read_audio_metadata` | `audio_meta.rs` | `(path: String) -> Option<AudioMetadata>` | Tag/duration/cover-presence read via `lofty` for files whose extension is in `AUDIO_EXTENSIONS`. Returns `None` — never a panic — for non-audio extensions, unreadable files or unparsable containers (WMA/ASF and Matroska audio are not lofty-parsable). Struct fields (serde camelCase): `title`, `artist`, `albumArtist`, `album`, `year`, `trackNumber`, `discNumber`, `genre`, `durationSeconds`, `hasCover`. Duration comes from container properties; a zero duration maps to `None` so the frontend keeps its own probing. |
+| `cover_get` | `audio_meta.rs` | `(state: State<Database>, path: String) -> Result<Option<Vec<u8>>, String>` | Read a persisted artwork blob from `covers` (`None` when never stored). |
+| `cover_extract` | `audio_meta.rs` | `(state: State<Database>, path: String) -> Result<Option<Vec<u8>>, String>` | Extract embedded artwork via `lofty` (`best_picture` — largest picture wins), persist it into `covers`, and return the bytes — mirroring `thumb_generate` in a single IPC roundtrip. `None` on non-absolute paths, non-audio containers, missing files, no embedded artwork or unparsable containers. |
+
+Design notes that all commands follow:
+
+- Serialisable structs with `serde` and `#[serde(rename_all = "camelCase")]` (`ScanResult`, `AudioMetadata`, …).
+- Non-absolute paths are rejected by the thumbnail and cover-art commands; the asset scope (not the commands) is what gates which directories are reachable at all.
+- Long-running work runs on the command thread pool (`#[tauri::command(async)]`) or a capped/kill-guarded child process (`ffmpeg`).
+
+## Persistence (`db.rs`)
+
+A single SQLite database at `app_data_dir/kanea.db`, opened once in the setup hook and shared behind `Database(Mutex<Connection>)`:
+
+- **Journal mode:** WAL with `synchronous = NORMAL`; both pragmas are read through `.optional()` because write-only pragma assignments return no rows (a plain `query_row` once crashed the setup hook with `QueryReturnedNoRows`).
+- **Schema** (idempotent `CREATE TABLE IF NOT EXISTS`, applied on every open):
+
+| Table | Columns | Domain |
+| --- | --- | --- |
+| `kv` | `key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL` | All persisted store blobs, mirroring the versioned `vlc.*.v1` keys one-to-one |
+| `thumbnails` | `path TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL` | JPEG video frames keyed by the media item's absolute path |
+| `covers` | `path TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL` | Embedded audio artwork keyed by the same absolute-path convention |
+
+- `thumbnails` and `covers` are deliberately **separate tables** rather than one table with key prefixes: video frames and artwork are separate domains, and prefix-stuffing a file-path primary key would conflate the key namespaces.
 
 ## Frontend build integration
 
@@ -103,39 +155,21 @@ Consequences:
 
 Replacing them with a Kanea icon set is **planned**. Keep every size referenced by `bundle.icon`; missing files break bundling.
 
-## Planned Tauri commands
-
-None of these exist yet. Signatures are indicative and should be finalised with the frontend types. The current library add flow uses HTML file/folder inputs and object URLs, so it does not call Rust.
-
-| Command | Purpose | Planned implementation | Status |
-| --- | --- | --- | --- |
-| `open_media_dialog()` | Show a native file picker and return the selected path | `tauri-plugin-dialog`, called from Rust or the frontend | Planned |
-| `list_media_directory(path)` | List playable files in a folder | Rust command using `std::fs` or `tauri-plugin-fs`; validate the path | Planned |
-| `read_media_metadata(path)` | Read duration, codecs, resolution, title, etc. | Rust command; metadata library not chosen yet | Planned |
-
-Design notes for future commands:
-
-- Return serialisable structs (`MediaEntry`, `MediaMetadata`) with `serde`.
-- Reject paths outside user-approved locations; do not expose arbitrary file-system access.
-- Keep long-running probes off the UI thread (`async` command or `spawn_blocking`).
-- Wrap each command in a typed function in the planned `src/lib/tauri.ts`.
-- Register every command with `.invoke_handler(tauri::generate_handler![...])`.
-
 ## Permissions and security
 
 - The v1 allowlist is gone. Tauri v2 uses **capabilities** in `src-tauri/capabilities/`.
-- `capabilities/default.json` targets the `main` window and grants exactly six core permissions:
+- `capabilities/default.json` targets the `main` window and grants the six core window permissions plus the dialog plugin's default set:
   - `core:window:allow-minimize`
   - `core:window:allow-toggle-maximize`
   - `core:window:allow-close`
   - `core:window:allow-start-dragging`
   - `core:window:allow-internal-toggle-maximize`
   - `core:window:allow-set-decorations`
-- These permissions back the custom title bar: minimise, maximise/restore, close, dragging, double-click-to-maximise and the `useSystemTitleBar` runtime switch.
-- No plugin permissions are declared because no plugins are installed.
+  - `dialog:default`
+- The six core permissions back the custom title bar: minimise, maximise/restore, close, dragging, double-click-to-maximise and the `useSystemTitleBar` runtime switch. `dialog:default` backs the native folder picker.
+- **Runtime-managed asset protocol scope:** `tauri.conf.json` ships `assetProtocol.scope.allow: []` (empty), and the setup hook manages an empty `AssetScopeRoots` state — the app starts allowing **nothing**. The frontend (`src/stores/settings.ts`) computes `scopedLibraryFolders()`, the deduped union of the configured video + music library roots, and syncs it once after settings hydration and reactively on every change via `scope_assets`. That command diffs old vs new normalized roots and calls `asset_protocol_scope().allow_directory(path, true)` / `forbid_directory(path, true)` accordingly, so removals actually revoke. The webview can only read exactly the folders the user configured — one privilege per root, no blanket globs (`$HOME/**`, `/run/media/**`, …).
 - `app.security.csp` is `null`. Set a restrictive policy before release.
-- Planned least-privilege policy: grant only the dialog open, directory read and metadata commands the UI actually calls; do not enable shell execution.
-- Plugin crates still to add: `tauri-plugin-dialog`, `tauri-plugin-fs` (and `tauri-plugin-shell` only if external launching is genuinely required).
+- `tauri-plugin-fs` / `tauri-plugin-shell` are deliberately not installed: the scanner, thumbnail and metadata commands read the filesystem from Rust, and no shell execution is exposed to the webview.
 
 ## Window chrome
 
@@ -149,14 +183,20 @@ Design notes for future commands:
 | --- | --- |
 | Upgrade JS packages to `@tauri-apps/api` / `@tauri-apps/cli` v2 | Done |
 | Set Rust `tauri` / `tauri-build` to v2 | Done |
-| Remove the v1 allowlist feature flags | Done (features are empty) |
+| Remove the v1 allowlist feature flags | Done (features are `protocol-asset` only) |
 | Rewrite `tauri.conf.json` to the v2 schema (`productName`, `version`, `identifier`, `app.windows`, `app.security`, `bundle`, `devUrl`, `frontendDist`) | Done (commit `9d6fa1a`) |
 | Replace `get_window` with `get_webview_window` | Done (commit `9d6fa1a`) |
 | Point `beforeDevCommand` / `beforeBuildCommand` at bun frontend-only scripts | Done |
 | Fix Vite `outDir` to resolve inside the project | Done (commit `b6c72c0`) |
 | Add `capabilities/` with least-privilege window permissions | Done (`capabilities/default.json`) |
 | Disable native decorations and add the custom/system title bar toggle | Done |
-| Install the required v2 plugin crates | Planned |
-| Register plugins and an `invoke_handler` | Planned |
+| Install the required v2 plugin crates | Done (`tauri-plugin-dialog`) |
+| Register plugins and an `invoke_handler` | Done (ten commands) |
+| SQLite persistence (`kv`, `thumbnails`, `covers` tables in `app_data_dir/kanea.db`) | Done |
+| Native file dialog for "Add folder…" | Done (`dialog:default`) |
+| Disk scanning, default media directory (`videos` / `music`) | Done |
+| ffmpeg thumbnail pipeline (`thumb_get` / `thumb_generate`) | Done |
+| Audio metadata + cover art (`read_audio_metadata`, `cover_get`, `cover_extract`) | Done |
+| Runtime asset scope synced from library roots (`scope_assets`) | Done |
 | Replace placeholder icons with project branding | Planned |
 | Set a Content Security Policy | Planned |

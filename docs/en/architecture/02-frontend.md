@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-**Status:** the application shell, six browse views, player, right dock, settings modal, welcome screen, layout editor and local persistence are implemented. Library, music, playlist, recent and network data are still mock data; library file/folder/stream imports and blob-backed playlist tracks are session-only, and native file access and media metadata are planned. Last updated 2026-11-11.
+**Status:** the application shell, six browse views, player, right dock, settings modal, welcome screen, layout editor and local persistence are implemented. Library, music, playlist, recent and network data are still mock data; library file/folder/stream imports and blob-backed playlist tracks are session-only, and Rust-side file access, SQLite persistence and audio metadata/cover art are implemented (see [03-tauri-backend.md](03-tauri-backend.md)); native playback is not. Last updated 2026-11-12.
 
 The frontend builds and type-checks: `bun run check` reports 0 errors and 0 warnings, and `bunx vite build` writes `src-tauri/gen/dist/`.
 
@@ -333,11 +333,11 @@ Contributing conventions:
 | Gap | Detail |
 | --- | --- |
 | Mock data | Library, music, playlists, recent and network data come from `lib/mock.ts`. |
-| Demo playback | Mock items use `/demo/sample.mp4`; imported local files use session object URLs and network streams use their remote URL. There is no native file picker or metadata probe beyond duration. |
+| Demo playback | Mock items use `/demo/sample.mp4`; imported local files use session object URLs and network streams use their remote URL. There is no native file picker for the demo path; the native folder dialog is used by "Add folder…" and audio metadata comes from the Rust `read_audio_metadata` command. |
 | Session-only imports | Imported files and streams are held in memory only. Object URLs and the added items disappear on reload. |
 | No startup media | The player queue is empty, so the app opens on the empty state. |
 | Queue is not persisted | Queue and playback position reset on reload. |
-| Native integration | No `invoke` calls, Rust commands, plugins or metadata access; only window API calls are used. |
+| Native integration | Rust commands are registered and used for persistence, scanning, thumbnails, audio metadata/cover art and the asset scope; native playback itself is not — the browser `<video>` element stays the playback engine. |
 | No router | `activeNav` and other shell state are lost on reload. |
 | Inert actions | The rail's Add Item entry, create playlist, add-to-playlist, recent rows and network selections do not perform media actions. Library add-file/folder/stream actions do work. |
 | Details panel unreachable | `showRightPanel` is never set to true. |

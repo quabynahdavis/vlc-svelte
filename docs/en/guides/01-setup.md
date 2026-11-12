@@ -2,7 +2,7 @@
 
 This guide covers a local development environment for the Kanea Svelte frontend and the Tauri v2 shell. Kanea uses **bun** exclusively for JavaScript dependencies and scripts.
 
-> **Runtime caveat (2026-10-29).** The Tauri v2 migration is complete, and `src-tauri/capabilities/default.json` grants the main window the six core permissions used by the custom title bar. No plugin crates, `invoke_handler` or native commands exist yet, so file dialogs and media metadata are not available. See [../architecture/03-tauri-backend.md](../architecture/03-tauri-backend.md).
+> **Runtime caveat (2026-11-12).** The Tauri v2 migration is complete, and `src-tauri/capabilities/default.json` grants the main window the six core permissions used by the custom title bar plus `dialog:default` for the native folder picker. The persistence layer (`db_get`/`db_set`), the disk scanner (`scan_library_dir`, `default_media_dir`), the ffmpeg thumbnail pipeline (`thumb_get`/`thumb_generate`) and the audio metadata/cover-art commands (`read_audio_metadata`, `cover_get`, `cover_extract`) are all registered through `invoke_handler`; the asset scope is synced at runtime from the configured library roots via `scope_assets`. See [../architecture/03-tauri-backend.md](../architecture/03-tauri-backend.md).
 
 ## Prerequisites
 
@@ -168,7 +168,7 @@ bun run preview
 | Tauri configuration errors mentioning v1 keys | An old `tauri.conf.json` was restored | The committed file uses `https://schema.tauri.app/config/2`; see the key table in [../architecture/03-tauri-backend.md](../architecture/03-tauri-backend.md). |
 | `get_webview_window` not found | Building against Tauri v1, or the `tauri::Manager` trait is not imported | Keep `tauri = "2"`; import `tauri::Manager` in the debug block. |
 | Window controls do nothing | The capability file is missing or the window label does not match | Keep `src-tauri/capabilities/default.json` with `"windows": ["main"]` and the six `core:window:allow-*` permissions. |
-| Plugin or permission errors for dialog/fs/shell | Plugins and native commands are not implemented yet | Expected. The v2 shell has no plugin crates or `invoke_handler`; do not assume native media access. |
+| Plugin or permission errors for dialog/fs/shell | Only `tauri-plugin-dialog` is installed; there is no `fs` or `shell` plugin | Expected. The webview gets the dialog plugin and the ten registered native commands only; arbitrary filesystem or shell access is not exposed. |
 | `frontendDist` directory not found | Frontend was never built, or output went to the old path | Run `bunx vite build`; verify `src-tauri/gen/dist/index.html` exists; keep `outDir: 'src-tauri/gen/dist'`. |
 | `bun run preview` shows an empty or stale app | No frontend build exists, or the build is outdated | Run `bunx vite build` first; preview serves `src-tauri/gen/dist`, not the Vite dev server. |
 | Linker errors while compiling Rust | Missing build essentials or system libraries | Install `build-essential`/`base-devel`, OpenSSL and the WebKitGTK packages. |
@@ -186,4 +186,4 @@ bun run preview
 - [ ] `bun run dev` opens the 1200 × 800 window without a second Vite process.
 - [ ] The in-app title bar controls work, and Interface settings can switch to native decorations.
 - [ ] `bun run build` produces a bundle under `src-tauri/target/release/bundle/`.
-- [ ] Native media commands remain unavailable until plugins, commands and an `invoke_handler` are added.
+- [x] Native media commands (scanner, thumbnails, audio metadata/cover art) are available through `invoke_handler` on the desktop shell.
