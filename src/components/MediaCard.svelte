@@ -2,6 +2,7 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { Info, ListMusic, ListPlus } from 'lucide-svelte';
   import { startTrackDrag } from '../lib/dragTrack';
+  import { formatDuration } from '../lib/formatDuration';
   import type { MediaItem } from '../lib/mock';
   import { ensureItemThumbnail, mediaThumbnails } from '../lib/thumbnails';
   import { libraryImportLog } from '../stores/library';
@@ -17,6 +18,8 @@
   $: progress = Math.min(Math.max(item.progress, 0), 1);
   $: hasProgress = progress > 0;
   $: progressPercent = `${progress * 100}%`;
+  $: durationLabel =
+    item.durationSeconds > 0 ? formatDuration(item.durationSeconds) : '';
 
   // Frame thumbnail: session cache first, then a persisted path if any. The
   // capture itself is queued on mount so empty cards fill in as frames land.
@@ -102,6 +105,14 @@
             <path d="M9 6.4v11.2L18.8 12 9 6.4Z" />
           </svg>
         </div>
+      {/if}
+
+      {#if durationLabel}
+        <span
+          class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] tabular-nums text-vlc-secondary"
+        >
+          {durationLabel}
+        </span>
       {/if}
 
       {#if hasProgress}

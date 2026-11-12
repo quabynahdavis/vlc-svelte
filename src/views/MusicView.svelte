@@ -45,6 +45,7 @@
   import { openPlaylistTarget } from '../stores/playlistTarget';
   import { settings } from '../stores/settings';
   import { openFolderContextMenu, openMediaContextMenu } from '../stores/ui';
+  import { formatDuration } from '../lib/formatDuration';
   import { t } from '../lib/t';
   import FuzzySearch from '../components/FuzzySearch.svelte';
   import MusicCover from '../components/MusicCover.svelte';
@@ -998,18 +999,6 @@
   }
 
   /* ---------- Playback & actions ---------- */
-
-  function formatDuration(seconds: number) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
-
-    return `${minutes}:${String(secs).padStart(2, '0')}`;
-  }
 
   /** Queue the given tracks with real sources, starting at the clicked row. */
   function queueTracks(tracks: MusicTrack[], index: number) {

@@ -8,6 +8,7 @@
     ListPlus,
     Play,
   } from 'lucide-svelte';
+  import { formatDuration } from '../lib/formatDuration';
   import type { MediaItem } from '../lib/mock';
   import { isItemWatched, libraryImportLog, toggleItemWatched } from '../stores/library';
   import { addToQueue, type Track } from '../stores/player';
@@ -41,19 +42,6 @@
   onMount(() => {
     backButton?.focus();
   });
-
-  function formatDuration(seconds: number): string {
-    const total = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const remainder = total % 60;
-
-    if (hours > 0) {
-      return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
-    }
-
-    return `${minutes}:${String(remainder).padStart(2, '0')}`;
-  }
 
   function trackFromItem(): Track {
     return {
