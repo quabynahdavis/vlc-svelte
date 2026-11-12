@@ -420,6 +420,8 @@
   "dock.equalizer": "Equalizer",
   "dock.equalizer_bands": "11 bands",
   "dock.audio_visualizer": "Audio Visualizer",
+  "dock.visualizer_bars": "Bars",
+  "dock.visualizer_waveform": "Waveform",
   "dock.toggle_on": "ON",
   "dock.toggle_off": "OFF",
   "property_panel.collapse_settings": "Collapse Settings",

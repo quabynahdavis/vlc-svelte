@@ -15,6 +15,10 @@
     wheelNotches,
   } from '../lib/gestures';
   import { handleHorizontalWheel, scrollRailBy } from '../lib/horizontalScroll';
+  import {
+    ensureAudioAnalyser,
+    resumeAudioAnalyser,
+  } from '../lib/audioAnalyser';
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
   import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
@@ -190,10 +194,23 @@
     if (musicTrack) recordMusicListen(musicTrack);
   }
 
+  /**
+   * Attach the dock visualizer's analysis graph to the media element (the
+   * AudioContext + element source are created once, on the first play
+   * gesture) and resume the autoplay-suspended context. No-op without an
+   * element; failures are swallowed by the module so playback is unaffected.
+   */
+  function hookAudioAnalyser(): void {
+    if (!videoEl) return;
+    ensureAudioAnalyser(videoEl);
+    void resumeAudioAnalyser();
+  }
+
   function handleLoadedMetadata(): void {
     const el = videoEl;
     if (!el) return;
 
+    hookAudioAnalyser();
     recordMusicListenForCurrentTrack();
 
     const mediaDuration =
@@ -261,11 +278,13 @@
 
   function handlePlay(): void {
     if (pendingLoad) return;
+    hookAudioAnalyser();
     player.update((state) => (state.isPlaying ? state : { ...state, isPlaying: true }));
   }
 
   function handlePlaying(): void {
     pendingLoad = false;
+    hookAudioAnalyser();
 
     if (!$player.isPlaying) {
       videoEl?.pause();
