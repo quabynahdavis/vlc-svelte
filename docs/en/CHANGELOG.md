@@ -4,6 +4,29 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-11
 
+### Added — Waveform seekbar for audio playback
+
+- New `src-tauri/src/waveform.rs`: `waveform_peaks` (ffmpeg decode to mono PCM, peak-per-bucket, buckets clamped 50–2000, default 800), `waveform_get` / `waveform_generate` mirroring the thumbnail pipeline, persisted in a new `waveforms` SQLite table (path-keyed BLOB, schema test updated).
+- TS wrappers in `src/lib/audioMeta.ts`: `waveformGet(path)` / `waveformGenerate(path, buckets)`.
+- `src/components/TransportBar.svelte`: when `$currentTrack.id` has an audio extension (via `src/lib/audio.ts` `isAudioFile`), the plain progress bar is replaced by a canvas waveform strip (DPR-aware, ~800 thin bars, 2px+2px gap, played prefix in accent color, remaining muted). Peaks resolved: session cache → `waveform_get` → `waveform_generate` (single IPC roundtrip). Click/drag seeks via existing `requestSeek`. Video/stream/src-less tracks keep the original bar (no layout jump, no behavior change).
+- `waveform_bars` test added; `cargo test` 41/41 (30→41).
+- Committed as `ae0dd21`; `bun run check` 0/0; `vite build` success.
+
+### Added — Real AnalyserNode dock visualizer
+
+- New `src/lib/audioAnalyser.ts`: lazy `AudioContext` + `createMediaElementSource(videoEl)` + `AnalyserNode` chain (source → analyser → destination, context resumed on play, one source per element, autoplay suspension handled, mute guard watches for all-zero data >2s at volume>0 → marks analyser unusable → panel falls back to synthetic). Graph stays connected so audio never cuts out.
+- `AudioVisualizerPanel.svelte`: real FFT bars (max-pool downsample to 40 bars) + waveform mode (time-domain line), mode toggle in the dock header; synthetic sine bars when no analyser/analyser unusable/idle before playback.
+- `PlayerView.svelte`: `ensureAudioAnalyser(videoEl)` + `resumeAudioAnalyser()` on play/loadedmetadata.
+- i18n keys: `dock.visualizer_bars` / `dock.visualizer_waveform` (under `dock.*` namespace).
+- Committed as `3a65745`; `cargo test` 41/41; `bun run check` 0/0; `vite build` success.
+
+### Added — Default Music folder seeding
+
+- `src/stores/settings.ts`: `musicDefaultSeeded` boolean (mirrors `libraryDefaultSeeded`).
+- `src/stores/musicLibrary.ts` bootstrap: after `settingsHydrated`, invokes `default_media_dir('music')` (XDG MUSIC → `~/Music`), seeds if not already present and `!musicDefaultSeeded`, pre-sets the reactive scan key (the Phase 3 `musicLibraryFolders.join('\0')` tracker) BEFORE the `settings.update` so the synchronous subscriber sees no change and avoids a double scan — exact mirror of `library.ts` lines 977–989.
+- No `settingsPersistence.ts` changes needed (generic boolean sanitization already handles the new field).
+- Committed as `985e9da`; `bun run check` 0/0; `vite build` success.
+
 ### Changed — MusicView rewired to the real music library
 
 - The Music browse page now renders the real `musicLibrary` store instead of `lib/mock.ts`. Tabs are **Artists / Albums / Songs / Genres / Folders** — Folders last and filesystem-only (folder structure is never reorganized by tag) — with the drilldown Artists → albums → tracks preserved and per-level sort, search and grid/list/compact view modes.
