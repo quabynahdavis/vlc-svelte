@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { get } from 'svelte/store';
-  import { onMount, tick } from 'svelte';
+  import { get } from "svelte/store";
+  import { onMount, tick } from "svelte";
   import {
     ArrowDown,
     ArrowLeft,
@@ -12,7 +12,7 @@
     ListMusic,
     ListPlus,
     Music2,
-  } from 'lucide-svelte';
+  } from "lucide-svelte";
   import {
     compareAlbumOrder,
     ensureMusicCover,
@@ -23,7 +23,7 @@
     UNKNOWN_ARTIST,
     UNKNOWN_GENRE,
     type MusicTrack,
-  } from '../stores/musicLibrary';
+  } from "../stores/musicLibrary";
   import {
     musicBreadcrumb,
     musicBrowseMode,
@@ -38,33 +38,33 @@
     type MusicSortKey,
     type SortDirection,
     type BreadcrumbSegment,
-  } from '../stores/music';
-  import { addMusicLibraryFolder } from '../stores/settings';
-  import { pickFolderViaDialog } from '../lib/tauriFs';
-  import { musicViewMode } from '../stores/viewModes';
-  import { navigate } from '../stores/navigation';
-  import { isUnderRoot, libraryImportLog } from '../stores/library';
-  import { startTrackDrag } from '../lib/dragTrack';
-  import { addToQueue, setQueue } from '../stores/player';
-  import { openPlaylistTarget } from '../stores/playlistTarget';
-  import { settings } from '../stores/settings';
-  import { openFolderContextMenu, openMediaContextMenu } from '../stores/ui';
-  import { formatDuration } from '../lib/formatDuration';
-  import { t } from '../lib/t';
-  import FuzzySearch from '../components/FuzzySearch.svelte';
-  import MusicCover from '../components/MusicCover.svelte';
-  import ViewModeToggle from '../components/ViewModeToggle.svelte';
+  } from "../stores/music";
+  import { addMusicLibraryFolder } from "../stores/settings";
+  import { pickFolderViaDialog } from "../lib/tauriFs";
+  import { musicViewMode } from "../stores/viewModes";
+  import { navigate } from "../stores/navigation";
+  import { isUnderRoot, libraryImportLog } from "../stores/library";
+  import { startTrackDrag } from "../lib/dragTrack";
+  import { addToQueue, setQueue } from "../stores/player";
+  import { openPlaylistTarget } from "../stores/playlistTarget";
+  import { settings } from "../stores/settings";
+  import { openFolderContextMenu, openMediaContextMenu } from "../stores/ui";
+  import { formatDuration } from "../lib/formatDuration";
+  import { t } from "../lib/t";
+  import FuzzySearch from "../components/FuzzySearch.svelte";
+  import MusicCover from "../components/MusicCover.svelte";
+  import ViewModeToggle from "../components/ViewModeToggle.svelte";
 
   type BrowseLevel =
-    | 'artists'
-    | 'artist'
-    | 'albums'
-    | 'album'
-    | 'songs'
-    | 'genres'
-    | 'genre'
-    | 'folders'
-    | 'folder';
+    | "artists"
+    | "artist"
+    | "albums"
+    | "album"
+    | "songs"
+    | "genres"
+    | "genre"
+    | "folders"
+    | "folder";
 
   interface SortOption {
     key: MusicSortKey;
@@ -110,33 +110,40 @@
     representative: MusicTrack | null;
   }
 
-  const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+  const collator = new Intl.Collator(undefined, {
+    sensitivity: "base",
+    numeric: true,
+  });
   const focusRing =
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app';
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app";
 
   const browseModes: Array<{ id: MusicBrowseMode; label: string }> = [
-    { id: 'artists', label: t('music.tabs.artists') },
-    { id: 'albums', label: t('music.tabs.albums') },
-    { id: 'songs', label: t('music.tabs.songs') },
-    { id: 'genres', label: t('music.tabs.genres') },
-    { id: 'folders', label: t('music.tabs.folders') },
+    { id: "artists", label: t("music.tabs.artists") },
+    { id: "albums", label: t("music.tabs.albums") },
+    { id: "songs", label: t("music.tabs.songs") },
+    { id: "genres", label: t("music.tabs.genres") },
+    { id: "folders", label: t("music.tabs.folders") },
   ];
 
   /* ---------- Small path helpers (mirror the library navigation patterns) ---------- */
 
   function trimTrailingSeparator(path: string): string {
-    return path.replace(/[\\/]+$/, '');
+    return path.replace(/[\\/]+$/, "");
   }
 
   function basenameOf(path: string): string {
-    const parts = trimTrailingSeparator(path).split(/[\\/]+/).filter(Boolean);
-    return parts[parts.length - 1] ?? '';
+    const parts = trimTrailingSeparator(path)
+      .split(/[\\/]+/)
+      .filter(Boolean);
+    return parts[parts.length - 1] ?? "";
   }
 
   /** Parent folder segment of a path, used for `Name[ParentName]` disambiguation. */
   function parentSegmentOf(path: string): string {
-    const parts = trimTrailingSeparator(path).split(/[\\/]+/).filter(Boolean);
-    return parts[parts.length - 2] ?? '';
+    const parts = trimTrailingSeparator(path)
+      .split(/[\\/]+/)
+      .filter(Boolean);
+    return parts[parts.length - 2] ?? "";
   }
 
   /** Normalized path key: trailing separators stripped, case folded. */
@@ -160,20 +167,25 @@
   /** Case-insensitive match of a track's folder chain below the active root. */
   function chainMatches(parts: string[], chain: string[]): boolean {
     return chain.every(
-      (segment, index) => segment.toLowerCase() === (parts[index] ?? '').toLowerCase(),
+      (segment, index) =>
+        segment.toLowerCase() === (parts[index] ?? "").toLowerCase(),
     );
   }
 
   /* ---------- View-model builders (side effect: warm the cover cache) ---------- */
 
   function representativeOf(tracks: MusicTrack[]): MusicTrack | null {
-    const representative = tracks.find((track) => track.hasCover) ?? tracks[0] ?? null;
+    const representative =
+      tracks.find((track) => track.hasCover) ?? tracks[0] ?? null;
     if (representative) ensureMusicCover(representative);
     return representative;
   }
 
   function buildArtistEntries(tracks: MusicTrack[]): ArtistEntry[] {
-    const groups = new Map<string, { name: string; albums: Set<string>; tracks: MusicTrack[] }>();
+    const groups = new Map<
+      string,
+      { name: string; albums: Set<string>; tracks: MusicTrack[] }
+    >();
 
     for (const track of tracks) {
       const name = track.albumArtist || track.artist || UNKNOWN_ARTIST;
@@ -192,7 +204,10 @@
         name: group.name,
         albumCount: group.albums.size,
         trackCount: group.tracks.length,
-        duration: group.tracks.reduce((total, track) => total + track.durationSeconds, 0),
+        duration: group.tracks.reduce(
+          (total, track) => total + track.durationSeconds,
+          0,
+        ),
         representative: representativeOf(group.tracks),
       }))
       .sort((a, b) => {
@@ -215,7 +230,14 @@
       const key = albumKeyOf(artist, track.album);
       let group = groups.get(key);
       if (!group) {
-        group = { key, artist, title: track.album, year: track.year, tracks: [], representative: null };
+        group = {
+          key,
+          artist,
+          title: track.album,
+          year: track.year,
+          tracks: [],
+          representative: null,
+        };
         groups.set(key, group);
       }
       group.tracks.push(track);
@@ -231,7 +253,15 @@
   }
 
   function buildGenreEntries(tracks: MusicTrack[]): GenreEntry[] {
-    const groups = new Map<string, { name: string; albums: Set<string>; trackCount: number; duration: number }>();
+    const groups = new Map<
+      string,
+      {
+        name: string;
+        albums: Set<string>;
+        trackCount: number;
+        duration: number;
+      }
+    >();
 
     for (const track of tracks) {
       const name = track.genre ?? UNKNOWN_GENRE;
@@ -266,7 +296,10 @@
    * distinct cards and carry a `Name[ParentName]` display label (display-only,
    * mirroring the video library's sibling disambiguation).
    */
-  function buildFolderRootCards(roots: string[], tracks: MusicTrack[]): MusicFolderCard[] {
+  function buildFolderRootCards(
+    roots: string[],
+    tracks: MusicTrack[],
+  ): MusicFolderCard[] {
     const nameCounts = new Map<string, number>();
     for (const root of roots) {
       const name = basenameOf(root);
@@ -287,7 +320,9 @@
       const name = basenameOf(clean);
       const ambiguous = (nameCounts.get(name.toLowerCase()) ?? 0) > 1;
       const inside = tracks.filter((track) => isUnderRoot(track.path, clean));
-      const direct = inside.filter((track) => relativePartsUnder(track.path, clean).length === 1);
+      const direct = inside.filter(
+        (track) => relativePartsUnder(track.path, clean).length === 1,
+      );
 
       cards.push({
         name,
@@ -295,7 +330,10 @@
         path: root,
         directCount: direct.length,
         totalTracks: inside.length,
-        duration: inside.reduce((total, track) => total + track.durationSeconds, 0),
+        duration: inside.reduce(
+          (total, track) => total + track.durationSeconds,
+          0,
+        ),
         representative: representativeOf(direct.length > 0 ? direct : inside),
       });
     }
@@ -321,7 +359,8 @@
 
     for (const track of tracks) {
       const parts = relativePartsUnder(track.path, cleanRoot);
-      if (parts.length <= chain.length + 1 || !chainMatches(parts, chain)) continue;
+      if (parts.length <= chain.length + 1 || !chainMatches(parts, chain))
+        continue;
       const name = parts[chain.length];
       const key = name.toLowerCase();
       let bucket = grouped.get(key);
@@ -336,15 +375,19 @@
     return order.map((name) => {
       const inside = grouped.get(name.toLowerCase()) ?? [];
       const direct = inside.filter(
-        (track) => relativePartsUnder(track.path, cleanRoot).length === chain.length + 2,
+        (track) =>
+          relativePartsUnder(track.path, cleanRoot).length === chain.length + 2,
       );
       return {
         name,
         displayName: name,
-        path: [cleanRoot, ...chain, name].join('/'),
+        path: [cleanRoot, ...chain, name].join("/"),
         directCount: direct.length,
         totalTracks: inside.length,
-        duration: inside.reduce((total, track) => total + track.durationSeconds, 0),
+        duration: inside.reduce(
+          (total, track) => total + track.durationSeconds,
+          0,
+        ),
         representative: representativeOf(direct.length > 0 ? direct : inside),
       };
     });
@@ -366,7 +409,7 @@
 
   /* ---------- Search ---------- */
 
-  let query = '';
+  let query = "";
   let searchKey = 0;
 
   function handleSearch(event: CustomEvent<string>) {
@@ -374,7 +417,7 @@
   }
 
   function clearSearch() {
-    query = '';
+    query = "";
     searchKey += 1;
   }
 
@@ -392,65 +435,66 @@
     genreName: string | null,
     folderSegments: string[],
   ): BrowseLevel {
-    if (mode === 'artists') {
-      if (albumId) return 'album';
-      if (artistId) return 'artist';
-      return 'artists';
+    if (mode === "artists") {
+      if (albumId) return "album";
+      if (artistId) return "artist";
+      return "artists";
     }
-    if (mode === 'albums') return albumId ? 'album' : 'albums';
-    if (mode === 'genres') return genreName ? 'genre' : 'genres';
-    if (mode === 'folders') return folderSegments.length > 0 ? 'folder' : 'folders';
-    return 'songs';
+    if (mode === "albums") return albumId ? "album" : "albums";
+    if (mode === "genres") return genreName ? "genre" : "genres";
+    if (mode === "folders")
+      return folderSegments.length > 0 ? "folder" : "folders";
+    return "songs";
   }
 
   function getSortOptions(level: BrowseLevel): SortOption[] {
     switch (level) {
-      case 'songs':
-      case 'genre':
-      case 'folder':
+      case "songs":
+      case "genre":
+      case "folder":
         return [
-          { key: 'title', label: 'Title' },
-          { key: 'artist', label: 'Artist' },
-          { key: 'album', label: 'Album' },
-          { key: 'year', label: 'Year' },
-          { key: 'duration', label: 'Duration' },
+          { key: "title", label: "Title" },
+          { key: "artist", label: "Artist" },
+          { key: "album", label: "Album" },
+          { key: "year", label: "Year" },
+          { key: "duration", label: "Duration" },
         ];
-      case 'album':
+      case "album":
         return [
-          { key: 'title', label: 'Title' },
-          { key: 'artist', label: 'Artist' },
-          { key: 'duration', label: 'Duration' },
+          { key: "title", label: "Title" },
+          { key: "artist", label: "Artist" },
+          { key: "duration", label: "Duration" },
         ];
-      case 'artist':
+      case "artist":
         return [
-          { key: 'title', label: 'Title' },
-          { key: 'year', label: 'Year' },
-          { key: 'duration', label: 'Duration' },
+          { key: "title", label: "Title" },
+          { key: "year", label: "Year" },
+          { key: "duration", label: "Duration" },
         ];
-      case 'albums':
+      case "albums":
         return [
-          { key: 'title', label: 'Title' },
-          { key: 'artist', label: 'Artist' },
-          { key: 'year', label: 'Year' },
-          { key: 'duration', label: 'Duration' },
+          { key: "title", label: "Title" },
+          { key: "artist", label: "Artist" },
+          { key: "year", label: "Year" },
+          { key: "duration", label: "Duration" },
         ];
-      case 'artists':
+      case "artists":
         return [
-          { key: 'title', label: 'Name' },
-          { key: 'album', label: 'Albums' },
-          { key: 'duration', label: 'Duration' },
+          { key: "title", label: "Name" },
+          { key: "album", label: "Albums" },
+          { key: "duration", label: "Duration" },
         ];
-      case 'genres':
+      case "genres":
         return [
-          { key: 'title', label: 'Genre' },
-          { key: 'album', label: 'Songs' },
-          { key: 'duration', label: 'Duration' },
+          { key: "title", label: "Genre" },
+          { key: "album", label: "Songs" },
+          { key: "duration", label: "Duration" },
         ];
-      case 'folders':
+      case "folders":
         return [
-          { key: 'title', label: 'Name' },
-          { key: 'album', label: 'Tracks' },
-          { key: 'duration', label: 'Duration' },
+          { key: "title", label: "Name" },
+          { key: "album", label: "Tracks" },
+          { key: "duration", label: "Duration" },
         ];
     }
   }
@@ -462,7 +506,10 @@
   }
 
   function albumDuration(entry: AlbumEntry): number {
-    return entry.tracks.reduce((total, track) => total + track.durationSeconds, 0);
+    return entry.tracks.reduce(
+      (total, track) => total + track.durationSeconds,
+      0,
+    );
   }
 
   /** Ascending puts unknown years last; the direction flip then keeps them last. */
@@ -473,63 +520,90 @@
     return a - b;
   }
 
-  function compareArtists(a: ArtistEntry, b: ArtistEntry, key: MusicSortKey): number {
+  function compareArtists(
+    a: ArtistEntry,
+    b: ArtistEntry,
+    key: MusicSortKey,
+  ): number {
     switch (key) {
-      case 'album':
+      case "album":
         return a.albumCount - b.albumCount;
-      case 'duration':
+      case "duration":
         return a.duration - b.duration;
       default:
         return collator.compare(a.name, b.name);
     }
   }
 
-  function compareAlbums(a: AlbumEntry, b: AlbumEntry, key: MusicSortKey): number {
+  function compareAlbums(
+    a: AlbumEntry,
+    b: AlbumEntry,
+    key: MusicSortKey,
+  ): number {
     switch (key) {
-      case 'artist':
-        return collator.compare(a.artist, b.artist) || collator.compare(a.title, b.title);
-      case 'year':
+      case "artist":
+        return (
+          collator.compare(a.artist, b.artist) ||
+          collator.compare(a.title, b.title)
+        );
+      case "year":
         return compareYear(a.year, b.year);
-      case 'duration':
+      case "duration":
         return albumDuration(a) - albumDuration(b);
       default:
-        return collator.compare(a.title, b.title) || collator.compare(a.artist, b.artist);
+        return (
+          collator.compare(a.title, b.title) ||
+          collator.compare(a.artist, b.artist)
+        );
     }
   }
 
-  function compareTracks(a: MusicTrack, b: MusicTrack, key: MusicSortKey): number {
+  function compareTracks(
+    a: MusicTrack,
+    b: MusicTrack,
+    key: MusicSortKey,
+  ): number {
     switch (key) {
-      case 'artist':
+      case "artist":
         return (
-          collator.compare(artistNameOf(a), artistNameOf(b)) || collator.compare(a.title, b.title)
+          collator.compare(artistNameOf(a), artistNameOf(b)) ||
+          collator.compare(a.title, b.title)
         );
-      case 'album':
+      case "album":
         return collator.compare(a.album, b.album) || compareAlbumOrder(a, b);
-      case 'year':
+      case "year":
         return compareYear(a.year, b.year);
-      case 'duration':
+      case "duration":
         return a.durationSeconds - b.durationSeconds;
       default:
         return collator.compare(a.title, b.title);
     }
   }
 
-  function compareGenres(a: GenreEntry, b: GenreEntry, key: MusicSortKey): number {
+  function compareGenres(
+    a: GenreEntry,
+    b: GenreEntry,
+    key: MusicSortKey,
+  ): number {
     switch (key) {
-      case 'album':
+      case "album":
         return a.trackCount - b.trackCount;
-      case 'duration':
+      case "duration":
         return a.duration - b.duration;
       default:
         return collator.compare(a.name, b.name);
     }
   }
 
-  function compareFolders(a: MusicFolderCard, b: MusicFolderCard, key: MusicSortKey): number {
+  function compareFolders(
+    a: MusicFolderCard,
+    b: MusicFolderCard,
+    key: MusicSortKey,
+  ): number {
     switch (key) {
-      case 'album':
+      case "album":
         return a.totalTracks - b.totalTracks;
-      case 'duration':
+      case "duration":
         return a.duration - b.duration;
       default:
         return collator.compare(a.name, b.name);
@@ -545,7 +619,7 @@
     compare: (a: T, b: T) => number,
     direction: SortDirection,
   ): T[] {
-    const sign = direction === 'asc' ? 1 : -1;
+    const sign = direction === "asc" ? 1 : -1;
 
     return items
       .map((item, index) => ({ item, index }))
@@ -563,10 +637,21 @@
   $: albumEntries = buildAlbumEntries($musicTracks);
   $: genreEntries = buildGenreEntries($musicTracks);
 
-  $: folderRootCards = buildFolderRootCards($settings.musicLibraryFolders, $musicTracks);
+  $: folderRootCards = buildFolderRootCards(
+    $settings.musicLibraryFolders,
+    $musicTracks,
+  );
   $: folderChain = $musicFolderSegments.slice(1);
-  $: folderSubCards = buildFolderSubCards($musicFolderRootPath, folderChain, $musicTracks);
-  $: folderDirectTracks = buildFolderDirectTracks($musicFolderRootPath, folderChain, $musicTracks);
+  $: folderSubCards = buildFolderSubCards(
+    $musicFolderRootPath,
+    folderChain,
+    $musicTracks,
+  );
+  $: folderDirectTracks = buildFolderDirectTracks(
+    $musicFolderRootPath,
+    folderChain,
+    $musicTracks,
+  );
 
   $: selectedArtistEntry = (() => {
     const artistName = $selectedArtistId;
@@ -602,7 +687,9 @@
   $: activeSortKey = sortOptions.some((option) => option.key === $musicSort)
     ? $musicSort
     : sortOptions[0].key;
-  $: activeSortLabel = sortOptions.find((option) => option.key === activeSortKey)?.label ?? 'Title';
+  $: activeSortLabel =
+    sortOptions.find((option) => option.key === activeSortKey)?.label ??
+    "Title";
 
   $: filteredArtists = artistEntries.filter((entry) => matches([entry.name]));
   $: sortedArtists = sortStable(
@@ -612,7 +699,7 @@
   );
 
   $: filteredAllAlbums = albumEntries.filter((entry) =>
-    matches([entry.title, entry.artist, entry.year ?? '']),
+    matches([entry.title, entry.artist, entry.year ?? ""]),
   );
   $: sortedAllAlbums = sortStable(
     filteredAllAlbums,
@@ -626,7 +713,7 @@
     const artistKey = artist.name.toLowerCase();
     return albumEntries
       .filter((entry) => entry.artist.toLowerCase() === artistKey)
-      .filter((entry) => matches([entry.title, entry.year ?? '']));
+      .filter((entry) => matches([entry.title, entry.year ?? ""]));
   })();
   $: sortedArtistAlbums = sortStable(
     filteredArtistAlbums,
@@ -635,7 +722,13 @@
   );
 
   $: filteredSongs = $musicTracks.filter((track) =>
-    matches([track.title, artistNameOf(track), track.album, track.genre ?? '', track.year ?? '']),
+    matches([
+      track.title,
+      artistNameOf(track),
+      track.album,
+      track.genre ?? "",
+      track.year ?? "",
+    ]),
   );
   $: sortedSongs = sortStable(
     filteredSongs,
@@ -646,7 +739,9 @@
   $: filteredAlbumTracks = (() => {
     const album = selectedAlbumEntry;
     if (!album) return [];
-    return album.tracks.filter((track) => matches([track.title, track.genre ?? '']));
+    return album.tracks.filter((track) =>
+      matches([track.title, track.genre ?? ""]),
+    );
   })();
   $: sortedAlbumTracks = sortStable(
     filteredAlbumTracks,
@@ -684,18 +779,22 @@
     $musicSortDirection,
   );
 
-  $: filteredFolderSubCards = folderSubCards.filter((card) => matches([card.name]));
+  $: filteredFolderSubCards = folderSubCards.filter((card) =>
+    matches([card.name]),
+  );
   $: sortedFolderSubCards = sortStable(
     filteredFolderSubCards,
     (a, b) => compareFolders(a, b, activeSortKey),
     $musicSortDirection,
   );
 
-  $: folderCards = level === 'folders' ? sortedFolderRootCards : sortedFolderSubCards;
-  $: folderCardsVisible = (level === 'folders' || level === 'folder') && folderCards.length > 0;
+  $: folderCards =
+    level === "folders" ? sortedFolderRootCards : sortedFolderSubCards;
+  $: folderCardsVisible =
+    (level === "folders" || level === "folder") && folderCards.length > 0;
 
   $: filteredFolderTracks = folderDirectTracks.filter((track) =>
-    matches([track.title, artistNameOf(track), track.album, track.genre ?? '']),
+    matches([track.title, artistNameOf(track), track.album, track.genre ?? ""]),
   );
   $: sortedFolderTracks = sortStable(
     filteredFolderTracks,
@@ -704,50 +803,58 @@
   );
 
   $: trackRows =
-    level === 'songs'
+    level === "songs"
       ? sortedSongs
-      : level === 'album'
+      : level === "album"
         ? sortedAlbumTracks
-        : level === 'genre'
+        : level === "genre"
           ? sortedGenreTracks
-          : level === 'folder'
+          : level === "folder"
             ? sortedFolderTracks
             : [];
 
   $: albumRows =
-    level === 'albums' ? sortedAllAlbums : level === 'artist' ? sortedArtistAlbums : [];
+    level === "albums"
+      ? sortedAllAlbums
+      : level === "artist"
+        ? sortedArtistAlbums
+        : [];
 
   // Decorative amplitude strip on the album header.
   const waveformBars = Array.from({ length: 72 }, (_, index) => {
-    const wave = Math.abs(Math.sin((index + 1) * 0.52) * Math.cos((index + 1) * 0.19));
+    const wave = Math.abs(
+      Math.sin((index + 1) * 0.52) * Math.cos((index + 1) * 0.19),
+    );
     return 16 + Math.round(wave * 72);
   });
 
   $: showTrackBlock =
-    level === 'songs' ||
-    level === 'album' ||
-    level === 'genre' ||
-    (level === 'folder' && trackRows.length > 0);
-  $: showAlbumColumns = level === 'songs' || level === 'genre' || level === 'folder';
-  $: showAlbumArtistColumn = level === 'albums';
+    level === "songs" ||
+    level === "album" ||
+    level === "genre" ||
+    (level === "folder" && trackRows.length > 0);
+  $: showAlbumColumns =
+    level === "songs" || level === "genre" || level === "folder";
+  $: showAlbumArtistColumn = level === "albums";
 
   $: itemCount =
-    level === 'artists'
+    level === "artists"
       ? filteredArtists.length
-      : level === 'albums'
+      : level === "albums"
         ? filteredAllAlbums.length
-        : level === 'artist'
+        : level === "artist"
           ? filteredArtistAlbums.length
-          : level === 'album'
+          : level === "album"
             ? filteredAlbumTracks.length
-            : level === 'genres'
+            : level === "genres"
               ? filteredGenres.length
-              : level === 'genre'
+              : level === "genre"
                 ? filteredGenreTracks.length
-                : level === 'folders'
+                : level === "folders"
                   ? filteredFolderRootCards.length
-                  : level === 'folder'
-                    ? filteredFolderSubCards.length + filteredFolderTracks.length
+                  : level === "folder"
+                    ? filteredFolderSubCards.length +
+                      filteredFolderTracks.length
                     : filteredSongs.length;
 
   $: breadcrumb = buildBreadcrumb(
@@ -760,23 +867,27 @@
     folderChain,
   );
   $: musicBreadcrumb.set(breadcrumb);
-  $: canGoBack = level === 'artist' || level === 'album' || level === 'genre' || level === 'folder';
+  $: canGoBack =
+    level === "artist" ||
+    level === "album" ||
+    level === "genre" ||
+    level === "folder";
 
   $: emptyTitle =
-    level === 'artists'
-      ? t('music.artists_empty_title')
-      : level === 'albums' || level === 'artist'
-        ? t('music.albums_empty_title')
-        : level === 'genres'
-          ? t('music.genres_empty_title')
-          : level === 'folders'
-            ? t('music.folders_empty_title')
-            : t('music.songs_empty_title');
+    level === "artists"
+      ? t("music.artists_empty_title")
+      : level === "albums" || level === "artist"
+        ? t("music.albums_empty_title")
+        : level === "genres"
+          ? t("music.genres_empty_title")
+          : level === "folders"
+            ? t("music.folders_empty_title")
+            : t("music.songs_empty_title");
   $: emptyHint = query
-    ? t('music.empty_search_hint')
-    : level === 'genre'
-      ? t('music.genre_empty_hint')
-      : t('music.empty_default_hint');
+    ? t("music.empty_search_hint")
+    : level === "genre"
+      ? t("music.genre_empty_hint")
+      : t("music.empty_default_hint");
 
   function buildBreadcrumb(
     mode: MusicBrowseMode,
@@ -787,30 +898,37 @@
     rootCard: MusicFolderCard | null,
     chain: string[],
   ): BreadcrumbSegment[] {
-    const modeLabel = browseModes.find((entry) => entry.id === mode)?.label ?? t('music.tabs.songs');
+    const modeLabel =
+      browseModes.find((entry) => entry.id === mode)?.label ??
+      t("music.tabs.songs");
     const segments: BreadcrumbSegment[] = [
-      { label: t('music.breadcrumb_root') },
+      { label: t("music.breadcrumb_root") },
       { label: modeLabel },
     ];
 
-    if (mode === 'folders') {
-      if (currentLevel === 'folder' && rootCard) {
+    if (mode === "folders") {
+      if (currentLevel === "folder" && rootCard) {
         // Folders: [Music] → [Folders] → [Root] → [Subfolder...]
         // modeLabel ("Folders") is already in segments[1]; navigate back to roots from the root segment.
-        segments.push({ label: rootCard.displayName, action: () => {
-          musicFolderRootPath.set(null);
-          musicFolderSegments.set([]);
-        }});
+        segments.push({
+          label: rootCard.displayName,
+          action: () => {
+            musicFolderRootPath.set(null);
+            musicFolderSegments.set([]);
+          },
+        });
         // Chain segments
         for (let i = 0; i < chain.length; i++) {
           const segment = chain[i];
           const isLast = i === chain.length - 1;
-          segments.push({ 
-            label: segment, 
+          segments.push({
+            label: segment,
             isCurrent: isLast,
-            action: isLast ? undefined : () => {
-              musicFolderSegments.set(chain.slice(0, i + 1));
-            }
+            action: isLast
+              ? undefined
+              : () => {
+                  musicFolderSegments.set(chain.slice(0, i + 1));
+                },
           });
         }
         return segments;
@@ -820,37 +938,43 @@
       return segments;
     }
 
-    if (currentLevel === 'artist' && artist) {
+    if (currentLevel === "artist" && artist) {
       // Artists mode: [Music] → [Artists] → [Artist Name]
       segments.push({ label: artist.name, isCurrent: true });
-    } else if (currentLevel === 'album' && albumEntry) {
+    } else if (currentLevel === "album" && albumEntry) {
       // Artists mode: [Music] → [Artists] → [Artist Name] → [Album Name]
       // Albums mode: [Music] → [Albums] → [Album Name]
-      if (mode === 'artists') {
-        segments.push({ label: albumEntry.artist, action: () => {
-          selectedAlbumId.set(null);
-        }});
+      if (mode === "artists") {
+        segments.push({
+          label: albumEntry.artist,
+          action: () => {
+            selectedAlbumId.set(null);
+          },
+        });
       } else {
         // Albums mode: back to albums root
-        segments[1] = { label: modeLabel, action: () => {
-          selectedAlbumId.set(null);
-          selectedArtistId.set(null);
-        }};
+        segments[1] = {
+          label: modeLabel,
+          action: () => {
+            selectedAlbumId.set(null);
+            selectedArtistId.set(null);
+          },
+        };
       }
       segments.push({ label: albumEntry.title, isCurrent: true });
-    } else if (currentLevel === 'genre' && genreName) {
+    } else if (currentLevel === "genre" && genreName) {
       // Genres mode: [Music] → [Genres] → [Genre Name]
       segments.push({ label: genreName, isCurrent: true });
-    } else if (mode === 'songs') {
+    } else if (mode === "songs") {
       // Songs mode: [Music] → [Songs] (already at root, no action)
       segments[1] = { label: modeLabel, isCurrent: true };
-    } else if (mode === 'artists') {
+    } else if (mode === "artists") {
       // Artists root: [Music] → [Artists]
       segments[1] = { label: modeLabel, isCurrent: true };
-    } else if (mode === 'albums') {
+    } else if (mode === "albums") {
       // Albums root: [Music] → [Albums]
       segments[1] = { label: modeLabel, isCurrent: true };
-    } else if (mode === 'genres') {
+    } else if (mode === "genres") {
       // Genres root: [Music] → [Genres]
       segments[1] = { label: modeLabel, isCurrent: true };
     }
@@ -877,7 +1001,7 @@
     if (!refocus) return;
 
     requestAnimationFrame(() => {
-      sortRoot?.querySelector<HTMLElement>('[data-sort-trigger]')?.focus();
+      sortRoot?.querySelector<HTMLElement>("[data-sort-trigger]")?.focus();
     });
   }
 
@@ -887,7 +1011,9 @@
   }
 
   function toggleSortDirection() {
-    musicSortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+    musicSortDirection.update((direction) =>
+      direction === "asc" ? "desc" : "asc",
+    );
     closeSortMenu(true);
   }
 
@@ -899,24 +1025,28 @@
   }
 
   function handleWindowKeydown(event: KeyboardEvent) {
-    if (!sortOpen || event.key !== 'Escape') return;
+    if (!sortOpen || event.key !== "Escape") return;
     event.preventDefault();
     closeSortMenu(true);
   }
 
   function handleSortMenuKeydown(event: KeyboardEvent) {
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
 
-    const items = Array.from(sortMenu?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? []);
+    const items = Array.from(
+      sortMenu?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [],
+    );
     if (items.length === 0) return;
 
     event.preventDefault();
     const currentIndex = items.indexOf(document.activeElement as HTMLElement);
     let nextIndex = 0;
 
-    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
-    else if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
-    else if (event.key === 'End') nextIndex = items.length - 1;
+    if (event.key === "ArrowDown")
+      nextIndex = (currentIndex + 1) % items.length;
+    else if (event.key === "ArrowUp")
+      nextIndex = (currentIndex - 1 + items.length) % items.length;
+    else if (event.key === "End") nextIndex = items.length - 1;
 
     items[nextIndex]?.focus();
   }
@@ -979,23 +1109,23 @@
   }
 
   function goBack() {
-    if (level === 'album') {
+    if (level === "album") {
       selectedAlbumId.set(null);
-      if ($musicBrowseMode === 'albums') selectedArtistId.set(null);
+      if ($musicBrowseMode === "albums") selectedArtistId.set(null);
       return;
     }
 
-    if (level === 'artist') {
+    if (level === "artist") {
       selectedArtistId.set(null);
       return;
     }
 
-    if (level === 'genre') {
+    if (level === "genre") {
       selectedGenre.set(null);
       return;
     }
 
-    if (level === 'folder') {
+    if (level === "folder") {
       const segments = $musicFolderSegments;
       if (segments.length <= 1) {
         musicFolderRootPath.set(null);
@@ -1022,14 +1152,17 @@
    */
   function openMusicFolderPath(path: string): void {
     const clean = trimTrailingSeparator(path);
-    const root = get(settings).musicLibraryFolders.find((candidate) => isUnderRoot(clean, candidate));
+    const root = get(settings).musicLibraryFolders.find((candidate) =>
+      isUnderRoot(clean, candidate),
+    );
     if (!root) return;
 
     const cleanRoot = trimTrailingSeparator(root);
-    const rest = clean.slice(cleanRoot.length).replace(/^[\\/]+/, '');
-    const restSegments = rest.length > 0 ? rest.split(/[\\/]+/).filter(Boolean) : [];
+    const rest = clean.slice(cleanRoot.length).replace(/^[\\/]+/, "");
+    const restSegments =
+      rest.length > 0 ? rest.split(/[\\/]+/).filter(Boolean) : [];
 
-    musicBrowseMode.set('folders');
+    musicBrowseMode.set("folders");
     selectedArtistId.set(null);
     selectedAlbumId.set(null);
     selectedGenre.set(null);
@@ -1042,21 +1175,25 @@
     // Music tab; a native listener keeps the Svelte typings happy.
     function handleShellOpenFolder(event: Event): void {
       const detail = (event as CustomEvent<string>).detail;
-      if (typeof detail !== 'string' || !detail) return;
+      if (typeof detail !== "string" || !detail) return;
       openMusicFolderPath(detail);
     }
 
-    window.addEventListener('vlc-open-music-folder', handleShellOpenFolder);
-    return () => window.removeEventListener('vlc-open-music-folder', handleShellOpenFolder);
+    window.addEventListener("vlc-open-music-folder", handleShellOpenFolder);
+    return () =>
+      window.removeEventListener(
+        "vlc-open-music-folder",
+        handleShellOpenFolder,
+      );
   });
 
   /* ---------- Covers ---------- */
 
   /** Cached cover URL for a track, warming the lazy cover cache on demand. */
   function coverFor(track: MusicTrack | null | undefined): string {
-    if (!track) return '';
+    if (!track) return "";
     ensureMusicCover(track);
-    return $musicCovers.get(track.id) ?? '';
+    return $musicCovers.get(track.id) ?? "";
   }
 
   /* ---------- Playback & actions ---------- */
@@ -1070,7 +1207,7 @@
       Math.min(Math.max(0, index), tracks.length - 1),
     );
     recordMusicListen(tracks[Math.min(Math.max(0, index), tracks.length - 1)]);
-    navigate('home');
+    navigate("home");
   }
 
   /** Resolve the live row index so re-sorted lists queue the right position. */
@@ -1080,14 +1217,17 @@
   }
 
   const rowActionClass =
-    'flex h-6 w-6 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60';
+    "flex h-6 w-6 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60";
 
   function queueTrackOnly(track: MusicTrack): void {
     addToQueue(toPlayerTrack(track));
     libraryImportLog.set(`Queued ${track.title}`);
   }
 
-  function playlistTrack(track: MusicTrack, anchor: HTMLElement | null = null): void {
+  function playlistTrack(
+    track: MusicTrack,
+    anchor: HTMLElement | null = null,
+  ): void {
     openPlaylistTarget(toPlayerTrack(track), anchor);
   }
 
@@ -1104,7 +1244,10 @@
   }
 </script>
 
-<svelte:window on:click={handleWindowPointer} on:keydown={handleWindowKeydown} />
+<svelte:window
+  on:click={handleWindowPointer}
+  on:keydown={handleWindowKeydown}
+/>
 
 <div class="flex h-full min-h-0 flex-col bg-vlc-app">
   <header class="shrink-0 border-b border-vlc-border px-4 sm:px-6">
@@ -1122,16 +1265,24 @@
         <ArrowLeft size={18} strokeWidth={1.75} />
       </button>
 
-      <nav class="flex min-w-0 items-center gap-1.5 text-[13px] leading-none" aria-label="Breadcrumb">
+      <nav
+        class="flex min-w-0 items-center gap-1.5 text-[13px] leading-none"
+        aria-label="Breadcrumb"
+      >
         {#each breadcrumb as segment, i}
           {#if i > 0}
-            <ChevronRight size={14} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
+            <ChevronRight
+              size={14}
+              strokeWidth={1.75}
+              class="shrink-0 text-vlc-muted"
+              aria-hidden="true"
+            />
           {/if}
           {#if segment.action}
             <button
               type="button"
               class="min-w-0 truncate whitespace-nowrap text-vlc-secondary transition-colors hover:text-vlc-text {focusRing}"
-              aria-current={segment.isCurrent ? 'page' : undefined}
+              aria-current={segment.isCurrent ? "page" : undefined}
               on:click={segment.action}
             >
               {segment.label}
@@ -1141,8 +1292,9 @@
               class="min-w-0 truncate whitespace-nowrap {segment.isCurrent
                 ? 'text-vlc-text'
                 : 'text-vlc-secondary'}"
-              aria-current={segment.isCurrent ? 'page' : undefined}
-            >{segment.label}</span>
+              aria-current={segment.isCurrent ? "page" : undefined}
+              >{segment.label}</span
+            >
           {/if}
         {/each}
       </nav>
@@ -1150,25 +1302,34 @@
       <div class="ml-auto flex shrink-0 items-center gap-2">
         <div class="w-40 shrink md:w-56">
           {#key searchKey}
-            <FuzzySearch placeholder={t('music.search_placeholder')} on:search={handleSearch} />
+            <FuzzySearch
+              placeholder={t("music.search_placeholder")}
+              on:search={handleSearch}
+            />
           {/key}
         </div>
 
-        <div class="relative" bind:this={sortRoot} on:focusout={handleSortFocusOut}>
+        <div
+          class="relative"
+          bind:this={sortRoot}
+          on:focusout={handleSortFocusOut}
+        >
           <button
             type="button"
             data-sort-trigger
             class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
-            title={`Sort: ${activeSortLabel} (${$musicSortDirection === 'asc' ? 'ascending' : 'descending'})`}
-            aria-label={`Sort music, currently ${activeSortLabel}, ${$musicSortDirection === 'asc' ? 'ascending' : 'descending'}`}
+            title={`Sort: ${activeSortLabel} (${$musicSortDirection === "asc" ? "ascending" : "descending"})`}
+            aria-label={`Sort music, currently ${activeSortLabel}, ${$musicSortDirection === "asc" ? "ascending" : "descending"}`}
             aria-haspopup="menu"
             aria-expanded={sortOpen}
-            aria-controls={sortOpen ? 'music-sort-menu' : undefined}
+            aria-controls={sortOpen ? "music-sort-menu" : undefined}
             on:click={toggleSortMenu}
           >
             <ArrowUpDown size={16} strokeWidth={1.75} aria-hidden="true" />
-            <span class="hidden whitespace-nowrap text-xs sm:inline">{activeSortLabel}</span>
-            {#if $musicSortDirection === 'asc'}
+            <span class="hidden whitespace-nowrap text-xs sm:inline"
+              >{activeSortLabel}</span
+            >
+            {#if $musicSortDirection === "asc"}
               <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
             {:else}
               <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
@@ -1185,7 +1346,9 @@
               class="absolute right-0 top-full z-30 mt-1 w-44 rounded-control border border-vlc-borderStrong bg-vlc-panel p-1 shadow-2xl"
               on:keydown={handleSortMenuKeydown}
             >
-              <p class="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-vlc-muted">
+              <p
+                class="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-vlc-muted"
+              >
                 Sort by
               </p>
 
@@ -1195,7 +1358,8 @@
                   role="menuitemradio"
                   aria-checked={activeSortKey === option.key}
                   tabindex="-1"
-                  class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {activeSortKey === option.key
+                  class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {activeSortKey ===
+                  option.key
                     ? 'bg-vlc-raised text-vlc-text'
                     : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
                   on:click={() => selectSortKey(option.key)}
@@ -1203,7 +1367,9 @@
                   <Check
                     size={13}
                     strokeWidth={2}
-                    class={activeSortKey === option.key ? 'text-vlc-orangeText' : 'text-transparent'}
+                    class={activeSortKey === option.key
+                      ? "text-vlc-orangeText"
+                      : "text-transparent"}
                     aria-hidden="true"
                   />
                   <span class="flex-1">{option.label}</span>
@@ -1215,7 +1381,7 @@
               <button
                 type="button"
                 role="menuitemcheckbox"
-                aria-checked={$musicSortDirection === 'desc'}
+                aria-checked={$musicSortDirection === "desc"}
                 tabindex="-1"
                 class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
                 title="Toggle sort direction"
@@ -1224,11 +1390,13 @@
                 <Check
                   size={13}
                   strokeWidth={2}
-                  class={$musicSortDirection === 'desc' ? 'text-vlc-orangeText' : 'text-transparent'}
+                  class={$musicSortDirection === "desc"
+                    ? "text-vlc-orangeText"
+                    : "text-transparent"}
                   aria-hidden="true"
                 />
                 <span class="flex-1">Descending</span>
-                {#if $musicSortDirection === 'desc'}
+                {#if $musicSortDirection === "desc"}
                   <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
                 {:else}
                   <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
@@ -1277,16 +1445,27 @@
         {/each}
       </div>
 
-      <span class="ml-auto whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
-        {itemCount} {itemCount === 1 ? 'item' : 'items'}
+      <span
+        class="ml-auto whitespace-nowrap text-xs text-vlc-muted"
+        aria-live="polite"
+      >
+        {itemCount}
+        {itemCount === 1 ? "item" : "items"}
       </span>
     </div>
   </header>
 
   <div class="min-h-0 flex-1 overflow-y-auto">
     {#if itemCount === 0}
-      <div class="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-        <Music2 size={28} strokeWidth={1.5} class="text-vlc-dim" aria-hidden="true" />
+      <div
+        class="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+      >
+        <Music2
+          size={28}
+          strokeWidth={1.5}
+          class="text-vlc-dim"
+          aria-hidden="true"
+        />
         <p class="text-sm font-medium text-vlc-secondary">{emptyTitle}</p>
         <p class="text-xs text-vlc-muted">{emptyHint}</p>
         {#if query}
@@ -1297,7 +1476,7 @@
           >
             Clear search
           </button>
-        {:else if level === 'genre' || level === 'folder'}
+        {:else if level === "genre" || level === "folder"}
           <button
             type="button"
             class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
@@ -1308,37 +1487,67 @@
         {/if}
       </div>
     {:else}
-      {#if level === 'artist' && selectedArtistEntry}
-        <div class="flex flex-col gap-4 border-b border-vlc-border px-4 py-5 sm:flex-row sm:items-center sm:px-6">
-          <MusicCover emoji="🎤" src={coverFor(selectedArtistEntry.representative)} size="xl" />
+      {#if level === "artist" && selectedArtistEntry}
+        <div
+          class="flex flex-col gap-4 border-b border-vlc-border px-4 py-5 sm:flex-row sm:items-center sm:px-6"
+        >
+          <MusicCover
+            emoji="🎤"
+            src={coverFor(selectedArtistEntry.representative)}
+            size="xl"
+          />
           <div class="min-w-0">
-            <p class="text-[11px] uppercase tracking-wide text-vlc-muted">Artist</p>
-            <h1 class="truncate text-xl font-semibold text-vlc-text sm:text-2xl">{selectedArtistEntry.name}</h1>
+            <p class="text-[11px] uppercase tracking-wide text-vlc-muted">
+              Artist
+            </p>
+            <h1
+              class="truncate text-xl font-semibold text-vlc-text sm:text-2xl"
+            >
+              {selectedArtistEntry.name}
+            </h1>
             <p class="mt-1 text-[13px] text-vlc-secondary">
-              {selectedArtistEntry.albumCount} albums • {formatDuration(selectedArtistEntry.duration)}
+              {selectedArtistEntry.albumCount} albums • {formatDuration(
+                selectedArtistEntry.duration,
+              )}
             </p>
           </div>
         </div>
-      {:else if level === 'album' && selectedAlbumEntry}
+      {:else if level === "album" && selectedAlbumEntry}
         <div class="border-b border-vlc-border px-4 py-5 sm:px-6">
           <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <MusicCover emoji="💿" src={coverFor(selectedAlbumEntry.representative)} size="xl" />
+            <MusicCover
+              emoji="💿"
+              src={coverFor(selectedAlbumEntry.representative)}
+              size="xl"
+            />
             <div class="min-w-0 flex-1">
-              <p class="text-[11px] uppercase tracking-wide text-vlc-muted">Album</p>
-              <h1 class="truncate text-xl font-semibold text-vlc-text sm:text-2xl">
+              <p class="text-[11px] uppercase tracking-wide text-vlc-muted">
+                Album
+              </p>
+              <h1
+                class="truncate text-xl font-semibold text-vlc-text sm:text-2xl"
+              >
                 {selectedAlbumEntry.title}
               </h1>
               <p class="mt-1 text-[13px] text-vlc-secondary">
-                {selectedAlbumEntry.artist} • {selectedAlbumEntry.year ?? '—'} • {selectedAlbumEntry.tracks.length} tracks
+                {selectedAlbumEntry.artist} • {selectedAlbumEntry.year ?? "—"} •
+                {selectedAlbumEntry.tracks.length} tracks
               </p>
               <p class="mt-0.5 text-xs text-vlc-muted">
-                {selectedAlbumEntry.tracks[0]?.genre ?? UNKNOWN_GENRE} • {formatDuration(albumDuration(selectedAlbumEntry))}
+                {selectedAlbumEntry.tracks[0]?.genre ?? UNKNOWN_GENRE} • {formatDuration(
+                  albumDuration(selectedAlbumEntry),
+                )}
               </p>
 
-              <div class="mt-4 flex h-10 items-end gap-[2px] overflow-hidden" aria-hidden="true">
+              <div
+                class="mt-4 flex h-10 items-end gap-[2px] overflow-hidden"
+                aria-hidden="true"
+              >
                 {#each waveformBars as bar, index}
                   <span
-                    class="w-1 shrink-0 rounded-full {index % 5 === 0 ? 'bg-vlc-orange/50' : 'bg-vlc-muted/30'}"
+                    class="w-1 shrink-0 rounded-full {index % 5 === 0
+                      ? 'bg-vlc-orange/50'
+                      : 'bg-vlc-muted/30'}"
                     style={`height: ${bar}%`}
                   ></span>
                 {/each}
@@ -1346,22 +1555,33 @@
             </div>
           </div>
         </div>
-      {:else if level === 'genre' && selectedGenreEntry}
-        <div class="flex items-center gap-4 border-b border-vlc-border px-4 py-5 sm:px-6">
+      {:else if level === "genre" && selectedGenreEntry}
+        <div
+          class="flex items-center gap-4 border-b border-vlc-border px-4 py-5 sm:px-6"
+        >
           <MusicCover emoji="🎧" size="lg" />
           <div class="min-w-0">
-            <p class="text-[11px] uppercase tracking-wide text-vlc-muted">Genre</p>
-            <h1 class="truncate text-xl font-semibold text-vlc-text sm:text-2xl">{selectedGenreEntry.name}</h1>
+            <p class="text-[11px] uppercase tracking-wide text-vlc-muted">
+              Genre
+            </p>
+            <h1
+              class="truncate text-xl font-semibold text-vlc-text sm:text-2xl"
+            >
+              {selectedGenreEntry.name}
+            </h1>
             <p class="mt-1 text-[13px] text-vlc-secondary">
-              {selectedGenreEntry.trackCount} songs • {selectedGenreEntry.albumCount} albums • {formatDuration(selectedGenreEntry.duration)}
+              {selectedGenreEntry.trackCount} songs • {selectedGenreEntry.albumCount}
+              albums • {formatDuration(selectedGenreEntry.duration)}
             </p>
           </div>
         </div>
       {/if}
 
       {#if folderCardsVisible}
-        {#if $musicViewMode === 'grid'}
-          <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {#if $musicViewMode === "grid"}
+          <div
+            class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
             {#each folderCards as card (card.path)}
               <button
                 type="button"
@@ -1378,12 +1598,18 @@
                     className="transition-colors group-hover:border-vlc-borderStrong"
                   />
                 </div>
-                <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">{card.displayName}</div>
-                <div class="truncate text-[11px] text-vlc-muted">{card.totalTracks} tracks</div>
+                <div
+                  class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                >
+                  {card.displayName}
+                </div>
+                <div class="truncate text-[11px] text-vlc-muted">
+                  {card.totalTracks} tracks
+                </div>
               </button>
             {/each}
           </div>
-        {:else if $musicViewMode === 'list'}
+        {:else if $musicViewMode === "list"}
           <div class="px-4 py-4 sm:px-6">
             <div
               class="flex items-center gap-3 border-b border-vlc-border px-3 pb-2 text-[11px] uppercase tracking-wide text-vlc-muted"
@@ -1402,10 +1628,22 @@
                   on:click={() => selectFolderCard(card)}
                   on:contextmenu={(event) => folderContextMenu(event, card)}
                 >
-                  <MusicCover emoji="📁" src={coverFor(card.representative)} size="sm" />
-                  <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{card.displayName}</span>
-                  <span class="w-20 shrink-0 text-right text-xs text-vlc-secondary">{card.totalTracks} tracks</span>
-                  <span class="w-20 shrink-0 text-right text-xs text-vlc-muted">{formatDuration(card.duration)}</span>
+                  <MusicCover
+                    emoji="📁"
+                    src={coverFor(card.representative)}
+                    size="sm"
+                  />
+                  <span
+                    class="min-w-0 flex-1 truncate text-[13px] text-vlc-text"
+                    >{card.displayName}</span
+                  >
+                  <span
+                    class="w-20 shrink-0 text-right text-xs text-vlc-secondary"
+                    >{card.totalTracks} tracks</span
+                  >
+                  <span class="w-20 shrink-0 text-right text-xs text-vlc-muted"
+                    >{formatDuration(card.duration)}</span
+                  >
                 </button>
               {/each}
             </div>
@@ -1420,18 +1658,28 @@
                 on:click={() => selectFolderCard(card)}
                 on:contextmenu={(event) => folderContextMenu(event, card)}
               >
-                <span class="min-w-0 flex-1 truncate text-vlc-text">{card.displayName}</span>
-                <span class="w-20 shrink-0 text-right text-[11px] text-vlc-muted">{card.totalTracks} tracks</span>
-                <span class="w-14 shrink-0 text-right text-[11px] text-vlc-muted">{formatDuration(card.duration)}</span>
+                <span class="min-w-0 flex-1 truncate text-vlc-text"
+                  >{card.displayName}</span
+                >
+                <span
+                  class="w-20 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{card.totalTracks} tracks</span
+                >
+                <span
+                  class="w-14 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{formatDuration(card.duration)}</span
+                >
               </button>
             {/each}
           </div>
         {/if}
       {/if}
 
-      {#if level === 'artists'}
-        {#if $musicViewMode === 'grid'}
-          <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {#if level === "artists"}
+        {#if $musicViewMode === "grid"}
+          <div
+            class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
             {#each sortedArtists as artist (artist.name)}
               <button
                 type="button"
@@ -1447,14 +1695,18 @@
                     className="transition-colors group-hover:border-vlc-borderStrong"
                   />
                 </div>
-                <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">{artist.name}</div>
+                <div
+                  class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                >
+                  {artist.name}
+                </div>
                 <div class="truncate text-[11px] text-vlc-muted">
                   {artist.albumCount} albums • {artist.trackCount} tracks
                 </div>
               </button>
             {/each}
           </div>
-        {:else if $musicViewMode === 'list'}
+        {:else if $musicViewMode === "list"}
           <div class="px-4 py-4 sm:px-6">
             <div
               class="flex items-center gap-3 border-b border-vlc-border px-3 pb-2 text-[11px] uppercase tracking-wide text-vlc-muted"
@@ -1472,10 +1724,22 @@
                   title={`Open ${artist.name}`}
                   on:click={() => selectArtist(artist)}
                 >
-                  <MusicCover emoji="🎤" src={coverFor(artist.representative)} size="sm" />
-                  <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{artist.name}</span>
-                  <span class="w-20 shrink-0 text-right text-xs text-vlc-secondary">{artist.albumCount} albums</span>
-                  <span class="w-20 shrink-0 text-right text-xs text-vlc-muted">{formatDuration(artist.duration)}</span>
+                  <MusicCover
+                    emoji="🎤"
+                    src={coverFor(artist.representative)}
+                    size="sm"
+                  />
+                  <span
+                    class="min-w-0 flex-1 truncate text-[13px] text-vlc-text"
+                    >{artist.name}</span
+                  >
+                  <span
+                    class="w-20 shrink-0 text-right text-xs text-vlc-secondary"
+                    >{artist.albumCount} albums</span
+                  >
+                  <span class="w-20 shrink-0 text-right text-xs text-vlc-muted"
+                    >{formatDuration(artist.duration)}</span
+                  >
                 </button>
               {/each}
             </div>
@@ -1489,16 +1753,26 @@
                 title={`Open ${artist.name}`}
                 on:click={() => selectArtist(artist)}
               >
-                <span class="min-w-0 flex-1 truncate text-vlc-text">{artist.name}</span>
-                <span class="w-20 shrink-0 text-right text-[11px] text-vlc-muted">{artist.albumCount} albums</span>
-                <span class="w-14 shrink-0 text-right text-[11px] text-vlc-muted">{formatDuration(artist.duration)}</span>
+                <span class="min-w-0 flex-1 truncate text-vlc-text"
+                  >{artist.name}</span
+                >
+                <span
+                  class="w-20 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{artist.albumCount} albums</span
+                >
+                <span
+                  class="w-14 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{formatDuration(artist.duration)}</span
+                >
               </button>
             {/each}
           </div>
         {/if}
-      {:else if level === 'albums' || level === 'artist'}
-        {#if $musicViewMode === 'grid'}
-          <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {:else if level === "albums" || level === "artist"}
+        {#if $musicViewMode === "grid"}
+          <div
+            class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
             {#each albumRows as entry (entry.key)}
               <button
                 type="button"
@@ -1514,21 +1788,28 @@
                     className="transition-colors group-hover:border-vlc-borderStrong"
                   />
                 </div>
-                <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">{entry.title}</div>
+                <div
+                  class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                >
+                  {entry.title}
+                </div>
                 <div class="truncate text-[11px] text-vlc-muted">
-                  {#if showAlbumArtistColumn}{entry.artist} • {/if}{entry.year ?? '—'} • {entry.tracks.length} tracks
+                  {#if showAlbumArtistColumn}{entry.artist} •
+                  {/if}{entry.year ?? "—"} • {entry.tracks.length} tracks
                 </div>
               </button>
             {/each}
           </div>
-        {:else if $musicViewMode === 'list'}
+        {:else if $musicViewMode === "list"}
           <div class="px-4 py-4 sm:px-6">
             <div
               class="flex items-center gap-3 border-b border-vlc-border px-3 pb-2 text-[11px] uppercase tracking-wide text-vlc-muted"
               aria-hidden="true"
             >
               <span class="min-w-0 flex-1">Title</span>
-              {#if showAlbumArtistColumn}<span class="w-36 shrink-0">Artist</span>{/if}
+              {#if showAlbumArtistColumn}<span class="w-36 shrink-0"
+                  >Artist</span
+                >{/if}
               <span class="w-12 shrink-0 text-right">Year</span>
               <span class="w-16 shrink-0 text-right">Tracks</span>
               <span class="w-14 shrink-0 text-right">Duration</span>
@@ -1541,14 +1822,30 @@
                   title={`Open ${entry.title}`}
                   on:click={() => selectAlbum(entry)}
                 >
-                  <MusicCover emoji="💿" src={coverFor(entry.representative)} size="sm" />
-                  <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{entry.title}</span>
+                  <MusicCover
+                    emoji="💿"
+                    src={coverFor(entry.representative)}
+                    size="sm"
+                  />
+                  <span
+                    class="min-w-0 flex-1 truncate text-[13px] text-vlc-text"
+                    >{entry.title}</span
+                  >
                   {#if showAlbumArtistColumn}
-                    <span class="w-36 shrink-0 truncate text-xs text-vlc-secondary">{entry.artist}</span>
+                    <span
+                      class="w-36 shrink-0 truncate text-xs text-vlc-secondary"
+                      >{entry.artist}</span
+                    >
                   {/if}
-                  <span class="w-12 shrink-0 text-right text-xs text-vlc-muted">{entry.year ?? '—'}</span>
-                  <span class="w-16 shrink-0 text-right text-xs text-vlc-muted">{entry.tracks.length} tracks</span>
-                  <span class="w-14 shrink-0 text-right text-xs text-vlc-muted">{formatDuration(albumDuration(entry))}</span>
+                  <span class="w-12 shrink-0 text-right text-xs text-vlc-muted"
+                    >{entry.year ?? "—"}</span
+                  >
+                  <span class="w-16 shrink-0 text-right text-xs text-vlc-muted"
+                    >{entry.tracks.length} tracks</span
+                  >
+                  <span class="w-14 shrink-0 text-right text-xs text-vlc-muted"
+                    >{formatDuration(albumDuration(entry))}</span
+                  >
                 </button>
               {/each}
             </div>
@@ -1562,20 +1859,36 @@
                 title={`Open ${entry.title}`}
                 on:click={() => selectAlbum(entry)}
               >
-                <span class="min-w-0 flex-1 truncate text-vlc-text">{entry.title}</span>
+                <span class="min-w-0 flex-1 truncate text-vlc-text"
+                  >{entry.title}</span
+                >
                 {#if showAlbumArtistColumn}
-                  <span class="hidden w-36 shrink-0 truncate text-right text-[11px] text-vlc-muted sm:block">{entry.artist}</span>
+                  <span
+                    class="hidden w-36 shrink-0 truncate text-right text-[11px] text-vlc-muted sm:block"
+                    >{entry.artist}</span
+                  >
                 {/if}
-                <span class="w-10 shrink-0 text-right text-[11px] text-vlc-muted">{entry.year ?? '—'}</span>
-                <span class="w-16 shrink-0 text-right text-[11px] text-vlc-muted">{entry.tracks.length} tracks</span>
-                <span class="w-12 shrink-0 text-right text-[11px] text-vlc-muted">{formatDuration(albumDuration(entry))}</span>
+                <span
+                  class="w-10 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{entry.year ?? "—"}</span
+                >
+                <span
+                  class="w-16 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{entry.tracks.length} tracks</span
+                >
+                <span
+                  class="w-12 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{formatDuration(albumDuration(entry))}</span
+                >
               </button>
             {/each}
           </div>
         {/if}
-      {:else if level === 'genres'}
-        {#if $musicViewMode === 'grid'}
-          <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {:else if level === "genres"}
+        {#if $musicViewMode === "grid"}
+          <div
+            class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
             {#each sortedGenres as genre (genre.name)}
               <button
                 type="button"
@@ -1590,14 +1903,18 @@
                     className="transition-colors group-hover:border-vlc-borderStrong"
                   />
                 </div>
-                <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">{genre.name}</div>
+                <div
+                  class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                >
+                  {genre.name}
+                </div>
                 <div class="truncate text-[11px] text-vlc-muted">
                   {genre.trackCount} songs • {genre.albumCount} albums
                 </div>
               </button>
             {/each}
           </div>
-        {:else if $musicViewMode === 'list'}
+        {:else if $musicViewMode === "list"}
           <div class="px-4 py-4 sm:px-6">
             <div
               class="flex items-center gap-3 border-b border-vlc-border px-3 pb-2 text-[11px] uppercase tracking-wide text-vlc-muted"
@@ -1617,10 +1934,20 @@
                   on:click={() => selectGenre(genre)}
                 >
                   <MusicCover emoji="🎧" size="sm" />
-                  <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{genre.name}</span>
-                  <span class="w-16 shrink-0 text-right text-xs text-vlc-secondary">{genre.trackCount} songs</span>
-                  <span class="w-16 shrink-0 text-right text-xs text-vlc-muted">{genre.albumCount} albums</span>
-                  <span class="w-16 shrink-0 text-right text-xs text-vlc-muted">{formatDuration(genre.duration)}</span>
+                  <span
+                    class="min-w-0 flex-1 truncate text-[13px] text-vlc-text"
+                    >{genre.name}</span
+                  >
+                  <span
+                    class="w-16 shrink-0 text-right text-xs text-vlc-secondary"
+                    >{genre.trackCount} songs</span
+                  >
+                  <span class="w-16 shrink-0 text-right text-xs text-vlc-muted"
+                    >{genre.albumCount} albums</span
+                  >
+                  <span class="w-16 shrink-0 text-right text-xs text-vlc-muted"
+                    >{formatDuration(genre.duration)}</span
+                  >
                 </button>
               {/each}
             </div>
@@ -1634,19 +1961,33 @@
                 title={`Open ${genre.name}`}
                 on:click={() => selectGenre(genre)}
               >
-                <span class="min-w-0 flex-1 truncate text-vlc-text">{genre.name}</span>
-                <span class="w-16 shrink-0 text-right text-[11px] text-vlc-muted">{genre.trackCount} songs</span>
-                <span class="w-16 shrink-0 text-right text-[11px] text-vlc-muted">{genre.albumCount} albums</span>
-                <span class="w-12 shrink-0 text-right text-[11px] text-vlc-muted">{formatDuration(genre.duration)}</span>
+                <span class="min-w-0 flex-1 truncate text-vlc-text"
+                  >{genre.name}</span
+                >
+                <span
+                  class="w-16 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{genre.trackCount} songs</span
+                >
+                <span
+                  class="w-16 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{genre.albumCount} albums</span
+                >
+                <span
+                  class="w-12 shrink-0 text-right text-[11px] text-vlc-muted"
+                  >{formatDuration(genre.duration)}</span
+                >
               </button>
             {/each}
           </div>
         {/if}
       {:else if showTrackBlock}
-        {#if $musicViewMode === 'grid'}
-          <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {#if $musicViewMode === "grid"}
+          <div
+            class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
             {#each trackRows as entry, i (entry.id)}
-              {@const position = level === 'album' ? entry.trackNumber ?? i + 1 : i + 1}
+              {@const position =
+                level === "album" ? (entry.trackNumber ?? i + 1) : i + 1}
               <div
                 class="group relative"
                 role="group"
@@ -1663,21 +2004,30 @@
                 >
                   <div class="relative aspect-square w-full">
                     <MusicCover
-                      emoji={level === 'album' ? '💿' : '🎵'}
+                      emoji={level === "album" ? "💿" : "🎵"}
                       src={coverFor(entry)}
                       size="fill"
                       className="transition-colors group-hover:border-vlc-borderStrong"
                     />
-                    <span class="absolute left-2 top-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] text-vlc-secondary">
+                    <span
+                      class="absolute left-2 top-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] text-vlc-secondary"
+                    >
                       {position}
                     </span>
-                    <span class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] text-vlc-secondary">
+                    <span
+                      class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] text-vlc-secondary"
+                    >
                       {formatDuration(entry.durationSeconds)}
                     </span>
                   </div>
-                  <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">{entry.title}</div>
+                  <div
+                    class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                  >
+                    {entry.title}
+                  </div>
                   <div class="truncate text-[11px] text-vlc-muted">
-                    {artistNameOf(entry)}{#if showAlbumColumns} • {entry.album}{/if}
+                    {artistNameOf(entry)}{#if showAlbumColumns}
+                      • {entry.album}{/if}
                   </div>
                 </button>
 
@@ -1701,7 +2051,9 @@
                     on:click={(event) =>
                       playlistTrack(
                         entry,
-                        event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+                        event.currentTarget instanceof HTMLElement
+                          ? event.currentTarget
+                          : null,
                       )}
                   >
                     <ListPlus size={13} strokeWidth={1.9} aria-hidden="true" />
@@ -1710,7 +2062,7 @@
               </div>
             {/each}
           </div>
-        {:else if $musicViewMode === 'list'}
+        {:else if $musicViewMode === "list"}
           <div>
             <div
               class="flex items-center gap-3 border-b border-vlc-border px-4 py-2 text-[11px] uppercase tracking-wide text-vlc-muted sm:px-6"
@@ -1719,12 +2071,17 @@
               <span class="w-7 shrink-0">#</span>
               <span class="min-w-0 flex-1">Title</span>
               <span class="w-32 shrink-0 truncate">Artist</span>
-              {#if showAlbumColumns}<span class="hidden w-40 shrink-0 truncate lg:block">Album</span>{/if}
-              {#if showAlbumColumns}<span class="w-12 shrink-0 text-right">Year</span>{/if}
+              {#if showAlbumColumns}<span
+                  class="hidden w-40 shrink-0 truncate lg:block">Album</span
+                >{/if}
+              {#if showAlbumColumns}<span class="w-12 shrink-0 text-right"
+                  >Year</span
+                >{/if}
               <span class="w-12 shrink-0 text-right">Duration</span>
             </div>
             {#each trackRows as entry, i (entry.id)}
-              {@const position = level === 'album' ? entry.trackNumber ?? i + 1 : i + 1}
+              {@const position =
+                level === "album" ? (entry.trackNumber ?? i + 1) : i + 1}
               <div
                 class="group relative"
                 role="group"
@@ -1740,15 +2097,25 @@
                   on:click={() => queueTrack(entry)}
                 >
                   <span class="w-7 shrink-0 text-vlc-muted">{position}</span>
-                  <span class="min-w-0 flex-1 truncate text-vlc-text">{entry.title}</span>
-                  <span class="w-32 shrink-0 truncate">{artistNameOf(entry)}</span>
+                  <span class="min-w-0 flex-1 truncate text-vlc-text"
+                    >{entry.title}</span
+                  >
+                  <span class="w-32 shrink-0 truncate"
+                    >{artistNameOf(entry)}</span
+                  >
                   {#if showAlbumColumns}
-                    <span class="hidden w-40 shrink-0 truncate lg:block">{entry.album}</span>
+                    <span class="hidden w-40 shrink-0 truncate lg:block"
+                      >{entry.album}</span
+                    >
                   {/if}
                   {#if showAlbumColumns}
-                    <span class="w-12 shrink-0 text-right text-vlc-muted">{entry.year ?? ''}</span>
+                    <span class="w-12 shrink-0 text-right text-vlc-muted"
+                      >{entry.year ?? ""}</span
+                    >
                   {/if}
-                  <span class="w-12 shrink-0 text-right text-vlc-muted">{formatDuration(entry.durationSeconds)}</span>
+                  <span class="w-12 shrink-0 text-right text-vlc-muted"
+                    >{formatDuration(entry.durationSeconds)}</span
+                  >
                 </button>
 
                 <div
@@ -1771,7 +2138,9 @@
                     on:click={(event) =>
                       playlistTrack(
                         entry,
-                        event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+                        event.currentTarget instanceof HTMLElement
+                          ? event.currentTarget
+                          : null,
                       )}
                   >
                     <ListPlus size={13} strokeWidth={1.9} aria-hidden="true" />
@@ -1783,7 +2152,8 @@
         {:else}
           <div class="px-4 py-2 sm:px-6">
             {#each trackRows as entry, i (entry.id)}
-              {@const position = level === 'album' ? entry.trackNumber ?? i + 1 : i + 1}
+              {@const position =
+                level === "album" ? (entry.trackNumber ?? i + 1) : i + 1}
               <div
                 class="group relative border-b border-vlc-border/40 last:border-b-0"
                 role="group"
@@ -1798,13 +2168,27 @@
                   title={`Play ${entry.title}. Drag to add to the queue.`}
                   on:click={() => queueTrack(entry)}
                 >
-                  <span class="w-6 shrink-0 text-right text-[11px] text-vlc-muted">{position}</span>
-                  <span class="min-w-0 flex-1 truncate text-vlc-text">{entry.title}</span>
-                  <span class="hidden w-32 shrink-0 truncate text-right text-[11px] text-vlc-muted sm:block">{artistNameOf(entry)}</span>
+                  <span
+                    class="w-6 shrink-0 text-right text-[11px] text-vlc-muted"
+                    >{position}</span
+                  >
+                  <span class="min-w-0 flex-1 truncate text-vlc-text"
+                    >{entry.title}</span
+                  >
+                  <span
+                    class="hidden w-32 shrink-0 truncate text-right text-[11px] text-vlc-muted sm:block"
+                    >{artistNameOf(entry)}</span
+                  >
                   {#if showAlbumColumns}
-                    <span class="hidden w-40 shrink-0 truncate text-right text-[11px] text-vlc-muted lg:block">{entry.album}</span>
+                    <span
+                      class="hidden w-40 shrink-0 truncate text-right text-[11px] text-vlc-muted lg:block"
+                      >{entry.album}</span
+                    >
                   {/if}
-                  <span class="w-12 shrink-0 text-right text-[11px] text-vlc-muted">{formatDuration(entry.durationSeconds)}</span>
+                  <span
+                    class="w-12 shrink-0 text-right text-[11px] text-vlc-muted"
+                    >{formatDuration(entry.durationSeconds)}</span
+                  >
                 </button>
 
                 <div
@@ -1827,7 +2211,9 @@
                     on:click={(event) =>
                       playlistTrack(
                         entry,
-                        event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+                        event.currentTarget instanceof HTMLElement
+                          ? event.currentTarget
+                          : null,
                       )}
                   >
                     <ListPlus size={13} strokeWidth={1.9} aria-hidden="true" />
