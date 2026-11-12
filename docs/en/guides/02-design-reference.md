@@ -128,7 +128,7 @@ Alternate accents appear in `Player-2.png` (purple), `Player-3.png` (pink) and `
 
 | Reference | Implemented file(s) | Status |
 | --- | --- | --- |
-| Player frames | `src/views/PlayerView.svelte`, `components/TitleBar.svelte`, `IconRail.svelte`, `PlaylistPanel.svelte`, `RightDock.svelte`, `TransportBar.svelte` | Shell, playlist, dock, transport and gestures implemented; fullscreen chrome auto-hide and PiP are in the working tree; native media sources pending |
+| Player frames | `src/views/PlayerView.svelte`, `components/TitleBar.svelte`, `IconRail.svelte`, `PlaylistPanel.svelte`, `RightDock.svelte`, `TransportBar.svelte` | Shell, playlist, dock, transport and gestures implemented; fullscreen chrome auto-hide and PiP are in the working tree; **waveform seekbar for audio and real AnalyserNode visualizer implemented**; native media sources pending |
 | Library grid | `src/views/LibraryView.svelte`, `LibraryToolbar.svelte`, `LibraryAddMenu.svelte`, `MediaCard.svelte`, `MediaListRow.svelte` | Implemented with grid/list/compact, sorting, watched filter, clickable breadcrumbs and session file/folder/stream imports (working tree) |
 | Menus | `src/components/ContextMenu.svelte` | Full title-bar menu plus a shorter right-click menu, including hover submenus and **Hide UI** |
 | Settings modal | `src/components/SettingsModal.svelte` + `components/settings/*` | Sixteen categories implemented, including Layout and Profiles, with search, reset, persistence and JSON import/export |

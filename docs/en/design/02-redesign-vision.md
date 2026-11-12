@@ -149,6 +149,8 @@ This section separates what exists in `src/` from the target above.
 | Network | Saved streams with add, edit, play and remove flows, persisted under `vlc.network.streams.v1`; the saved list replaces the redundant Custom URL category. |
 | Settings | Sixteen categories including Layout and Profiles, a separate hotkeys window, info tips, human-readable subtitle matching and JSON export/import. |
 | Profiles | Named settings profiles can be saved, applied and deleted. |
+| Audio waveform seekbar | **Implemented.** `TransportBar.svelte` replaces the plain progress bar with a DPR-aware canvas waveform strip (~800 thin bars, 2px+2px gap, played prefix in accent, remaining muted) when the current track is an audio file (`isAudioFile`). Peaks resolved: session cache → `waveform_get` → `waveform_generate` (single IPC roundtrip). Click/drag seeks via `requestSeek`. Video/stream/src-less tracks keep the original bar. Backed by Rust `waveform_peaks`/`waveform_get`/`waveform_generate` commands and a `waveforms` SQLite table. |
+| Real dock visualizer (AnalyserNode) | **Implemented.** `AudioVisualizerPanel.svelte` renders real FFT bars (max-pool downsample to 40) + waveform mode (time-domain line) with a mode toggle in the dock header. `src/lib/audioAnalyser.ts` provides a lazy `AudioContext` + `createMediaElementSource` + `AnalyserNode` chain (source → analyser → destination, context resumed on play, one source per element, autoplay suspension handled, mute guard >2s all-zero at volume>0 → marks unusable → synthetic fallback). Graph stays connected so audio never cuts out. Synthetic sine bars when no analyser/unusable/idle before playback. i18n keys: `dock.visualizer_bars` / `dock.visualizer_waveform`. |
 
 ### Completed — partial features finished
 
