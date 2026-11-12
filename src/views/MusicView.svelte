@@ -8,6 +8,7 @@
     ArrowUpDown,
     Check,
     ChevronRight,
+    FolderPlus,
     ListMusic,
     ListPlus,
     Music2,
@@ -37,6 +38,8 @@
     type MusicSortKey,
     type SortDirection,
   } from '../stores/music';
+  import { addMusicLibraryFolder } from '../stores/settings';
+  import { pickFolderViaDialog } from '../lib/tauriFs';
   import { musicViewMode } from '../stores/viewModes';
   import { navigate } from '../stores/navigation';
   import { isUnderRoot, libraryImportLog } from '../stores/library';
@@ -774,6 +777,12 @@
       ? t('music.genre_empty_hint')
       : t('music.empty_default_hint');
 
+  interface BreadcrumbSegment {
+    label: string;
+    action?: () => void;
+    isCurrent?: boolean;
+  }
+
   function buildBreadcrumb(
     mode: MusicBrowseMode,
     currentLevel: BrowseLevel,
@@ -782,26 +791,89 @@
     genreName: string | null,
     rootCard: MusicFolderCard | null,
     chain: string[],
-  ): string[] {
+  ): BreadcrumbSegment[] {
     const modeLabel = browseModes.find((entry) => entry.id === mode)?.label ?? t('music.tabs.songs');
-    const crumbs = [t('music.breadcrumb_root'), modeLabel];
+    const segments: BreadcrumbSegment[] = [
+      { label: t('music.breadcrumb_root') },
+      { label: modeLabel },
+    ];
 
     if (mode === 'folders') {
       if (currentLevel === 'folder' && rootCard) {
-        crumbs.push(rootCard.displayName, ...chain);
+        // Folders: [Music] → [Folders] → [Root] → [Subfolder...]
+        // "Folders" goes to roots
+        segments.push({ label: modeLabel, action: () => {
+          musicFolderRootPath.set(null);
+          musicFolderSegments.set([]);
+        }});
+        // Root display name
+        segments.push({ label: rootCard.displayName, action: () => {
+          musicFolderSegments.set([rootCard.name]);
+        }});
+        // Chain segments
+        for (let i = 0; i < chain.length; i++) {
+          const segment = chain[i];
+          const isLast = i === chain.length - 1;
+          segments.push({ 
+            label: segment, 
+            isCurrent: isLast,
+            action: isLast ? undefined : () => {
+              musicFolderSegments.set(chain.slice(0, i + 1));
+            }
+          });
+        }
+        return segments;
       }
-      return crumbs;
+      // At folders root
+      segments[1] = { label: modeLabel, isCurrent: true };
+      return segments;
     }
 
     if (currentLevel === 'artist' && artist) {
-      crumbs.push(artist.name);
+      // Artists mode: [Music] → [Artists] → [Artist Name]
+      segments.push({ label: modeLabel, action: () => {
+        selectedArtistId.set(null);
+      }});
+      segments.push({ label: artist.name, isCurrent: true });
     } else if (currentLevel === 'album' && albumEntry) {
-      crumbs.push(albumEntry.artist, albumEntry.title);
+      // Artists mode: [Music] → [Artists] → [Artist Name] → [Album Name]
+      // Albums mode: [Music] → [Albums] → [Album Name]
+      if (mode === 'artists') {
+        segments.push({ label: modeLabel, action: () => {
+          selectedArtistId.set(null);
+        }});
+        segments.push({ label: albumEntry.artist, action: () => {
+          selectedAlbumId.set(null);
+        }});
+      } else {
+        // Albums mode
+        segments.push({ label: modeLabel, action: () => {
+          selectedAlbumId.set(null);
+          selectedArtistId.set(null);
+        }});
+      }
+      segments.push({ label: albumEntry.title, isCurrent: true });
     } else if (currentLevel === 'genre' && genreName) {
-      crumbs.push(genreName);
+      // Genres mode: [Music] → [Genres] → [Genre Name]
+      segments.push({ label: modeLabel, action: () => {
+        selectedGenre.set(null);
+      }});
+      segments.push({ label: genreName, isCurrent: true });
+    } else if (mode === 'songs') {
+      // Songs mode: [Music] → [Songs] (already at root, no action)
+      segments[1] = { label: modeLabel, isCurrent: true };
+    } else if (mode === 'artists') {
+      // Artists root: [Music] → [Artists]
+      segments[1] = { label: modeLabel, isCurrent: true };
+    } else if (mode === 'albums') {
+      // Albums root: [Albums]
+      segments[1] = { label: modeLabel, isCurrent: true };
+    } else if (mode === 'genres') {
+      // Genres root: [Genres]
+      segments[1] = { label: modeLabel, isCurrent: true };
     }
 
-    return crumbs;
+    return segments;
   }
 
   /* ---------- Sort menu ---------- */
@@ -952,6 +1024,13 @@
     }
   }
 
+  async function handleAddMusicFolder(): Promise<void> {
+    const picked = await pickFolderViaDialog();
+    if (picked) {
+      addMusicLibraryFolder(picked);
+    }
+  }
+
   /* ---------- Shell hand-off (folder context menu "Open") ---------- */
 
   /**
@@ -1062,16 +1141,27 @@
       </button>
 
       <nav class="flex min-w-0 items-center gap-1.5 text-[13px] leading-none" aria-label="Breadcrumb">
-        {#each breadcrumb as crumb, i}
+        {#each breadcrumb as segment, i}
           {#if i > 0}
             <ChevronRight size={14} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
           {/if}
-          <span
-            class="min-w-0 truncate whitespace-nowrap {i === breadcrumb.length - 1
-              ? 'text-vlc-text'
-              : 'text-vlc-secondary'}"
-            aria-current={i === breadcrumb.length - 1 ? 'page' : undefined}
-          >{crumb}</span>
+          {#if segment.action}
+            <button
+              type="button"
+              class="min-w-0 truncate whitespace-nowrap text-vlc-secondary transition-colors hover:text-vlc-text {focusRing}"
+              aria-current={segment.isCurrent ? 'page' : undefined}
+              on:click={segment.action}
+            >
+              {segment.label}
+            </button>
+          {:else}
+            <span
+              class="min-w-0 truncate whitespace-nowrap {segment.isCurrent
+                ? 'text-vlc-text'
+                : 'text-vlc-secondary'}"
+              aria-current={segment.isCurrent ? 'page' : undefined}
+            >{segment.label}</span>
+          {/if}
         {/each}
       </nav>
 
@@ -1171,6 +1261,16 @@
           onChange={(mode) => musicViewMode.set(mode)}
           label="Music view mode"
         />
+
+        <button
+          type="button"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
+          title="Add music folder"
+          aria-label="Add music folder to library"
+          on:click={handleAddMusicFolder}
+        >
+          <FolderPlus size={18} strokeWidth={1.75} aria-hidden="true" />
+        </button>
       </div>
     </div>
 

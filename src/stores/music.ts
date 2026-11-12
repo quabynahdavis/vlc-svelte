@@ -1,7 +1,16 @@
 import { writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 
-export const musicBreadcrumb = writable<string[]>(['Music', 'Artists']);
+export interface BreadcrumbSegment {
+  label: string;
+  action?: () => void;
+  isCurrent?: boolean;
+}
+
+export const musicBreadcrumb = writable<BreadcrumbSegment[]>([
+  { label: 'Music' },
+  { label: 'Artists', isCurrent: true },
+]);
 export const selectedArtistId = writable<string | null>(null);
 export const selectedAlbumId = writable<string | null>(null);
 export const selectedGenre = writable<string | null>(null);
