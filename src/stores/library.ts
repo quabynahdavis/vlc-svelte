@@ -840,26 +840,37 @@ export async function importLibraryFolderPath(
 /* ---------- Bootstrap & Tauri integration ---------- */
 
 /**
- * Probe durations for scanned items by creating <video> elements.
+ * Probe durations for scanned items using Rust ffprobe via Tauri command.
+ * Falls back to browser video probe for items with a src (imported blob URLs).
  */
 async function probeDurationsForScanned(items: MediaItem[]): Promise<void> {
     for (const item of items) {
+        // For Tauri desktop, use Rust ffprobe via media_duration
+        if (hasTauri()) {
+            const seconds = await invokeCommand<number | null>('media_duration', { path: item.id })
+                .catch(() => null);
+            if (seconds !== null && seconds > 0) {
+                updateLibraryItemDuration(item.id, seconds);
+            }
+        }
+
+        // For browser sessions or non-Tauri environments, fallback to video element
         const src = item.src;
-        if (!src) continue;
+        if (src && !hasTauri()) {
+            const video = document.createElement('video');
+            video.preload = 'metadata';
 
-        const video = document.createElement('video');
-        video.preload = 'metadata';
-
-        await new Promise<void>((resolve) => {
-            video.onloadedmetadata = () => {
-                if (Number.isFinite(video.duration) && video.duration > 0) {
-                    updateLibraryItemDuration(item.id, video.duration);
-                }
-                resolve();
-            };
-            video.onerror = () => resolve();
-            video.src = src;
-        });
+            await new Promise<void>((resolve) => {
+                video.onloadedmetadata = () => {
+                    if (Number.isFinite(video.duration) && video.duration > 0) {
+                        updateLibraryItemDuration(item.id, video.duration);
+                    }
+                    resolve();
+                };
+                video.onerror = () => resolve();
+                video.src = src;
+            });
+        }
     }
 }
 
