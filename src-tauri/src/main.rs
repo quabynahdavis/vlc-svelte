@@ -3,6 +3,7 @@
 mod asset_scope;
 mod audio_meta;
 mod db;
+mod duration;
 mod library;
 mod thumb;
 mod waveform;
@@ -46,6 +47,7 @@ fn main() {
             waveform::waveform_peaks,
             waveform::waveform_get,
             waveform::waveform_generate,
+            duration::media_duration,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
