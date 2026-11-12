@@ -4,6 +4,19 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-11
 
+### Added — Clickable breadcrumb navigation and add-folder button on Music page
+
+- `src/views/MusicView.svelte`: `buildBreadcrumb` now returns `BreadcrumbSegment[]` (`label`, optional `action`, optional `isCurrent`); each segment except the current page is a `<button>` with the corresponding navigation action.
+- Navigation per mode:
+  - Artists: `Music → Artists → Artist` — "Artists" → `selectedArtistId.set(null)`; "Artist" → current.
+  - Albums: `Music → Albums` — "Albums" → `selectedAlbumId.set(null); selectedArtistId.set(null)`.
+  - Songs: `Music → Songs` — "Songs" is current.
+  - Genres: `Music → Genres → Genre` — "Genres" → `selectedGenre.set(null)`.
+  - Folders: `Music → Folders → Root → Subfolder...` — "Folders" → reset to roots; root/subfolder → slice `musicFolderSegments`.
+- Add-folder button: `FolderPlus` icon in the header (next to Sort/ViewModeToggle), `pickFolderViaDialog()` → `addMusicLibraryFolder()`, tooltip "Add music folder", matches existing header button style.
+- Cross-platform seeding already correct: `default_media_dir("music")` uses `dirs::home_dir()` fallback (`~/Music` on macOS/Linux, `%USERPROFILE%\Music` on Windows) — no code change needed.
+- Committed as `7974d87`; `bun run check` 0/0; `vite build` success.
+
 ### Added — Waveform seekbar for audio playback
 
 - New `src-tauri/src/waveform.rs`: `waveform_peaks` (ffmpeg decode to mono PCM, peak-per-bucket, buckets clamped 50–2000, default 800), `waveform_get` / `waveform_generate` mirroring the thumbnail pipeline, persisted in a new `waveforms` SQLite table (path-keyed BLOB, schema test updated).

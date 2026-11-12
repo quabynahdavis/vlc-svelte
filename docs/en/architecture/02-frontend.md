@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-**Status:** the application shell, six browse views, player, right dock, settings modal, welcome screen, layout editor and local persistence are implemented. Library, playlist and network browse data are still mock data; the music library store (`src/stores/musicLibrary.ts`) scans the configured music roots, enriches files with Rust audio metadata, persists under `vlc.musicLibrary.v1` and is rendered by the MusicView browse page; library file/folder/stream imports and blob-backed playlist tracks are session-only; Rust-side file access, SQLite persistence, audio metadata/cover art and waveform peaks are implemented (see [03-tauri-backend.md](03-tauri-backend.md)); native playback is not. **Waveform seekbar for audio** and **real AnalyserNode dock visualizer** are implemented. Last updated 2026-11-12.
+**Status:** the application shell, six browse views, player, right dock, settings modal, welcome screen, layout editor and local persistence are implemented. Library, playlist and network browse data are still mock data; the music library store (`src/stores/musicLibrary.ts`) scans the configured music roots, enriches files with Rust audio metadata, persists under `vlc.musicLibrary.v1` and is rendered by the MusicView browse page; library file/folder/stream imports and blob-backed playlist tracks are session-only; Rust-side file access, SQLite persistence, audio metadata/cover art and waveform peaks are implemented (see [03-tauri-backend.md](03-tauri-backend.md)); native playback is not. **Waveform seekbar for audio** and **real AnalyserNode dock visualizer** are implemented. **MusicView now has clickable breadcrumb navigation per mode and an add-folder header button.** Last updated 2026-11-12.
 
 The frontend builds and type-checks: `bun run check` reports 0 errors and 0 warnings, and `bunx vite build` writes `src-tauri/gen/dist/`.
 
@@ -139,6 +139,7 @@ A full-window modal with a dimmed `bg-vlc-app/95` backdrop and a `12px` panel on
 | `AddToPlaylistDialog` | `src/components/AddToPlaylistDialog.svelte` | Playlist picker with inline creation, driven by `stores/playlistTarget.ts`. |
 | `AddStreamDialog` | `src/components/AddStreamDialog.svelte` | Saved-stream add/edit dialog with URL validation. |
 | `CreatePlaylistDialog` | `src/components/CreatePlaylistDialog.svelte` | Playlist name plus optional file picking and duration probing. |
+| `MusicView` | `src/views/MusicView.svelte` | **Clickable breadcrumbs** per mode (Artists/Albums/Songs/Genres/Folders) with segment actions; **add-folder header button** (`FolderPlus` icon next to Sort/ViewModeToggle, `pickFolderViaDialog()` → `addMusicLibraryFolder()`). |
 | `MusicCover` | `src/components/MusicCover.svelte` | Placeholder cover artwork with size variants. |
 | `PropertyPanel` | `src/components/PropertyPanel.svelte` | Collapsible effect sections; exports `compressorPreset` and `videoPreset`. |
 | `PropertySlider` | `src/components/PropertySlider.svelte` | Tick-marked range with formatted value. |
