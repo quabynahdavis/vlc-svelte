@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Status:** UI shell, six browse views, player, right dock, settings and local persistence are implemented. Tauri v2 configuration, window capabilities and the native backend (SQLite persistence, disk scanning, ffmpeg thumbnails, audio metadata/cover art, dialog plugin, runtime asset scope) are in place. Last updated 2026-11-12.
+**Status:** UI shell, six browse views, player, right dock, settings and local persistence are implemented. Tauri v2 configuration, window capabilities and the native backend (SQLite persistence, disk scanning, ffmpeg thumbnails, audio metadata/cover art, waveform peaks, dialog plugin, runtime asset scope) are in place. **Waveform seekbar for audio playback** and **real AnalyserNode dock visualizer** are implemented. Last updated 2026-11-12.
 
 ## Purpose
 
@@ -110,11 +110,11 @@ The Svelte UI and the Tauri v2 shell are implemented, including ten registered T
 | Area | State |
 | --- | --- |
 | Vite + Svelte + Tailwind frontend | Implemented; `bun run check` passes; `bun run dev:frontend` serves the browser build |
-| Player screen | Implemented: playlist panel, synced `<video>`, stage gestures, fullscreen shell with auto-hiding chrome and PiP (working tree), right dock, transport, demo and imported playback |
+| Player screen | Implemented: playlist panel, synced `<video>`, stage gestures, fullscreen shell with auto-hiding chrome and PiP (working tree), right dock, transport, demo and imported playback, **waveform seekbar for audio**, **real AnalyserNode visualizer** |
 | Library screen | Implemented: breadcrumb toolbar, search, watched filter, sorting, grid/list/compact, add file/folder/stream (working tree); selecting an item queues it and opens the player |
 | Music, Playlists, Recent, Network | Implemented browse screens with sorting and/or view modes; Music renders the real music library store (`Artists / Albums / Songs / Genres / Folders`), recent rows render the persisted history store, while playlist and network content is mock and network and recent-Devices selections are inert |
 | Settings | Sixteen categories implemented, including Layout and Profiles; persistence, reset and JSON import/export |
 | Tauri v2 shell | Implemented; v2 config, `main.rs`, window capabilities and custom/system decorations |
-| Native plugins, commands, metadata | Implemented (`tauri-plugin-dialog` plus ten registered commands) |
+| Native plugins, commands, metadata | Implemented (`tauri-plugin-dialog` plus thirteen registered commands) |
 | Native file dialogs, directory listing, persistent media sources | Implemented: native folder dialog, SQLite-backed persistence and Rust disk scanning; native playback itself is still planned |
-| Tests | Rust unit tests only (`cargo test`, 30 passing: asset scope, scanner, database, thumbnails, audio metadata); no frontend test suite — type checking runs through `bun run check` |
+| Tests | Rust unit tests only (`cargo test`, 41 passing: asset scope, scanner, database, thumbnails, audio metadata, waveform); no frontend test suite — type checking runs through `bun run check` |

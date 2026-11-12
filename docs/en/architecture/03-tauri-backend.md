@@ -1,6 +1,6 @@
 # Tauri Backend
 
-**Status:** the Tauri **v2 backend is implemented**: the SQLite persistence layer, the disk scanner, the ffmpeg thumbnail pipeline and the audio metadata/cover-art pipeline are all live, with ten commands registered through `.invoke_handler(...)` and `tauri-plugin-dialog` as the single plugin crate. The Content Security Policy is still **planned**. Last updated 2026-11-12.
+**Status:** the Tauri **v2 backend is implemented**: the SQLite persistence layer, the disk scanner, the ffmpeg thumbnail pipeline, the audio metadata/cover-art pipeline and the waveform pipeline are all live, with thirteen commands registered through `.invoke_handler(...)` and `tauri-plugin-dialog` as the single plugin crate. The Content Security Policy is still **planned**. Last updated 2026-11-12.
 
 ## `Cargo.toml`
 
@@ -76,7 +76,7 @@ Current flow:
 
 ## Registered Tauri commands
 
-All ten commands are wired in `main.rs`'s `generate_handler!` and each has a typed TypeScript wrapper in `src/lib/` (`tauriFs.ts`, `dbPersistence.ts`, `thumbnails.ts`, `audioMeta.ts`).
+All thirteen commands are wired in `main.rs`'s `generate_handler!` and each has a typed TypeScript wrapper in `src/lib/` (`tauriFs.ts`, `dbPersistence.ts`, `thumbnails.ts`, `audioMeta.ts`).
 
 | Command | Module | Signature (Rust side) | Purpose |
 | --- | --- | --- | --- |
@@ -90,6 +90,9 @@ All ten commands are wired in `main.rs`'s `generate_handler!` and each has a typ
 | `read_audio_metadata` | `audio_meta.rs` | `(path: String) -> Option<AudioMetadata>` | Tag/duration/cover-presence read via `lofty` for files whose extension is in `AUDIO_EXTENSIONS`. Returns `None` — never a panic — for non-audio extensions, unreadable files or unparsable containers (WMA/ASF and Matroska audio are not lofty-parsable). Struct fields (serde camelCase): `title`, `artist`, `albumArtist`, `album`, `year`, `trackNumber`, `discNumber`, `genre`, `durationSeconds`, `hasCover`. Duration comes from container properties; a zero duration maps to `None` so the frontend keeps its own probing. |
 | `cover_get` | `audio_meta.rs` | `(state: State<Database>, path: String) -> Result<Option<Vec<u8>>, String>` | Read a persisted artwork blob from `covers` (`None` when never stored). |
 | `cover_extract` | `audio_meta.rs` | `(state: State<Database>, path: String) -> Result<Option<Vec<u8>>, String>` | Extract embedded artwork via `lofty` (`best_picture` — largest picture wins), persist it into `covers`, and return the bytes — mirroring `thumb_generate` in a single IPC roundtrip. `None` on non-absolute paths, non-audio containers, missing files, no embedded artwork or unparsable containers. |
+| `waveform_peaks` | `waveform.rs` | `(path: String, buckets: Option<u32>) -> Result<Vec<u16>, String>` | Decode audio via ffmpeg to mono PCM, compute peak-per-bucket across `buckets` (clamped 50–2000, default 800), return vector of `u16` peaks (0–65535). Non-audio extensions, missing files or decode failures return empty vector (never a panic). |
+| `waveform_get` | `waveform.rs` | `(state: State<Database>, path: String) -> Result<Option<Vec<u8>>, String>` | Read a persisted waveform peaks blob from the `waveforms` table (`None` when never stored). |
+| `waveform_generate` | `waveform.rs` | `(state: State<Database>, path: String, buckets: Option<u32>) -> Result<Option<Vec<u8>>, String>` | Generate peaks via `waveform_peaks` (default 800 buckets), `INSERT OR REPLACE` into `waveforms`, and return the serialized peaks — mirroring `thumb_generate` in a single IPC roundtrip. Any failure degrades to `Ok(None)`. |
 
 Design notes that all commands follow:
 
@@ -109,8 +112,9 @@ A single SQLite database at `app_data_dir/kanea.db`, opened once in the setup ho
 | `kv` | `key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL` | All persisted store blobs, mirroring the versioned `vlc.*.v1` keys one-to-one |
 | `thumbnails` | `path TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL` | JPEG video frames keyed by the media item's absolute path |
 | `covers` | `path TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL` | Embedded audio artwork keyed by the same absolute-path convention |
+| `waveforms` | `path TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL` | Audio waveform peaks (serialized `Vec<u16>`) keyed by the media item's absolute path |
 
-- `thumbnails` and `covers` are deliberately **separate tables** rather than one table with key prefixes: video frames and artwork are separate domains, and prefix-stuffing a file-path primary key would conflate the key namespaces.
+- `thumbnails`, `covers` and `waveforms` are deliberately **separate tables** rather than one table with key prefixes: video frames, artwork and waveforms are separate domains, and prefix-stuffing a file-path primary key would conflate the key namespaces.
 
 ## Frontend build integration
 
@@ -168,8 +172,9 @@ Replacing them with a Kanea icon set is **planned**. Keep every size referenced 
   - `dialog:default`
 - The six core permissions back the custom title bar: minimise, maximise/restore, close, dragging, double-click-to-maximise and the `useSystemTitleBar` runtime switch. `dialog:default` backs the native folder picker.
 - **Runtime-managed asset protocol scope:** `tauri.conf.json` ships `assetProtocol.scope.allow: []` (empty), and the setup hook manages an empty `AssetScopeRoots` state — the app starts allowing **nothing**. The frontend (`src/stores/settings.ts`) computes `scopedLibraryFolders()`, the deduped union of the configured video + music library roots, and syncs it once after settings hydration and reactively on every change via `scope_assets`. That command diffs old vs new normalized roots and calls `asset_protocol_scope().allow_directory(path, true)` / `forbid_directory(path, true)` accordingly, so removals actually revoke. The webview can only read exactly the folders the user configured — one privilege per root, no blanket globs (`$HOME/**`, `/run/media/**`, …).
+- **Waveform scope:** the three waveform commands (`waveform_peaks`, `waveform_get`, `waveform_generate`) operate on the same asset roots — they read audio files from the configured library roots via the already-synced asset protocol. No new filesystem surface is exposed.
 - `app.security.csp` is `null`. Set a restrictive policy before release.
-- `tauri-plugin-fs` / `tauri-plugin-shell` are deliberately not installed: the scanner, thumbnail and metadata commands read the filesystem from Rust, and no shell execution is exposed to the webview.
+- `tauri-plugin-fs` / `tauri-plugin-shell` are deliberately not installed: the scanner, thumbnail, metadata and waveform commands read the filesystem from Rust, and no shell execution is exposed to the webview.
 
 ## Window chrome
 
@@ -191,12 +196,13 @@ Replacing them with a Kanea icon set is **planned**. Keep every size referenced 
 | Add `capabilities/` with least-privilege window permissions | Done (`capabilities/default.json`) |
 | Disable native decorations and add the custom/system title bar toggle | Done |
 | Install the required v2 plugin crates | Done (`tauri-plugin-dialog`) |
-| Register plugins and an `invoke_handler` | Done (ten commands) |
-| SQLite persistence (`kv`, `thumbnails`, `covers` tables in `app_data_dir/kanea.db`) | Done |
+| Register plugins and an `invoke_handler` | Done (thirteen commands) |
+| SQLite persistence (`kv`, `thumbnails`, `covers`, `waveforms` tables in `app_data_dir/kanea.db`) | Done |
 | Native file dialog for "Add folder…" | Done (`dialog:default`) |
 | Disk scanning, default media directory (`videos` / `music`) | Done |
 | ffmpeg thumbnail pipeline (`thumb_get` / `thumb_generate`) | Done |
 | Audio metadata + cover art (`read_audio_metadata`, `cover_get`, `cover_extract`) | Done |
 | Runtime asset scope synced from library roots (`scope_assets`) | Done |
+| Waveform pipeline (`waveform_peaks`, `waveform_get`, `waveform_generate`) | Done |
 | Replace placeholder icons with project branding | Planned |
 | Set a Content Security Policy | Planned |
