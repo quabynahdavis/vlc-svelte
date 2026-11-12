@@ -12,7 +12,9 @@
   import {
     ACCENT_COLORS,
     addLibraryFolder,
+    addMusicLibraryFolder,
     removeLibraryFolder,
+    removeMusicLibraryFolder,
     settings,
   } from '../stores/settings';
 
@@ -32,6 +34,20 @@
   let folderInputEl: HTMLInputElement | null = null;
   let folderDraft = '';
 
+  type LibraryTab = 'videos' | 'music';
+
+  const libraryTabs: { id: LibraryTab; label: string }[] = [
+    { id: 'videos', label: 'Videos' },
+    { id: 'music', label: 'Music' },
+  ];
+
+  let libraryTab: LibraryTab = 'videos';
+
+  $: libraryStepDescription =
+    libraryTab === 'videos'
+      ? 'Add the folders Kanea should scan for videos.'
+      : 'Add the folders Kanea should scan for music.';
+
   $: if (open) {
     void focusDialog();
   }
@@ -49,18 +65,32 @@
     settings.update((state) => ({ ...state, accentColor: color }));
   }
 
-  function addFolder(path: string): void {
+  function addFolder(path: string, tab: LibraryTab): void {
     const value = path.trim();
     if (!value) return;
-    if ($settings.libraryFolders.includes(value)) return;
 
-    addLibraryFolder(value);
+    if (tab === 'videos') {
+      if ($settings.libraryFolders.includes(value)) return;
+      addLibraryFolder(value);
+    } else {
+      if ($settings.musicLibraryFolders.includes(value)) return;
+      addMusicLibraryFolder(value);
+    }
+
     folderDraft = '';
   }
 
   function handleFolderSubmit(event: SubmitEvent): void {
     event.preventDefault();
-    addFolder(folderDraft);
+    addFolder(folderDraft, libraryTab);
+  }
+
+  function removeFolder(index: number, tab: LibraryTab): void {
+    if (tab === 'videos') {
+      removeLibraryFolder(index);
+    } else {
+      removeMusicLibraryFolder(index);
+    }
   }
 
   /** Svelte's HTML typings omit the non-standard directory picker attribute. */
@@ -80,7 +110,7 @@
 
     const relative = files[0].webkitRelativePath;
     const folderName = relative.split('/')[0] || 'Selected folder';
-    addFolder(folderName);
+    addFolder(folderName, libraryTab);
     input.value = '';
   }
 
@@ -237,16 +267,38 @@
 
           <section aria-labelledby="welcome-library">
             <h2 id="welcome-library" class="text-[13px] font-medium text-vlc-text">Library folders</h2>
-            <p class="mt-1 text-[11px] leading-4 text-vlc-muted">
-              Add the folders Kanea should scan for videos and music.
-            </p>
+            <p class="mt-1 text-[11px] leading-4 text-vlc-muted">{libraryStepDescription}</p>
+
+            <div
+              class="mt-3 grid grid-cols-2 gap-1 rounded-control bg-vlc-app p-1"
+              role="tablist"
+              tabindex="0"
+              aria-label="Library folder type"
+            >
+              {#each libraryTabs as tab (tab.id)}
+                {@const active = libraryTab === tab.id}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  class="flex h-9 items-center justify-center gap-1.5 rounded-[6px] text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+                  class:bg-vlc-card={active}
+                  class:text-vlc-text={active}
+                  class:text-vlc-muted={!active}
+                  class:hover:text-vlc-secondary={!active}
+                  on:click={() => (libraryTab = tab.id)}
+                >
+                  {tab.label}
+                </button>
+              {/each}
+            </div>
 
             <form class="mt-3 flex gap-1.5" on:submit={handleFolderSubmit}>
               <input
                 class="h-9 min-w-0 flex-1 rounded-control border border-vlc-border bg-vlc-app px-2.5 text-[12px] text-vlc-text outline-none placeholder:text-vlc-muted focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
                 type="text"
-                placeholder="/home/user/Videos"
-                aria-label="Library folder path"
+                placeholder={libraryTab === 'videos' ? '/home/user/Videos' : '/home/user/Music'}
+                aria-label={libraryTab === 'videos' ? 'Video folder path' : 'Music folder path'}
                 bind:value={folderDraft}
               />
               <button
@@ -279,27 +331,54 @@
               on:change={handleDirectoryPick}
             />
 
-            <ul class="mt-3 space-y-1" aria-label="Selected library folders">
-              {#if $settings.libraryFolders.length === 0}
-                <li class="rounded-control border border-dashed border-vlc-border px-3 py-4 text-center text-[11px] text-vlc-muted">
-                  No folders added yet.
-                </li>
-              {:else}
-                {#each $settings.libraryFolders as folder, index (folder)}
-                  <li class="flex items-center gap-2 rounded-control border border-vlc-border bg-vlc-card px-2.5 py-2">
-                    <FolderOpen size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
-                    <span class="min-w-0 flex-1 truncate text-[12px] text-vlc-text" title={folder}>{folder}</span>
-                    <button
-                      type="button"
-                      class="flex h-6 w-6 shrink-0 items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-danger focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60"
-                      title={`Remove ${folder}`}
-                      aria-label={`Remove ${folder}`}
-                      on:click={() => removeLibraryFolder(index)}
-                    >
-                      <Trash2 size={12} strokeWidth={1.8} aria-hidden="true" />
-                    </button>
+            <ul
+              class="mt-3 space-y-1"
+              aria-label={libraryTab === 'videos' ? 'Selected video folders' : 'Selected music folders'}
+            >
+              {#if libraryTab === 'videos'}
+                {#if $settings.libraryFolders.length === 0}
+                  <li class="rounded-control border border-dashed border-vlc-border px-3 py-4 text-center text-[11px] text-vlc-muted">
+                    No folders added yet.
                   </li>
-                {/each}
+                {:else}
+                  {#each $settings.libraryFolders as folder, index (folder)}
+                    <li class="flex items-center gap-2 rounded-control border border-vlc-border bg-vlc-card px-2.5 py-2">
+                      <FolderOpen size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
+                      <span class="min-w-0 flex-1 truncate text-[12px] text-vlc-text" title={folder}>{folder}</span>
+                      <button
+                        type="button"
+                        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-danger focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60"
+                        title={`Remove ${folder}`}
+                        aria-label={`Remove ${folder}`}
+                        on:click={() => removeFolder(index, 'videos')}
+                      >
+                        <Trash2 size={12} strokeWidth={1.8} aria-hidden="true" />
+                      </button>
+                    </li>
+                  {/each}
+                {/if}
+              {:else}
+                {#if $settings.musicLibraryFolders.length === 0}
+                  <li class="rounded-control border border-dashed border-vlc-border px-3 py-4 text-center text-[11px] text-vlc-muted">
+                    No music folders added yet.
+                  </li>
+                {:else}
+                  {#each $settings.musicLibraryFolders as folder, index (folder)}
+                    <li class="flex items-center gap-2 rounded-control border border-vlc-border bg-vlc-card px-2.5 py-2">
+                      <FolderOpen size={14} strokeWidth={1.8} class="shrink-0 text-vlc-muted" aria-hidden="true" />
+                      <span class="min-w-0 flex-1 truncate text-[12px] text-vlc-text" title={folder}>{folder}</span>
+                      <button
+                        type="button"
+                        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-danger focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60"
+                        title={`Remove ${folder}`}
+                        aria-label={`Remove ${folder}`}
+                        on:click={() => removeFolder(index, 'music')}
+                      >
+                        <Trash2 size={12} strokeWidth={1.8} aria-hidden="true" />
+                      </button>
+                    </li>
+                  {/each}
+                {/if}
               {/if}
             </ul>
           </section>
