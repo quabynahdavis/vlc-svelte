@@ -330,7 +330,30 @@ settings.subscribe((newSettings) => {
     // Wait for settings hydration (and the asset-scope sync it performs for
     // the combined video + music roots) before the first scan touches
     // asset:// paths, exactly like the video library bootstrap.
-    void settingsHydrated.then(() => {
+    void settingsHydrated.then(async () => {
+      // On first run in the desktop shell, add the platform Music folder,
+      // mirroring the video library's default Videos seeding.
+      const result = await invokeCommand<string>('default_media_dir', { kind: 'music' });
+      const current = get(settings);
+      const shouldSeed =
+        !!result &&
+        !current.musicDefaultSeeded &&
+        !current.musicLibraryFolders.some(
+          (f) => basenameOf(f).toLowerCase() === basenameOf(result).toLowerCase(),
+        );
+
+      if (shouldSeed && result) {
+        // Record the expected key BEFORE updating settings so the
+        // synchronous subscriber callback triggered by `settings.update`
+        // sees an unchanged key and does not start a second scan.
+        lastScannedFolders = [...current.musicLibraryFolders, result].join('\0');
+        settings.update((s) => ({
+          ...s,
+          musicLibraryFolders: [...s.musicLibraryFolders, result],
+          musicDefaultSeeded: true,
+        }));
+      }
+
       lastScannedFolders = get(settings).musicLibraryFolders.join('\0');
       pruneRemovedRoots(get(settings).musicLibraryFolders);
       scanMusicRoots();

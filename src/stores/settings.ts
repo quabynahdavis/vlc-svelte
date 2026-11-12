@@ -132,6 +132,7 @@ export interface SettingsState {
   /** Music library roots; scoped into the asset allowlist alongside `libraryFolders`. */
   musicLibraryFolders: string[];
   libraryDefaultSeeded: boolean;
+  musicDefaultSeeded: boolean;
   scanOnStartup: boolean;
   includeHiddenFiles: boolean;
   fileTypes: FileTypeCategory;
@@ -319,6 +320,7 @@ export const defaultSettings: SettingsState = {
   libraryFolders: [],
   musicLibraryFolders: [],
   libraryDefaultSeeded: false,
+  musicDefaultSeeded: false,
   scanOnStartup: true,
   includeHiddenFiles: false,
   fileTypes: { ...DEFAULT_FILE_TYPES },
