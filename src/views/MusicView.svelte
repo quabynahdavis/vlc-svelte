@@ -37,6 +37,7 @@
     type MusicBrowseMode,
     type MusicSortKey,
     type SortDirection,
+    type BreadcrumbSegment,
   } from '../stores/music';
   import { addMusicLibraryFolder } from '../stores/settings';
   import { pickFolderViaDialog } from '../lib/tauriFs';
@@ -776,12 +777,6 @@
     : level === 'genre'
       ? t('music.genre_empty_hint')
       : t('music.empty_default_hint');
-
-  interface BreadcrumbSegment {
-    label: string;
-    action?: () => void;
-    isCurrent?: boolean;
-  }
 
   function buildBreadcrumb(
     mode: MusicBrowseMode,
