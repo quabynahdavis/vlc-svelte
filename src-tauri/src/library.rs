@@ -149,6 +149,13 @@ fn scan_media_dir(
 
             let size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
+            // A zero-length file can never play: the webview asset handler
+            // answers any range request with 416, so don't let empty media
+            // files (e.g. interrupted copies) become playable cards.
+            if size == 0 {
+                continue;
+            }
+
             files.push(ScannedFile {
                 name: path
                     .file_name()
@@ -183,7 +190,11 @@ fn scan_media_dir(
                             }
                             e.metadata()
                                 .ok()
-                                .map(|m| m.file_type().is_file() && is_media_extension(&e.path().to_string_lossy()))
+                                .map(|m| {
+                                    m.file_type().is_file()
+                                        && m.len() > 0
+                                        && is_media_extension(&e.path().to_string_lossy())
+                                })
                                 .unwrap_or(false)
                         })
                         .count()
@@ -239,7 +250,8 @@ fn count_media_files(dir: &Path, include_hidden: bool) -> u32 {
             if is_dir {
                 count += count_media_files(&path, include_hidden);
             } else if is_file {
-                if is_media_extension(&path.to_string_lossy()) {
+                let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+                if size > 0 && is_media_extension(&path.to_string_lossy()) {
                     count += 1;
                 }
             }
@@ -345,6 +357,42 @@ mod tests {
             .filter(|f| f.relative_path.starts_with("S01/"))
             .collect();
         assert_eq!(ep_files.len(), 2);
+
+        let _ = fs::remove_dir_all(&tmp_dir);
+    }
+
+    /// Zero-byte media files must be skipped entirely: they can never play
+    /// (the asset handler returns 416 for empty files). A zero-byte file
+    /// without a media extension stays excluded by the extension check.
+    #[test]
+    fn test_scan_media_dir_skips_zero_byte_files() {
+        let tmp_dir = env::temp_dir().join("kanea_test_lib_zero_byte");
+        let _ = fs::remove_dir_all(&tmp_dir);
+        let _ = fs::create_dir_all(&tmp_dir);
+
+        let videos_dir = tmp_dir.join("Videos");
+        let _ = fs::create_dir_all(&videos_dir);
+
+        fs::write(videos_dir.join("real.mp4"), b"real content").unwrap();
+        fs::write(videos_dir.join("empty.mp4"), b"").unwrap();
+        fs::write(videos_dir.join("empty.txt"), b"").unwrap();
+
+        // Scan the temp root so the "Videos" subdirectory shows up as a
+        // folder entry with direct/recursive media counts.
+        let result = scan_media_dir(&tmp_dir, 4, false).unwrap();
+
+        let file_names: Vec<&str> = result.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(file_names, vec!["real.mp4"], "only the non-empty media file is scanned");
+
+        let only_file = &result.files[0];
+        assert!(only_file.size_bytes > 0, "scanned file has a non-zero size");
+
+        // Folder counts agree with the scan: only the non-empty media file.
+        let folder = result.folders.iter().find(|f| f.name == "Videos").unwrap();
+        assert_eq!(folder.files, 1, "direct count skips zero-byte media too");
+        assert_eq!(folder.total, 1);
+        let counted = count_media_files(&videos_dir, false);
+        assert_eq!(counted, 1);
 
         let _ = fs::remove_dir_all(&tmp_dir);
     }
