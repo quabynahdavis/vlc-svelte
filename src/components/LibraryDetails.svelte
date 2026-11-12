@@ -40,6 +40,17 @@
     : '';
   $: typeLabel = isEpisode ? 'TV episode' : 'Video';
 
+  // Preview seek: same logic as thumbnail extraction (8% of duration, clamped 0.1–45s)
+  $: previewSeekTime = item.durationSeconds > 0
+    ? Math.min(Math.max(item.durationSeconds * 0.08, 0.1), 45)
+    : 0;
+
+  function seekToPreview(): void {
+    if (videoEl && previewSeekTime > 0) {
+      videoEl.currentTime = previewSeekTime;
+    }
+  }
+
   function trackFromItem(): Track {
     return {
       id: item.id,
@@ -115,6 +126,7 @@
                 muted
                 playsinline
                 class="h-full w-full object-cover"
+                on:loadedmetadata={seekToPreview}
                 on:mouseenter={() => videoEl?.play?.()}
                 on:mouseleave={() => videoEl?.pause?.()}
               />
