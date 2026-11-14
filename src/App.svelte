@@ -54,7 +54,7 @@
   import { openPlaylistTarget } from './stores/playlistTarget';
   import { removeLibraryFolder, removeMusicLibraryFolder, settings } from './stores/settings';
   import { bookmarks, removeBookmark } from './stores/bookmarks';
-  import { history, removeHistory } from './stores/history';
+  import { clearHistory, history, removeHistory } from './stores/history';
   import { watchEntries } from './stores/watch';
   import { addWatchLater, removeWatchLater, toggleWatchLater, watchLater } from './stores/watchLater';
   import {
@@ -246,7 +246,20 @@
     };
   }
 
-  function handleMenuAction(id: string): void {
+  /** Plays a history entry by id (title-bar "Open Recent" + library overlay). */
+  function playHistoryEntry(entryId: string): void {
+    const entry = get(history).find((candidate) => candidate.id === entryId);
+    if (!entry || !entry.src) return;
+    setQueue([trackFromEntry(entry)], 0);
+  }
+
+  async function handleMenuAction(id: string): Promise<void> {
+    // Title-bar "Open Recent" submenu entries carry their entry id inline.
+    if (id.startsWith('history-play:')) {
+      playHistoryEntry(id.slice('history-play:'.length));
+      return;
+    }
+
     switch (id) {
       case 'play-pause':
         togglePlayback();
@@ -327,6 +340,45 @@
       case 'open-disc':
         navigate('videos');
         libraryImportLog.set('Insert a disc, then open it from the system file manager.');
+        break;
+      case 'open-capture':
+        navigate('network');
+        libraryImportLog.set('Capture device support is not available in this build yet.');
+        break;
+      case 'open-clipboard': {
+        try {
+          const text = (await navigator.clipboard.readText()).trim();
+          if (text) {
+            navigate('network');
+            libraryImportLog.set(`Opened from clipboard: ${text.slice(0, 80)}`);
+          } else {
+            libraryImportLog.set('Clipboard does not contain a playable link.');
+          }
+        } catch {
+          libraryImportLog.set('Clipboard does not contain a playable link.');
+        }
+        break;
+      }
+      case 'convert':
+        libraryImportLog.set('Conversion tools are not available in this build yet.');
+        break;
+      case 'stream':
+        navigate('network');
+        break;
+      case 'customize-player':
+      case 'layout-settings':
+        void openSettingsAt('Layout');
+        break;
+      case 'plugins':
+      case 'plugins-extensions':
+      case 'plugins-effects':
+        libraryImportLog.set('Plugins & extensions are not available in this build yet.');
+        break;
+      case 'about-vlc':
+        libraryImportLog.set('VLC for Desktop — a free and open source multimedia player.');
+        break;
+      case 'clear-history':
+        clearHistory();
         break;
       // ---- Folder context menu (contextItemId = folder path) ----
       case 'folder-open': {
@@ -441,12 +493,9 @@
         removeWatchLater(get(contextItemId));
         break;
       // ---- History entries in the player-view library overlay ----
-      case 'history-play': {
-        const entry = get(history).find((candidate) => candidate.id === get(contextItemId));
-        if (!entry || !entry.src) break;
-        setQueue([trackFromEntry(entry)], 0);
+      case 'history-play':
+        playHistoryEntry(get(contextItemId));
         break;
-      }
       case 'history-add-to-watch-later': {
         const entry = get(history).find((candidate) => candidate.id === get(contextItemId));
         if (!entry) break;
@@ -485,9 +534,6 @@
         break;
       case 'settings':
         showSettings = true;
-        break;
-      case 'layout-settings':
-        void openSettingsAt('Layout');
         break;
       case 'show-welcome':
         showWelcome = true;

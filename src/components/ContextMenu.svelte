@@ -1,30 +1,37 @@
 <script lang="ts">
   import {
+    ArrowRightLeft,
     AudioLines,
     Captions,
     ChevronRight,
     Clapperboard,
     Clock,
     Copy,
+    Disc3,
     EyeOff,
+    File,
+    Folder,
     FolderMinus,
     FolderOpen,
+    History,
     Info,
     Keyboard,
-    LayoutDashboard,
+    Link,
     ListMusic,
     ListPlus,
-    ListVideo,
     LogOut,
+    MonitorPlay,
     Play,
-    PlayCircle,
+    Puzzle,
+    Radio,
     RefreshCw,
     Settings,
     SkipBack,
     SkipForward,
-    Sparkles,
     Square,
     Trash2,
+    Upload,
+    Wand2,
     X,
   } from 'lucide-svelte';
   import { onMount, tick } from 'svelte';
@@ -33,6 +40,7 @@
   import { settings } from '../stores/settings';
   import { watchLater } from '../stores/watchLater';
   import { musicTracks } from '../stores/musicLibrary';
+  import { history, type HistoryEntry } from '../stores/history';
 
   export let x = 0;
   export let y = 0;
@@ -58,108 +66,103 @@
     label: string;
     shortcut?: string;
     icon: ComponentType;
-    tone?: 'accent' | 'neutral';
+    tone?: 'accent' | 'neutral' | 'orange';
     children?: SubmenuItem[];
   };
 
   type MenuItem = ActionItem | DividerItem;
 
-  const menuItems: MenuItem[] = [
-    { id: 'play-pause', label: 'Play', shortcut: 'Space', icon: Play, tone: 'accent' },
-    { id: 'stop', label: 'Stop', shortcut: 'S', icon: Square, tone: 'accent' },
-    { id: 'previous-item', label: 'Previous Item', shortcut: 'P', icon: SkipBack, tone: 'accent' },
-    { id: 'next-item', label: 'Next Item', shortcut: 'N', icon: SkipForward, tone: 'accent' },
-    { id: 'hide-ui', label: 'Hide UI', shortcut: 'Ctrl + \\', icon: EyeOff, tone: 'neutral' },
-    { type: 'divider' },
-    {
-      id: 'playback',
-      label: 'Playback',
-      icon: PlayCircle,
-      tone: 'accent',
-      children: [
-        { id: 'playback-speed', label: 'Speed' },
-        { id: 'playback-jump-forward', label: 'Jump Forward' },
-        { id: 'playback-jump-backward', label: 'Jump Backward' },
-      ],
-    },
-    {
-      id: 'video',
-      label: 'Video',
-      icon: Clapperboard,
-      tone: 'neutral',
-      children: [
-        { id: 'video-fullscreen', label: 'Fullscreen' },
-        { id: 'video-zoom', label: 'Zoom' },
-        { id: 'video-aspect-ratio', label: 'Aspect Ratio' },
-      ],
-    },
-    {
-      id: 'audio',
-      label: 'Audio',
-      icon: AudioLines,
-      tone: 'neutral',
-      children: [
-        { id: 'volume-up', label: 'Volume Up' },
-        { id: 'volume-down', label: 'Volume Down' },
-        { id: 'audio-mute', label: 'Mute' },
-        { id: 'audio-track', label: 'Audio Track' },
-      ],
-    },
-    {
-      id: 'subtitle',
-      label: 'Subtitle',
-      icon: Captions,
-      tone: 'neutral',
-      children: [
-        { id: 'subtitle-add-file', label: 'Add Subtitle File' },
-        { id: 'subtitle-track', label: 'Subtitle Track' },
-        { id: 'subtitle-delay', label: 'Subtitle Delay' },
-      ],
-    },
-    {
-      id: 'more-settings',
-      label: 'More Settings',
-      icon: Settings,
-      tone: 'neutral',
-      children: [
-        { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts' },
-        { id: 'effects-compressor', label: 'Audio Effects' },
-        { id: 'effects-video', label: 'Video Effects' },
-        { id: 'effects-hide', label: 'Hide Effects Panel' },
-      ],
-    },
-    {
-      id: 'playlist',
-      label: 'Playlist',
-      icon: ListVideo,
-      tone: 'neutral',
-      children: [
-        { id: 'playlist-add', label: 'Add to Playlist' },
-        { id: 'playlist-clear', label: 'Clear Playlist' },
-      ],
-    },
-    {
-      id: 'open-media',
-      label: 'Open Media',
-      icon: FolderOpen,
-      tone: 'neutral',
-      children: [
-        { id: 'open-file', label: 'Open File' },
-        { id: 'open-folder', label: 'Open Folder' },
-        { id: 'open-disc', label: 'Open Disc' },
-        { id: 'open-network', label: 'Open Network Stream' },
-      ],
-    },
-    { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
-    { id: 'layout-settings', label: 'Customize Layout', icon: LayoutDashboard, tone: 'neutral' },
-    { id: 'show-welcome', label: 'Welcome Screen', icon: Sparkles, tone: 'neutral' },
-    { type: 'divider' },
-    { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
-  ];
+  /**
+   * Title-bar "…" menu, mirroring VLC's classic main menu: an Open group, a
+   * divider, then the Tools group. Recent entries come from the history store.
+   */
+  function buildAppMenu(historyEntries: HistoryEntry[]): MenuItem[] {
+    const recentChildren: SubmenuItem[] = historyEntries
+      .slice()
+      .sort((a, b) => b.lastPlayedAt - a.lastPlayedAt)
+      .slice(0, 8)
+      .map((entry) => ({ id: `history-play:${entry.id}`, label: entry.title }));
+    recentChildren.push({ id: 'clear-history', label: 'Clear History' });
+
+    return [
+      { id: 'open-file', label: 'Open File(s)', shortcut: 'Ctrl + O', icon: File, tone: 'neutral' },
+      {
+        id: 'open-folder',
+        label: 'Open Folder(s)',
+        shortcut: 'Ctrl + F',
+        icon: Folder,
+        tone: 'neutral',
+      },
+      { id: 'open-disc', label: 'Open Disc', shortcut: 'Ctrl + D', icon: Disc3, tone: 'neutral' },
+      {
+        id: 'open-network',
+        label: 'Open Network Stream',
+        shortcut: 'Ctrl + N',
+        icon: Radio,
+        tone: 'neutral',
+      },
+      {
+        id: 'open-capture',
+        label: 'Open Capture Device',
+        shortcut: 'Ctrl + C',
+        icon: MonitorPlay,
+        tone: 'neutral',
+      },
+      {
+        id: 'open-clipboard',
+        label: 'Open from Clipboard',
+        shortcut: 'Ctrl + V',
+        icon: Link,
+        tone: 'neutral',
+      },
+      {
+        id: 'convert',
+        label: 'Convert',
+        shortcut: 'Ctrl + R',
+        icon: ArrowRightLeft,
+        tone: 'neutral',
+      },
+      { id: 'stream', label: 'Stream', shortcut: 'Ctrl + S', icon: Upload, tone: 'neutral' },
+      {
+        id: 'open-recent',
+        label: 'Open Recent',
+        icon: History,
+        tone: 'neutral',
+        children: recentChildren,
+      },
+      { type: 'divider' },
+      {
+        id: 'customize-player',
+        label: 'Customize Player',
+        icon: Wand2,
+        tone: 'orange',
+      },
+      {
+        id: 'plugins',
+        label: 'Plugins & Extensions',
+        icon: Puzzle,
+        tone: 'orange',
+        children: [
+          { id: 'plugins-extensions', label: 'Extensions' },
+          { id: 'plugins-effects', label: 'Effects' },
+        ],
+      },
+      { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'orange' },
+      {
+        id: 'about-vlc',
+        label: 'About VLC',
+        shortcut: 'Shift + F1',
+        icon: Info,
+        tone: 'orange',
+      },
+      { type: 'divider' },
+      { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+    ];
+  }
 
   /**
    * Right-click menu: fast, short and focused on playback plus Hide UI. The
-   * full settings tree stays in the title-bar menu.
+   * VLC-style Open/Tools tree stays in the title-bar menu.
    */
   const compactMenuItems: MenuItem[] = [
     { id: 'play-pause', label: 'Play', shortcut: 'Space', icon: Play, tone: 'accent' },
@@ -211,9 +214,9 @@
   let submenuLeft = 0;
   let submenuTop = 0;
 
-  const MENU_WIDTH = 300;
-  const SUBMENU_WIDTH = 208;
-  const SUBMENU_ITEM_HEIGHT = 44;
+  const MENU_WIDTH = 350;
+  const SUBMENU_WIDTH = 260;
+  const SUBMENU_ITEM_HEIGHT = 40;
   const SUBMENU_PADDING = 12;
   /** Keep this much room on the right before flipping the flyout to the left. */
   const SUBMENU_FLIP_THRESHOLD = 340;
@@ -261,8 +264,8 @@
   // player-view library entry. Every action is handled in App.svelte.
   $: activeMenuItems = (() => {
     const ctx = $currentContext;
-    // Global: all items (already defined in menuItems).
-    if (ctx === 'global') return compact ? compactMenuItems : menuItems;
+    // Global: the VLC-style title-bar menu (compact shows the short right-click list).
+    if (ctx === 'global') return compact ? compactMenuItems : buildAppMenu($history);
 
     // Folder context – navigate, refresh and manage this library folder.
     if (ctx === 'folder') {
@@ -336,7 +339,7 @@
       return items;
     }
 
-    return compact ? compactMenuItems : menuItems;
+    return compact ? compactMenuItems : buildAppMenu($history);
   })();
   $: submenuItems = new Map(
     activeMenuItems
@@ -500,7 +503,7 @@
 {#if open}
   <div
     bind:this={menuEl}
-    class="fixed z-50 w-[300px] rounded-panel border border-vlc-border bg-vlc-panel p-1.5 shadow-xl"
+    class="fixed z-50 w-[350px] rounded-[10px] border border-vlc-border bg-vlc-panel py-1.5 shadow-2xl"
     style={`left: ${menuLeft}px; top: ${menuTop}px;`}
     role="menu"
     tabindex="-1"
@@ -517,12 +520,12 @@
   >
     {#each activeMenuItems as item, index (item.type === 'divider' ? `divider-${index}` : item.id)}
       {#if item.type === 'divider'}
-        <div class="my-1 h-px bg-vlc-border" role="separator" data-menu-divider></div>
+        <div class="my-1.5 mx-3 h-px bg-vlc-border" role="separator" data-menu-divider></div>
       {:else}
         <div class="relative">
           <button
             type="button"
-            class="flex h-11 w-full items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
+            class="mx-1 flex h-10 items-center gap-3 rounded-md px-3 text-left transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
             role="menuitem"
             aria-haspopup={item.children ? 'menu' : undefined}
             aria-expanded={item.children ? openSubmenu === item.id : undefined}
@@ -535,16 +538,16 @@
             on:focus={handleRowEnter}
           >
             <span
-              class={`flex h-5 w-5 shrink-0 items-center justify-center ${item.tone === 'accent' ? 'text-vlc-orangeText' : 'text-vlc-muted'}`}
+              class={`flex h-5 w-5 shrink-0 items-center justify-center ${item.tone === 'accent' ? 'text-vlc-orangeText' : item.tone === 'orange' ? 'text-vlc-orange' : 'text-vlc-secondary'}`}
               aria-hidden="true"
             >
-              <svelte:component this={item.icon} size={20} strokeWidth={1.6} />
+              <svelte:component this={item.icon} size={16} strokeWidth={1.6} />
             </span>
 
-            <span class="min-w-0 flex-1 truncate text-[14px] text-vlc-secondary">{item.label}</span>
+            <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{item.label}</span>
 
             {#if item.shortcut}
-              <span class="shrink-0 text-[12px] text-vlc-muted">{item.shortcut}</span>
+              <span class="ml-auto shrink-0 text-[12px] text-vlc-secondary tabular-nums">{item.shortcut}</span>
             {/if}
 
             {#if item.children}
@@ -554,7 +557,7 @@
 
           {#if item.children && openSubmenu === item.id}
             <div
-              class="fixed z-10 overflow-y-auto overscroll-contain rounded-panel border border-vlc-border bg-vlc-panel p-1.5 shadow-xl"
+              class="fixed z-10 overflow-y-auto overscroll-contain rounded-[10px] border border-vlc-border bg-vlc-panel py-1.5 shadow-2xl"
               style={`top: ${submenuTop}px; left: ${submenuLeft}px; width: ${SUBMENU_WIDTH}px; max-height: ${
                 viewportHeight - submenuTop - VIEWPORT_MARGIN
               }px;`}
@@ -567,14 +570,14 @@
               {#each item.children as child (child.id)}
                 <button
                   type="button"
-                  class="flex h-11 w-full items-center justify-between gap-3 rounded-lg px-2.5 text-left text-[14px] text-vlc-secondary transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
+                  class="mx-1 flex h-10 w-[calc(100%-0.5rem)] items-center justify-between gap-3 rounded-md px-3 text-left text-[13px] text-vlc-text transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
                   role="menuitem"
                   data-submenu-item
                   on:click={() => select(child.id)}
                 >
                   <span class="truncate">{child.label}</span>
                   {#if child.shortcut}
-                    <span class="shrink-0 text-[12px] text-vlc-muted">{child.shortcut}</span>
+                    <span class="shrink-0 text-[12px] text-vlc-secondary tabular-nums">{child.shortcut}</span>
                   {/if}
                 </button>
               {/each}
