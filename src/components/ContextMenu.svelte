@@ -216,7 +216,7 @@
 
   const MENU_WIDTH = 350;
   const SUBMENU_WIDTH = 260;
-  const SUBMENU_ITEM_HEIGHT = 40;
+  const SUBMENU_ITEM_HEIGHT = 32;
   const SUBMENU_PADDING = 12;
   /** Keep this much room on the right before flipping the flyout to the left. */
   const SUBMENU_FLIP_THRESHOLD = 340;
@@ -503,7 +503,7 @@
 {#if open}
   <div
     bind:this={menuEl}
-    class="fixed z-50 w-[350px] rounded-[10px] border border-vlc-border bg-vlc-panel py-1.5 shadow-2xl"
+    class="fixed z-50 w-[350px] rounded-[10px] border border-vlc-border bg-vlc-panel py-1 shadow-2xl"
     style={`left: ${menuLeft}px; top: ${menuTop}px;`}
     role="menu"
     tabindex="-1"
@@ -520,12 +520,12 @@
   >
     {#each activeMenuItems as item, index (item.type === 'divider' ? `divider-${index}` : item.id)}
       {#if item.type === 'divider'}
-        <div class="my-1.5 mx-3 h-px bg-vlc-border" role="separator" data-menu-divider></div>
+        <div class="my-1 mx-2 h-px bg-vlc-border" role="separator" data-menu-divider></div>
       {:else}
         <div class="relative">
           <button
             type="button"
-            class="mx-1 flex h-10 items-center gap-3 rounded-md px-3 text-left transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
+            class="mx-1.5 flex h-8 items-center gap-2.5 rounded-md px-2 text-left transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
             role="menuitem"
             aria-haspopup={item.children ? 'menu' : undefined}
             aria-expanded={item.children ? openSubmenu === item.id : undefined}
@@ -557,7 +557,7 @@
 
           {#if item.children && openSubmenu === item.id}
             <div
-              class="fixed z-10 overflow-y-auto overscroll-contain rounded-[10px] border border-vlc-border bg-vlc-panel py-1.5 shadow-2xl"
+              class="fixed z-10 overflow-y-auto overscroll-contain rounded-[10px] border border-vlc-border bg-vlc-panel py-1 shadow-2xl"
               style={`top: ${submenuTop}px; left: ${submenuLeft}px; width: ${SUBMENU_WIDTH}px; max-height: ${
                 viewportHeight - submenuTop - VIEWPORT_MARGIN
               }px;`}
@@ -570,7 +570,7 @@
               {#each item.children as child (child.id)}
                 <button
                   type="button"
-                  class="mx-1 flex h-10 w-[calc(100%-0.5rem)] items-center justify-between gap-3 rounded-md px-3 text-left text-[13px] text-vlc-text transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
+                  class="mx-1.5 flex h-8 w-[calc(100%-0.75rem)] items-center justify-between gap-2.5 rounded-md px-2 text-left text-[13px] text-vlc-text transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
                   role="menuitem"
                   data-submenu-item
                   on:click={() => select(child.id)}
