@@ -9,13 +9,21 @@
     SkipBack,
     SkipForward,
     Volume2,
+    X,
   } from 'lucide-svelte';
   import {
     hasTauri,
     invokeCommand,
     pickFolderViaDialog,
   } from '../lib/tauriFs';
-  import { ACCENT_COLORS, addLibraryFolder, settings } from '../stores/settings';
+  import {
+    ACCENT_COLORS,
+    addLibraryFolder,
+    addMusicLibraryFolder,
+    removeLibraryFolder,
+    removeMusicLibraryFolder,
+    settings,
+  } from '../stores/settings';
 
   export let open = false;
   export let onComplete: () => void = () => {};
@@ -49,9 +57,17 @@
   const PRIMARY_BTN =
     'h-9 rounded-md bg-vlc-orange px-7 text-[13px] font-medium text-black transition-[filter] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vlc-orange';
 
+  type LibraryTab = 'videos' | 'music';
+  const libraryTabs: { id: LibraryTab; label: string }[] = [
+    { id: 'videos', label: 'Videos' },
+    { id: 'music', label: 'Music' },
+  ];
+
   let step = 0;
   let dialogEl: HTMLDivElement | null = null;
-  let folderDraft = '~/Videos';
+  let libraryTab: LibraryTab = 'videos';
+  let videoDraft = '~/Videos';
+  let musicDraft = '';
   let defaultDirResolved = false;
 
   $: if (open) {
@@ -64,15 +80,21 @@
     dialogEl?.querySelector<HTMLElement>('[data-welcome-first]')?.focus();
   }
 
-  /** Under Tauri, swap the '~/Videos' placeholder for the real default media dir. */
+  /** Under Tauri, swap the placeholders for the real default media dirs. */
   async function resolveDefaultDir(): Promise<void> {
     if (defaultDirResolved || !hasTauri()) return;
     defaultDirResolved = true;
 
-    const result = await invokeCommand<string>('default_media_dir', { kind: 'videos' });
-    const draft = folderDraft.trim();
-    if (result && (draft === '' || draft === '~/Videos')) {
-      folderDraft = result;
+    const videoResult = await invokeCommand<string>('default_media_dir', { kind: 'videos' });
+    const videoCurrent = videoDraft.trim();
+    if (videoResult && (videoCurrent === '' || videoCurrent === '~/Videos')) {
+      videoDraft = videoResult;
+    }
+
+    const musicResult = await invokeCommand<string>('default_media_dir', { kind: 'music' });
+    const musicCurrent = musicDraft.trim();
+    if (musicResult && (musicCurrent === '' || musicCurrent === '~/Music')) {
+      musicDraft = musicResult;
     }
   }
 
@@ -86,13 +108,25 @@
 
   async function browseFolder(): Promise<void> {
     const picked = await pickFolderViaDialog();
-    if (picked) folderDraft = picked;
+    if (picked) {
+      if (libraryTab === 'videos') videoDraft = picked;
+      else musicDraft = picked;
+    }
+  }
+
+  function removeFolder(tab: LibraryTab, index: number): void {
+    if (tab === 'videos') removeLibraryFolder(index);
+    else removeMusicLibraryFolder(index);
   }
 
   function advanceFromWelcome(): void {
-    const value = folderDraft.trim();
-    if (value && !$settings.libraryFolders.includes(value)) {
-      addLibraryFolder(value);
+    const video = videoDraft.trim();
+    if (video && !$settings.libraryFolders.includes(video)) {
+      addLibraryFolder(video);
+    }
+    const music = musicDraft.trim();
+    if (music && !$settings.musicLibraryFolders.includes(music)) {
+      addMusicLibraryFolder(music);
     }
     step = 1;
   }
@@ -144,7 +178,7 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+    class="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm"
     role="presentation"
     on:click={(event) => {
       if (event.target === event.currentTarget) skip();
@@ -152,7 +186,7 @@
   >
     <div
       bind:this={dialogEl}
-      class="flex h-[min(736px,calc(100vh-64px))] w-full max-w-[1000px] flex-col overflow-hidden rounded-xl border border-vlc-border bg-vlc-panel shadow-2xl"
+      class="flex h-[min(640px,calc(100vh-72px))] w-full max-w-[1000px] flex-col overflow-hidden rounded-xl border border-vlc-border bg-vlc-panel shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-labelledby="welcome-title"
@@ -160,8 +194,8 @@
     >
       <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {#if step === 0}
-          <div class="flex flex-1 flex-col items-center justify-center px-10">
-            <svg class="h-24 w-24" viewBox="0 0 96 96" fill="none" role="img" aria-label="VLC cone">
+          <div class="flex flex-1 flex-col items-center justify-center px-8">
+            <svg class="h-20 w-20" viewBox="0 0 96 96" fill="none" role="img" aria-label="VLC cone">
               <defs>
                 <clipPath id="vlc-cone-clip"><path d="M48 6 L71 64 H25 Z" /></clipPath>
               </defs>
@@ -174,27 +208,50 @@
               <rect x="20" y="68" width="56" height="15" rx="5" fill="var(--accent)" />
             </svg>
 
-            <h1 id="welcome-title" class="mt-10 text-center text-[28px] font-medium text-vlc-text">
+            <h1 id="welcome-title" class="mt-7 text-center text-[28px] font-medium text-vlc-text">
               Welcome to VLC!
             </h1>
 
-            <p id="welcome-description" class="mx-auto mt-6 max-w-[580px] text-center text-[15px] leading-6 text-vlc-secondary">
+            <p id="welcome-description" class="mx-auto mt-4 max-w-[540px] text-center text-[15px] leading-6 text-vlc-secondary">
               VLC is a free and open source cross-platform multimedia player and framework that plays
               most multimedia files as well as DVDs, Audio CDs, VCDs, and various streaming protocols.
             </p>
 
-            <div class="mt-14 w-full max-w-[580px]">
-              <label class="text-[13px] text-vlc-text" for="welcome-folder">
-                Choose a Media Folder to get started with
-              </label>
-              <div class="mt-3.5 flex gap-3">
-                <input
-                  id="welcome-folder"
-                  type="text"
-                  data-welcome-first
-                  class="h-10 min-w-0 flex-1 rounded-md border border-vlc-border bg-vlc-app px-3 text-[13px] text-vlc-text outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
-                  bind:value={folderDraft}
-                />
+            <div class="mt-8 w-full max-w-[540px]">
+              <p class="text-[13px] text-vlc-text">Choose a Media Folder to get started with</p>
+              <!-- Tab bar -->
+              <div class="mt-3 flex justify-center gap-6" role="tablist" aria-label="Library type">
+                {#each libraryTabs as tab (tab.id)}
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={libraryTab === tab.id}
+                    class="border-b-2 px-1 pb-1.5 text-[13px] transition-colors {libraryTab === tab.id
+                      ? 'border-vlc-orange text-vlc-text'
+                      : 'border-transparent text-vlc-secondary hover:text-vlc-text'}"
+                    on:click={() => (libraryTab = tab.id)}
+                  >{tab.label}</button>
+                {/each}
+              </div>
+              <!-- Active tab: input + Browse -->
+              <div class="mt-3 flex gap-3">
+                {#if libraryTab === 'videos'}
+                  <input
+                    id="welcome-folder"
+                    type="text"
+                    data-welcome-first
+                    class="h-10 min-w-0 flex-1 rounded-md border border-vlc-border bg-vlc-app px-3 text-[13px] text-vlc-text outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+                    bind:value={videoDraft}
+                  />
+                {:else}
+                  <input
+                    id="welcome-folder"
+                    type="text"
+                    data-welcome-first
+                    class="h-10 min-w-0 flex-1 rounded-md border border-vlc-border bg-vlc-app px-3 text-[13px] text-vlc-text outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+                    bind:value={musicDraft}
+                  />
+                {/if}
                 <button
                   type="button"
                   class="h-10 shrink-0 rounded-md bg-vlc-raised px-5 text-[13px] text-vlc-text hover:brightness-110"
@@ -203,14 +260,32 @@
                   Browse
                 </button>
               </div>
+              <!-- Already-added folders for the active tab (chips with remove) -->
+              {#if (libraryTab === 'videos' ? $settings.libraryFolders : $settings.musicLibraryFolders).length > 0}
+                <div class="mt-2.5 flex flex-wrap justify-center gap-2">
+                  {#each (libraryTab === 'videos' ? $settings.libraryFolders : $settings.musicLibraryFolders) as folder, i (folder)}
+                    <span class="flex h-7 items-center gap-1.5 rounded-md border border-vlc-border bg-vlc-app pl-2.5 pr-1 text-[12px] text-vlc-secondary">
+                      <span class="max-w-[260px] truncate">{folder}</span>
+                      <button
+                        type="button"
+                        class="flex h-5 w-5 items-center justify-center rounded text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text"
+                        aria-label={`Remove ${folder}`}
+                        on:click={() => removeFolder(libraryTab, i)}
+                      >
+                        <X size={12} strokeWidth={2} />
+                      </button>
+                    </span>
+                  {/each}
+                </div>
+              {/if}
             </div>
           </div>
         {:else if step === 1}
-          <h2 class="mt-14 text-center text-[22px] text-vlc-text">
+          <h2 class="mt-9 text-center text-[22px] text-vlc-text">
             Select your preferred theme and color.
           </h2>
 
-          <div class="mt-12 flex items-start justify-center gap-10">
+          <div class="mt-9 flex items-start justify-center gap-10">
             {#each themeOptions as option (option.value)}
               {@const active = $settings.theme === option.value}
               <button
@@ -235,7 +310,7 @@
 
           <div
             aria-hidden="true"
-            class="pointer-events-none mx-8 mb-2 flex h-11 shrink-0 select-none items-center gap-3 rounded-md border border-vlc-border bg-vlc-app px-3"
+            class="pointer-events-none mx-6 mb-1.5 flex h-11 shrink-0 select-none items-center gap-3 rounded-md border border-vlc-border bg-vlc-app px-3"
           >
             <SkipBack size={15} class="text-vlc-secondary" />
             <span class="flex h-6 w-8 items-center justify-center rounded-[6px] bg-vlc-orange text-black">
@@ -266,7 +341,7 @@
             </span>
           </div>
 
-          <div class="flex shrink-0 items-center gap-4 px-10 pb-6">
+          <div class="flex shrink-0 items-center gap-4 px-8 pb-4">
             {#each ACCENT_COLORS as accent (accent.color)}
               {@const active = $settings.accentColor.toLowerCase() === accent.color.toLowerCase()}
               <button
@@ -284,12 +359,12 @@
             {/each}
           </div>
         {:else if step === 2}
-          <h2 class="mt-14 text-center text-[22px] text-vlc-text">
+          <h2 class="mt-9 text-center text-[22px] text-vlc-text">
             Learn the basic keyboard shortcuts.
           </h2>
 
-          <div class="mx-auto mt-12 grid w-full max-w-[880px] grid-cols-2 gap-x-20 gap-y-7 px-10">
-            <div class="flex flex-col gap-y-7">
+          <div class="mx-auto mt-9 grid w-full max-w-[880px] grid-cols-2 gap-x-16 gap-y-6 px-8">
+            <div class="flex flex-col gap-y-6">
               {#each SHORTCUT_COLUMNS.slice(0, 6) as row, ri (row.label)}
                 <div class="flex items-center gap-6" data-welcome-first={ri === 0 ? '' : undefined}>
                   <span class="w-[200px] shrink-0 text-[13px] text-vlc-secondary">{row.label}</span>
@@ -304,7 +379,7 @@
                 </div>
               {/each}
             </div>
-            <div class="flex flex-col gap-y-7">
+            <div class="flex flex-col gap-y-6">
               {#each SHORTCUT_COLUMNS.slice(6) as row (row.label)}
                 <div class="flex items-center gap-6">
                   <span class="w-[200px] shrink-0 text-[13px] text-vlc-secondary">{row.label}</span>
@@ -321,13 +396,13 @@
             </div>
           </div>
 
-          <p class="mx-auto mt-10 w-full max-w-[880px] px-10 text-[13px] text-vlc-muted">
+          <p class="mx-auto mt-8 w-full max-w-[880px] px-8 text-[13px] text-vlc-muted">
             Find the full list in the menu.
           </p>
         {/if}
       </div>
 
-      <footer class="flex shrink-0 items-center justify-end gap-2 px-8 pb-6">
+      <footer class="flex shrink-0 items-center justify-end gap-2 px-6 pb-4">
         {#if step === 1}
           <button type="button" class={BACK_BTN} on:click={() => (step = 0)}>Back</button>
           <button type="button" class={PRIMARY_BTN} on:click={() => (step = 2)}>Next</button>
