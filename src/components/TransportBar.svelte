@@ -9,6 +9,8 @@
     Minimize,
     Pause,
     Play,
+    RotateCcw,
+    RotateCw,
     Settings,
     SkipBack,
     SkipForward,
@@ -44,9 +46,8 @@
   const PREVIEW_SEEK_THROTTLE_MS = 80;
   const NEXT_PROMPT_WINDOW_SECONDS = 20;
   const VOLUME_STEP = 5;
-  // Keep in sync with the volume control's w-[92px] / h-2.5 w-2.5 classes.
+  // Keep in sync with the volume control's w-[92px] class (cone gradient sizing).
   const VOLUME_TRACK_WIDTH = 92;
-  const VOLUME_THUMB_SIZE = 10;
 
   let seekTrack: HTMLDivElement | null = null;
   let volumeTrack: HTMLDivElement | null = null;
@@ -97,9 +98,6 @@
   $: progressPct = duration > 0 ? clamp((elapsed / duration) * 100, 0, 100) : 0;
   $: bufferedPct = duration > 0 ? clamp(bufferedRatio * 100, 0, 100) : 0;
   $: volumeMuted = $player.muted || $player.volume === 0;
-  $: volumeThumbLeft =
-    VOLUME_THUMB_SIZE / 2 +
-    (VOLUME_TRACK_WIDTH - VOLUME_THUMB_SIZE) * ($player.volume / 200);
   $: remaining = duration > 0 ? duration - elapsed : Number.POSITIVE_INFINITY;
   $: nextQueueItem = resolveNextItem($player);
   $: nextPromptEligible =
@@ -308,12 +306,23 @@
     }
   }
 
+  /** VLC-style ±10 second jumps flanking the play button. */
+  function skipBackward10(): void {
+    nudgeTime(-10);
+  }
+
+  function skipForward10(): void {
+    nudgeTime(10);
+  }
+
   function applyVolume(value: number): void {
-    const next = Math.round(clamp(value, 0, 100));
+    const next = Math.round(clamp(value, 0, 200));
     setVolume(next);
 
     if (videoEl) {
-      videoEl.volume = next / 100;
+      // The element itself stays within [0, 1]; the PlayerView GainNode
+      // supplies the >100% boost, so capping here avoids IndexSizeError.
+      videoEl.volume = clamp(next / 100, 0, 1);
       videoEl.muted = next === 0;
     }
   }
@@ -599,18 +608,18 @@
     volumeDragging = true;
     const target = event.currentTarget as HTMLElement;
     target.setPointerCapture?.(event.pointerId);
-    applyVolume(volumeRatioFromPointer(event) * 100);
+    applyVolume(volumeRatioFromPointer(event) * 200);
   }
 
   function moveVolumeDrag(event: PointerEvent): void {
     if (!volumeDragging) return;
-    applyVolume(volumeRatioFromPointer(event) * 100);
+    applyVolume(volumeRatioFromPointer(event) * 200);
   }
 
   function endVolumeDrag(event: PointerEvent): void {
     if (!volumeDragging) return;
 
-    applyVolume(volumeRatioFromPointer(event) * 100);
+    applyVolume(volumeRatioFromPointer(event) * 200);
     volumeDragging = false;
 
     const target = event.currentTarget as HTMLElement;
@@ -643,7 +652,7 @@
     }
 
     if (event.key === 'End') {
-      applyVolume(100);
+      applyVolume(200);
       return;
     }
 
@@ -769,7 +778,25 @@
 
     <button
       type="button"
-      class="flex h-9 w-10 items-center justify-center rounded-control bg-vlc-orange text-black transition-[filter,background-color] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vlc-orange"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      title="Back 10 seconds"
+      aria-label="Back 10 seconds"
+      on:click={skipBackward10}
+    >
+      <span class="relative flex items-center justify-center">
+        <RotateCcw size={16} strokeWidth={1.75} aria-hidden="true" />
+        <span
+          class="pointer-events-none absolute text-[7px] font-semibold leading-none tabular-nums"
+          aria-hidden="true"
+        >
+          10
+        </span>
+      </span>
+    </button>
+
+    <button
+      type="button"
+      class="flex h-9 w-10 items-center justify-center rounded-control bg-vlc-orange text-white transition-[filter,background-color] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vlc-orange"
       title={$player.isPlaying ? 'Pause' : 'Play'}
       aria-label={$player.isPlaying ? 'Pause' : 'Play'}
       on:click={() => void togglePlay()}
@@ -779,6 +806,24 @@
       {:else}
         <Play size={18} fill="currentColor" strokeWidth={1.5} class="ml-0.5" aria-hidden="true" />
       {/if}
+    </button>
+
+    <button
+      type="button"
+      class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+      title="Forward 10 seconds"
+      aria-label="Forward 10 seconds"
+      on:click={skipForward10}
+    >
+      <span class="relative flex items-center justify-center">
+        <RotateCw size={16} strokeWidth={1.75} aria-hidden="true" />
+        <span
+          class="pointer-events-none absolute text-[7px] font-semibold leading-none tabular-nums"
+          aria-hidden="true"
+        >
+          10
+        </span>
+      </span>
     </button>
 
     <button
@@ -933,16 +978,16 @@
     >
       <div bind:this={volumeTrack} class="absolute inset-0" aria-hidden="true">
         <div class="absolute inset-0 [clip-path:polygon(0_0,0_100%,100%_0)]">
-          <div class="absolute inset-0 bg-vlc-secondary/35 transition-colors group-hover:bg-vlc-secondary/50 group-focus-visible:bg-vlc-secondary/50"></div>
+          <!-- Dim green silhouette keeps the cone shape visible below full boost. -->
+          <div class="absolute inset-0 bg-[#3fd35f]/20 transition-colors group-hover:bg-[#3fd35f]/30 group-focus-visible:bg-[#3fd35f]/30"></div>
+          <!-- VLC-style boost cone: green through 100%, lime across the
+               100–200% zone. The gradient is sized to the full track so the
+               colour zones stay fixed while the fill width grows. -->
           <div
-            class="absolute inset-y-0 left-0 bg-vlc-orange"
-            style={`width: ${$player.volume / 2}%`}
+            class="absolute inset-y-0 left-0"
+            style={`width: ${$player.volume / 2}%; background: linear-gradient(to right, #22b14a 0%, #3fd35f 50%, #a3e635 100%); background-size: ${VOLUME_TRACK_WIDTH}px 100%;`}
           ></div>
         </div>
-        <span
-          class="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-vlc-app bg-vlc-text transition-transform group-hover:scale-110 group-focus-visible:scale-110"
-          style={`left: ${volumeThumbLeft}px; box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 0.22);`}
-        ></span>
       </div>
     </div>
   </div>
