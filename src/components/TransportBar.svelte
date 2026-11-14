@@ -980,8 +980,10 @@
         <!-- Cone geometry: the hypotenuse forms the top edge (rising from the
              bottom-left tip to the top-right corner), the vertical edge sits
              on the right, flat bottom. Raising volume fills from the tip
-             toward the right edge. -->
-        <div class="absolute inset-0 [clip-path:polygon(100%_0,100%_100%,0_100%)]">
+             toward the right edge. The cone is 14px tall, vertically centred
+             (minus a 2px bias) so its centroid lines up with the transport
+             icons — a right triangle's mass always sits below its box centre. -->
+        <div class="absolute inset-x-0 top-[calc(50%-2px)] h-3.5 -translate-y-1/2 [clip-path:polygon(100%_0,100%_100%,0_100%)]">
           <!-- Dim green silhouette keeps the cone shape visible below full boost. -->
           <div class="absolute inset-0 bg-[#3fd35f]/20 transition-colors group-hover:bg-[#3fd35f]/30 group-focus-visible:bg-[#3fd35f]/30"></div>
           <!-- VLC-style boost cone: green through 100%, lime across the
