@@ -19,6 +19,7 @@
 //! falls back to its plain progress bar, exactly like `thumb_generate`'s
 //! contract with the webview capture pipeline.
 
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::Ordering;
@@ -30,7 +31,7 @@ use tauri::State;
 
 use crate::db::Database;
 use crate::library::is_audio_path;
-use crate::thumb::{spawn_stdout_reader, FFMPEG_PATH};
+use crate::thumb::FFMPEG_PATH;
 
 /// Requested resolution when the caller does not care: 800 buckets resolve
 /// to one peak every ~7 ms of audio and still draw fine on a wide seekbar.
@@ -55,6 +56,38 @@ const MAX_OUTPUT_BYTES: usize = 96_000_000;
 const FFMPEG_TIMEOUT: Duration = Duration::from_secs(60);
 /// Poll granularity for the timeout watch.
 const FFMPEG_POLL: Duration = Duration::from_millis(40);
+
+/// Drain ffmpeg's raw-PCM pipe into a `MAX_OUTPUT_BYTES`-capped buffer on
+/// a worker thread.
+///
+/// Deliberately not `thumb::spawn_stdout_reader`: that reader caps at
+/// thumb's 2 MB frame budget, which severs the pipe long before a whole
+/// track's PCM (16 KB/s) has passed — ffmpeg then dies on SIGPIPE and
+/// every track over ~2 minutes would come back peakless. This copy caps
+/// at the waveform module's own 96 MB budget instead.
+fn spawn_pcm_reader(
+    mut stdout: impl Read + Send + 'static,
+    copied: Arc<std::sync::atomic::AtomicUsize>,
+) -> std::thread::JoinHandle<Vec<u8>> {
+    std::thread::spawn(move || {
+        let mut buffer = Vec::new();
+        let mut chunk = [0u8; 8192];
+        loop {
+            match stdout.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => {
+                    buffer.extend_from_slice(&chunk[..n]);
+                    copied.store(buffer.len(), Ordering::Relaxed);
+                    if buffer.len() >= MAX_OUTPUT_BYTES {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        buffer
+    })
+}
 
 /// Clamp a requested bucket count into the sane range; `0` means "default".
 pub(crate) fn clamp_bucket_count(buckets: u32) -> u32 {
@@ -208,7 +241,7 @@ fn run_ffmpeg_pcm(ffmpeg: &str, path: &str) -> Option<Vec<u8>> {
 
     let stdout = child.stdout.take()?;
     let copied = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let reader = spawn_stdout_reader(stdout, Arc::clone(&copied));
+    let reader = spawn_pcm_reader(stdout, Arc::clone(&copied));
 
     loop {
         match child.try_wait() {

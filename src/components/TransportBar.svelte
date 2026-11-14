@@ -30,6 +30,7 @@
   import type { PlayerState, Track } from '../stores/player';
   import { isAudioFile } from '../lib/audio';
   import { waveformGenerate, waveformGet } from '../lib/audioMeta';
+  import { hasTauri } from '../lib/tauriFs';
   import { toggleFullscreen } from '../lib/gestures';
   import { layout } from '../stores/layout';
   import { dockMode, openDock } from '../stores/ui';
@@ -159,6 +160,9 @@
     if (!peaks) {
       const generated = await waveformGenerate(path, WAVEFORM_BUCKETS);
       peaks = generated && generated.length > 0 ? generated : null;
+      if (!peaks && hasTauri()) {
+        console.warn('Waveform unavailable for', path);
+      }
     }
 
     if (token !== waveLoadToken) return; // the track changed while resolving
@@ -190,11 +194,14 @@
    */
   function waveColorsOf(canvas: HTMLCanvasElement): { accent: string; muted: string } {
     const styles = getComputedStyle(canvas);
-    const accent = styles.getPropertyValue('--vlc-accent').trim() || styles.color;
+    // The theme defines `--accent` (src/app.css); fall back to the canvas'
+    // text color (`text-vlc-orange`) when the custom property is absent.
+    const accent = styles.getPropertyValue('--accent').trim() || styles.color;
     const border = styles.getPropertyValue('--border-rgb').trim();
     return {
       accent,
-      muted: border ? `rgb(${border} / 0.9)` : 'rgba(128, 128, 128, 0.9)',
+      // Unplayed bars sit back at ~55% so the played accent reads at a glance.
+      muted: border ? `rgb(${border} / 0.55)` : 'rgba(128, 128, 128, 0.55)',
     };
   }
 
@@ -220,15 +227,23 @@
     const progress = totalDuration > 0 ? clamp(currentTime / totalDuration, 0, 1) : 0;
     // Playhead bucket boundary: bars strictly before it count as played.
     const playedBars = Math.floor(progress * barCount);
+    // Fully rounded ends; clamped per-bar to half the bar height so stub
+    // bars (2px floor) never get an invalid radius.
+    const radius = WAVEFORM_BAR_WIDTH / 2;
 
     for (let index = 0; index < barCount; index += 1) {
       const peak =
         peaks[Math.min(peaks.length - 1, Math.floor((index / barCount) * peaks.length))] ?? 0;
-      const barHeight = Math.max(1, peak * height);
+      // 2px floor keeps near-silent buckets visible instead of vanishing.
+      const barHeight = Math.max(2, peak * height);
       const x = index * slot;
+      const y = (height - barHeight) / 2;
+      const r = Math.min(radius, barHeight / 2);
 
       context.fillStyle = index < playedBars ? accent : muted;
-      context.fillRect(x, (height - barHeight) / 2, WAVEFORM_BAR_WIDTH, barHeight);
+      context.beginPath();
+      context.roundRect(x, y, WAVEFORM_BAR_WIDTH, barHeight, r);
+      context.fill();
     }
   }
 
@@ -870,7 +885,7 @@
       <canvas
         bind:this={waveCanvas}
         use:waveformCanvasAction
-        class="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 text-vlc-orange transition-[height] duration-150 group-hover:h-2 group-focus-visible:h-2"
+        class="pointer-events-none absolute inset-x-0 top-1/2 h-2.5 -translate-y-1/2 text-vlc-orange transition-[height] duration-150 group-hover:h-3.5 group-focus-visible:h-3.5"
         aria-hidden="true"
       ></canvas>
     {:else}
