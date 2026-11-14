@@ -977,15 +977,19 @@
       on:keydown={handleVolumeKeydown}
     >
       <div bind:this={volumeTrack} class="absolute inset-0" aria-hidden="true">
-        <div class="absolute inset-0 [clip-path:polygon(0_0,0_100%,100%_0)]">
+        <!-- Cone geometry: the hypotenuse forms the top edge (rising from the
+             bottom-left tip to the top-right corner), the vertical edge sits
+             on the right, flat bottom. Raising volume fills from the tip
+             toward the right edge. -->
+        <div class="absolute inset-0 [clip-path:polygon(100%_0,100%_100%,0_100%)]">
           <!-- Dim green silhouette keeps the cone shape visible below full boost. -->
           <div class="absolute inset-0 bg-[#3fd35f]/20 transition-colors group-hover:bg-[#3fd35f]/30 group-focus-visible:bg-[#3fd35f]/30"></div>
           <!-- VLC-style boost cone: green through 100%, lime across the
                100–200% zone. The gradient is sized to the full track so the
-               colour zones stay fixed while the fill width grows. -->
+               colour zones stay fixed while the fill grows from the tip. -->
           <div
             class="absolute inset-y-0 left-0"
-            style={`width: ${$player.volume / 2}%; background: linear-gradient(to right, #22b14a 0%, #3fd35f 50%, #a3e635 100%); background-size: ${VOLUME_TRACK_WIDTH}px 100%;`}
+            style={`width: ${$player.volume / 2}%; background: linear-gradient(to top right, #22b14a 0%, #3fd35f 50%, #a3e635 100%); background-size: ${VOLUME_TRACK_WIDTH}px 100%;`}
           ></div>
         </div>
       </div>
