@@ -174,19 +174,53 @@
     }
   }
 
-  /** DPR-aware backing-store sizing for the waveform strip. */
-  function resizeWaveCanvas(canvas: HTMLCanvasElement): void {
+  /**
+   * DPR-aware backing-store sizing for the waveform strip. Returns false when
+   * the canvas is not measurable (hidden / zero-size) so callers can skip the
+   * draw instead of repainting against a stale backing store.
+   */
+  function resizeWaveCanvas(canvas: HTMLCanvasElement): boolean {
     const bounds = canvas.getBoundingClientRect();
-    if (bounds.width <= 0 || bounds.height <= 0) return;
+    if (bounds.width <= 0 || bounds.height <= 0) return false;
 
     const dpr = window.devicePixelRatio || 1;
     const width = Math.max(1, Math.round(bounds.width * dpr));
     const height = Math.max(1, Math.round(bounds.height * dpr));
 
     if (canvas.width !== width || canvas.height !== height) {
+      // TODO(waveform-diag): remove once confirmed
+      console.debug('[waveform] resize', { from: canvas.width, to: width, dpr, bounds: Math.round(bounds.width), peaks: wavePeaks?.length ?? 0 });
       canvas.width = width;
       canvas.height = height;
     }
+    return true;
+  }
+
+  /** WCAG relative luminance of an sRGB color given as 8-bit components. */
+  function srgbLuminance(r: number, g: number, b: number): number {
+    const lin = (c: number): number => {
+      const s = c / 255;
+      return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+
+  /** WCAG contrast ratio between two sRGB colors given as 8-bit components. */
+  function contrastRatio(
+    a: [number, number, number],
+    b: [number, number, number],
+  ): number {
+    const la = srgbLuminance(a[0], a[1], a[2]);
+    const lb = srgbLuminance(b[0], b[1], b[2]);
+    const hi = Math.max(la, lb);
+    const lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  /** Parses a theme "R G B" triple (`--border-rgb` style); null when invalid. */
+  function parseRgbTriple(triple: string): [number, number, number] | null {
+    const [r = NaN, g = NaN, b = NaN] = triple.trim().split(/[\s,]+/).map(Number);
+    return [r, g, b].every(Number.isFinite) ? [r, g, b] : null;
   }
 
   /**
@@ -199,12 +233,33 @@
     // The theme defines `--accent` (src/app.css); fall back to the canvas'
     // text color (`text-vlc-orange`) when the custom property is absent.
     const accent = styles.getPropertyValue('--accent').trim() || styles.color;
-    const border = styles.getPropertyValue('--border-rgb').trim();
-    return {
-      accent,
-      // Unplayed bars sit back at ~55% so the played accent reads at a glance.
-      muted: border ? `rgb(${border} / 0.55)` : 'rgba(128, 128, 128, 0.55)',
-    };
+
+    // Unplayed bars sit back at ~55% so the played accent reads at a glance.
+    // Both shipped themes define `--border-rgb` close to their surface tone
+    // (dark: 55 55 55 on 14 14 14 → ~1.26:1; light: 214 214 208 on 244 244 241
+    // → ~1.16:1 once composited at 55% alpha), so the bars can effectively
+    // vanish against the transport background (`--bg-app`, painted by the
+    // footer). When the composited contrast drops below 1.5:1 (half of WCAG's
+    // 3:1 non-text guideline — the bars must stay subordinate to the accent),
+    // fall back to the neutral mid gray the missing-token path already used:
+    // ~2.3:1 on dark, ~1.9:1 on light, visible in both.
+    const border = parseRgbTriple(styles.getPropertyValue('--border-rgb').trim());
+    const surface = parseRgbTriple(styles.getPropertyValue('--bg-app-rgb').trim());
+    let muted = border
+      ? `rgb(${border[0]} ${border[1]} ${border[2]} / 0.55)`
+      : 'rgba(128, 128, 128, 0.55)';
+    if (border && surface) {
+      const composite: [number, number, number] = [
+        0.55 * border[0] + 0.45 * surface[0],
+        0.55 * border[1] + 0.45 * surface[1],
+        0.55 * border[2] + 0.45 * surface[2],
+      ];
+      if (contrastRatio(composite, surface) < 1.5) {
+        muted = 'rgba(128, 128, 128, 0.55)';
+      }
+    }
+
+    return { accent, muted };
   }
 
   /** Thin centered bars; the played head is the accent, the rest muted. */
@@ -215,6 +270,14 @@
 
     const context = canvas.getContext('2d');
     if (!context) return;
+
+    // Self-healing: re-sync the backing store with the live layout before
+    // reading it, so a resize the ResizeObserver missed (or one that raced
+    // the canvas' `{#if}` mount) can never leave the strip painting against
+    // a stale width. Cheap: one getBoundingClientRect per redraw (≤4 Hz).
+    // Skips the draw when the canvas is not measurable (hidden / zero-size);
+    // the ResizeObserver re-fires with fresh bounds once it is visible again.
+    if (!resizeWaveCanvas(canvas)) return;
 
     const dpr = window.devicePixelRatio || 1;
     const width = canvas.width / dpr;
@@ -236,8 +299,11 @@
     for (let index = 0; index < barCount; index += 1) {
       const peak =
         peaks[Math.min(peaks.length - 1, Math.floor((index / barCount) * peaks.length))] ?? 0;
+      // Defense-in-depth: a corrupt peak (NaN/negative) must never produce
+      // NaN geometry — clamp every sample into [0, 1] before use.
+      const p = Number.isFinite(peak) ? Math.min(1, Math.max(0, peak)) : 0;
       // 2px floor keeps near-silent buckets visible instead of vanishing.
-      const barHeight = Math.max(2, peak * height);
+      const barHeight = Math.max(2, p * height);
       const x = index * slot;
       const y = (height - barHeight) / 2;
       const r = Math.min(radius, barHeight / 2);
