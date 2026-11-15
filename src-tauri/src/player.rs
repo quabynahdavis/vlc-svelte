@@ -30,6 +30,9 @@
 #[derive(serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Backend {
+    // Only constructed in the HTML5 (default) build; kept in both so the
+    // serialized "html5" value is part of the stable IPC contract.
+    #[cfg_attr(feature = "libvlc", allow(dead_code))]
     Html5,
     // Only constructed in the feature-enabled build; kept in both so the
     // serialized "native" value is part of the stable IPC contract.
