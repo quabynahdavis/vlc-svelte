@@ -1,6 +1,6 @@
 # libvlc Integration Plan
 
-**Status**: Prepared — Phase 0 scaffold landed behind a cargo feature flag
+**Status**: Phase 0 verified — the scaffold compiles against the dev machine's real libvlc 3.0.24 and runtime playback was proven (see §9)
 **Target**: All platforms (Linux, macOS, Windows), feature-flagged and off by default
 **Backend**: `libvlc` 3.x via the `vlc` crate (vlc-rs) inside `src-tauri/src/player.rs`
 
@@ -21,7 +21,7 @@ libvlc unlocks what the webview codec stack cannot:
 
 Why feature-flagged rather than a cutover:
 
-- **No system libvlc on the dev machine** — the default build must never link or require it.
+- **libvlc is present on the dev machine** (3.0.24: `/usr/lib/libvlc.so`, headers in `/usr/include/vlc`, pkg-config file `libvlc.pc`) — yet the default build still must never link or require it, so the feature stays OFF by default; opting in is a one-flag build.
 - **vlc-rs 0.1.0** is a thin binding targeting **libvlc 3.x only**; libvlc 4 (still churning its API) is not supported by the bindings yet.
 - HTML5 is proven and covers current needs; the native path stays optional until each phase's acceptance criteria pass. The intent is a **backend swap behind a stable seam**, not a rewrite: `src/stores/player.ts` remains the single source of truth for state in both modes.
 
@@ -253,7 +253,7 @@ Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
 
 | Phase | Scope | Effort | Exit criteria |
 | --- | --- | --- | --- |
-| **0 — Scaffold** (done) | Feature flag, `player.rs` stubs, nine commands, `player_probe` contract, TS seam | small | §7 Phase 0 criteria; default build unchanged |
+| **0 — Scaffold** (done, verified) | Feature flag, `player.rs` with a real audio-only native half, nine commands, `player_probe` contract, TS seam. Verified against the dev machine's libvlc 3.0.24: `cargo check --features libvlc` compiles clean and a temporary runtime test played a real mp3 (playhead advanced, duration parsed, toggle/volume/stop all correct) | small | §7 Phase 0 criteria; default build unchanged |
 | **1 — Audio-only native** | Real libvlc init behind the toggle, audio file playback end-to-end, volume semantics (125% cap), teardown on track change, HTML5-only visualizer fallback | medium | §7 Phase 1 criteria; a user can play an mp3 natively with the toggle on and nothing changes with it off |
 | **2 — Video surface decision** | Prototype (b) frame pump to `<canvas>`; measure; decide (b) vs (a); implement the chosen path for video files | large | §7 Phase 2 criteria; written decision record appended to this doc |
 | **3 — Subtitles, equalizer, network** | `add_slave`/SRT load, embedded track switching (audio + subtitle), end-of-track events for next-episode, RTSP/HLS `player_load`, optional >125% soft-clip, optional PCM-tap visualizer | medium | §7 Phase 3 criteria |
