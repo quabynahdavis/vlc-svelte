@@ -20,6 +20,19 @@
     resumeAudioAnalyser,
   } from '../lib/audioAnalyser';
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
+  import { settings } from '../stores/settings';
+  import { isAudioFile } from '../lib/audio';
+  import {
+    playerBackend,
+    nativeLoad,
+    nativePause,
+    nativePlay,
+    nativePosition,
+    nativeSeek,
+    nativeSetVolume,
+    nativeStop,
+    type PlayerBackend,
+  } from '../lib/playerBackend';
   import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
   import { markWatched, removeWatch, watchEntries, upsertWatch, type WatchEntry } from '../stores/watch';
@@ -72,10 +85,37 @@
   /** Previous store time, used to detect store-initiated rewinds. */
   let previousStoreTime = 0;
 
+  // ── Native (libvlc) audio backend ──────────────────────────────────────
+  /** Compiled backend, resolved once on mount; 'html5' until proven otherwise. */
+  let backendKind: PlayerBackend = 'html5';
+  /** Track id (== absolute file path) currently loaded into libvlc; '' = nothing. */
+  let nativeLoadedId = '';
+  /** Local mirror of the native play state, avoiding redundant commands. */
+  let nativeIsPlaying = false;
+  /** Store-clock sampler for the native player; null while inactive. */
+  let nativePollTimer: ReturnType<typeof setInterval> | null = null;
+  /** Last time value the poll wrote to / read from the store. */
+  let nativeLastPolledTime = 0;
+  /** Track the end-of-media advance already fired for (dedupe). */
+  let nativeEndedFiredFor = '';
+  /** Set once the backend probe resolves; gates the native reactive paths. */
+  let nativeMounted = false;
+
   $: videoSrc = $currentTrack?.src ?? src;
   $: hasMedia = Boolean(videoSrc);
-  $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}`;
+  // The mode suffix makes flipping the backend change the key, which forces
+  // syncSource to run again (it early-returns on unchanged keys) — that is
+  // what reloads the element on every native↔HTML5 handoff.
+  $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}:${nativeAudioActive ? 'native' : 'html5'}`;
   $: mediaTitle = $currentTrack?.title?.trim() || 'Kanea';
+
+  /** True when the current AUDIO track should be played by libvlc. */
+  $: nativeAudioActive =
+    nativeMounted &&
+    backendKind === 'native' &&
+    $settings.nativePlayback === true &&
+    $currentTrack !== null &&
+    isAudioFile($currentTrack.id);
 
   $: continueItems = $watchEntries
     .filter(e => !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
@@ -86,13 +126,29 @@
   $: syncPipElement(videoEl);
 
   // Store -> element: load a new source and rewind when the current track changes.
-  $: syncSource(videoEl, mediaKey, videoSrc, $currentTrack?.duration ?? 0);
+  // In native mode the element is emptied instead — libvlc owns playback.
+  $: syncSource(videoEl, mediaKey, videoSrc, $currentTrack?.duration ?? 0, nativeAudioActive);
   // Store -> element: follow play/pause intent (including stop and context-menu actions).
-  $: syncPlayback(videoEl, $player.isPlaying, hasMedia);
+  $: if (!nativeAudioActive) syncPlayback(videoEl, $player.isPlaying, hasMedia);
   // Store -> element: honour store-initiated rewinds (stop, re-clicking the current queue row).
-  $: syncStoreSeek(videoEl, $player.currentTime, $player.isPlaying);
+  $: if (!nativeAudioActive) syncStoreSeek(videoEl, $player.currentTime, $player.isPlaying);
   // Store -> element: keep volume and mute in step with context-menu and transport actions.
-  $: syncVolume(videoEl, $player.volume, $player.muted);
+  // (Idle for native audio: the element carries no media and the dock
+  // visualizer stays HTML5-only.)
+  $: if (!nativeAudioActive) syncVolume(videoEl, $player.volume, $player.muted);
+
+  // Store -> libvlc: load the native player for audio tracks / reconcile play state.
+  $: if (nativeAudioActive && $currentTrack) void syncNativeTrack($currentTrack.id, $player.isPlaying);
+  // Store -> libvlc: mirror volume and mute.
+  $: if (nativeAudioActive) void syncNativeVolume($player.volume, $player.muted);
+
+  // Leaving native mode (toggle off, video/network track): release libvlc so
+  // it never plays on top of the webview element, and stop the poll.
+  $: if (!nativeAudioActive && nativeLoadedId) void releaseNativePlayer();
+  $: if (!nativeAudioActive && nativePollTimer) {
+    clearInterval(nativePollTimer);
+    nativePollTimer = null;
+  }
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -103,6 +159,7 @@
     key: string,
     source: string,
     fallbackDuration: number,
+    nativeMode: boolean,
   ): void {
     if (!el) {
       syncedMediaKey = '';
@@ -115,6 +172,17 @@
     pendingLoad = true;
 
     el.pause();
+
+    if (nativeMode) {
+      // libvlc owns this track: leave the element silent and media-less so
+      // it cannot play over native audio. There is no metadata event coming
+      // to clear `pendingLoad`, so clear it right after the (event-swallowing)
+      // pause.
+      pendingLoad = false;
+      el.removeAttribute('src');
+      el.load();
+      return;
+    }
 
     if (source) {
       el.src = source;
@@ -190,6 +258,154 @@
       gainNode.gain.value = muted ? 0 : clamp(volume / 100, 0, 2);
     }
     el.muted = muted;
+  }
+
+  // ── Native (libvlc) backend sync ───────────────────────────────────────
+
+  /**
+   * Keep libvlc in step with the player store while a local audio track is
+   * routed natively. `player_load` starts playing immediately, so a paused
+   * intent pauses right after the load resolves.
+   */
+  async function syncNativeTrack(trackId: string, shouldPlay: boolean): Promise<void> {
+    if (trackId === nativeLoadedId) {
+      // Same track: only reconcile play state (nativeToggle users aside).
+      const state = get(player);
+      if (state.isPlaying && !nativeIsPlaying) {
+        await nativePlay();
+        nativeIsPlaying = true;
+      } else if (!state.isPlaying && nativeIsPlaying) {
+        await nativePause();
+        nativeIsPlaying = false;
+      }
+      return;
+    }
+
+    if (nativeLoadedId) {
+      await nativeStop();
+    }
+    nativeLoadedId = '';
+    nativeIsPlaying = false;
+    nativeLastPolledTime = 0;
+    nativeEndedFiredFor = '';
+
+    // Music-track ids are absolute file paths, exactly what libvlc wants.
+    const result = await nativeLoad(trackId);
+    if (result === null) {
+      // The shell is native-capable but refused this track (or the command
+      // failed): flip the toggle off so HTML5 resumes via the mediaKey flip.
+      console.warn('Native backend refused the track; staying on HTML5 for this track.', trackId);
+      settings.update((s) => ({ ...s, nativePlayback: false }));
+      return;
+    }
+
+    nativeLoadedId = trackId;
+    if (!shouldPlay) {
+      await nativePause();
+    } else {
+      nativeIsPlaying = true;
+    }
+
+    // Listen-history parity with the HTML5 path (a fresh load counts once;
+    // recordMusicListen upserts by mediaKey so repeats never duplicate).
+    if (get(currentTrack)?.id === trackId) {
+      recordMusicListenForCurrentTrack();
+    }
+
+    // Resume positions queued by Continue cards: loadedmetadata never fires
+    // in native mode, so consume the one-shot seek here instead.
+    const resumeAt = consumePendingSeek();
+    if (resumeAt !== null && Number.isFinite(resumeAt) && resumeAt > 0) {
+      await nativeSeek(resumeAt);
+      nativeLastPolledTime = resumeAt;
+      player.update((state) => ({ ...state, currentTime: resumeAt }));
+    }
+
+    // libvlc starts at its own default volume; push the store's value once
+    // per load (the volume watcher only fires on volume/mute changes).
+    const state = get(player);
+    await syncNativeVolume(state.volume, state.muted);
+
+    startNativePoll();
+  }
+
+  /**
+   * Mirror the store volume into libvlc. libvlc caps around 125%; the store
+   * and the HUD still show 0–200 — Phase 1 accepts that gap.
+   */
+  async function syncNativeVolume(volume: number, muted: boolean): Promise<void> {
+    if (!nativeLoadedId) return;
+
+    await nativeSetVolume(muted ? 0 : Math.min(125, Math.round(volume)));
+  }
+
+  /**
+   * Stop and unload whatever libvlc still holds: a flip back to HTML5, a
+   * switch to a video/network track, or component teardown. The mirrors are
+   * cleared synchronously so the reactive guards settle without a re-stop.
+   */
+  async function releaseNativePlayer(): Promise<void> {
+    if (!nativeLoadedId) return;
+
+    nativeLoadedId = '';
+    nativeIsPlaying = false;
+    nativeLastPolledTime = 0;
+    nativeEndedFiredFor = '';
+
+    await nativeStop();
+  }
+
+  /**
+   * Drive the player store from libvlc's clock: 250 ms sampling keeps the
+   * seek bar and timestamps moving, pushes user seeks (made while we were
+   * not looking) back into libvlc, and fires the end-of-track advance once.
+   */
+  function startNativePoll(): void {
+    if (nativePollTimer) return;
+    nativePollTimer = setInterval(() => {
+      void nativePollTick();
+    }, 250);
+  }
+
+  async function nativePollTick(): Promise<void> {
+    if (!nativeAudioActive || !nativeLoadedId) return;
+
+    const state = get(player);
+
+    // User seeked while we weren't looking: the store time moved away from
+    // the last value we polled.
+    if (Math.abs(state.currentTime - nativeLastPolledTime) > 0.6) {
+      nativeLastPolledTime = state.currentTime;
+      await nativeSeek(state.currentTime);
+      return;
+    }
+
+    const position = await nativePosition();
+    if (!position) return;
+
+    const [time, length] = position;
+    nativeLastPolledTime = time;
+    player.update((s) => ({
+      ...s,
+      currentTime: time,
+      duration: length > 0 ? length : s.duration,
+    }));
+
+    if (length > 0 && time >= length - 0.15 && nativeEndedFiredFor !== nativeLoadedId) {
+      nativeEndedFiredFor = nativeLoadedId;
+
+      if (state.repeat === 'one') {
+        // `next()` advances the queue and ignores repeat-one (the HTML5 path
+        // restarts the element itself). Reload the same file — player_load
+        // auto-plays from the start — and re-arm the ended detection.
+        const path = nativeLoadedId;
+        await nativeLoad(path);
+        nativeEndedFiredFor = '';
+        nativeLastPolledTime = 0;
+      } else {
+        next();
+      }
+    }
   }
 
   /**
@@ -676,6 +892,15 @@
     window.addEventListener('keydown', handleGlobalKeydown);
     syncFullscreen();
 
+    // Resolve the compiled backend once. The callback stays synchronous so
+    // Svelte still honours the returned cleanup (async onMount callbacks
+    // lose it); the probe runs inline and only flips the reactive guards
+    // once it settles.
+    void (async () => {
+      backendKind = await playerBackend();
+      nativeMounted = true;
+    })();
+
     return () => {
       document.removeEventListener('fullscreenchange', syncFullscreen);
       window.removeEventListener('keydown', handleGlobalKeydown);
@@ -696,6 +921,14 @@
       clearTimeout(bookmarkHudTimer);
       bookmarkHudTimer = null;
     }
+
+    if (nativePollTimer) {
+      clearInterval(nativePollTimer);
+      nativePollTimer = null;
+    }
+
+    // Release libvlc so playback never outlives the view.
+    void releaseNativePlayer();
   });
 </script>
 
@@ -979,6 +1212,7 @@
         mediaAvailable={hasMedia}
         bufferedRatio={buffered}
         fullscreenTarget={shellEl}
+        nativeActive={nativeAudioActive}
         onSettings={() => dispatch('settings')}
       />
     </div>

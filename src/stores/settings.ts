@@ -116,6 +116,8 @@ export interface SettingsState {
   defaultPlaybackSpeed: string;
   loopMode: string;
   resumePlayback: boolean;
+  /** Opt-in: route local audio tracks through the libvlc backend when the desktop shell ships it. */
+  nativePlayback: boolean;
 
   // Video
   outputModule: string;
@@ -305,6 +307,8 @@ export const defaultSettings: SettingsState = {
   defaultPlaybackSpeed: '1.0x',
   loopMode: 'off',
   resumePlayback: true,
+  // HTML5 stays the default backend; native requires the libvlc desktop build.
+  nativePlayback: false,
 
   // Video
   outputModule: 'Automatic',

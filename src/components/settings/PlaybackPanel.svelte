@@ -57,6 +57,10 @@
       </div>
     </SettingRow>
 
+    <SettingRow label="Native audio backend" info hint="Play audio through libvlc (experimental). Requires the desktop build to include the native backend; otherwise the app silently stays on the webview backend.">
+      <Toggle bind:value={$settings.nativePlayback} label="Native audio backend" />
+    </SettingRow>
+
     <SettingRow label="Allow speed playback">
       <Toggle bind:value={$settings.allowSpeedPlayback} label="Allow speed playback" />
     </SettingRow>

@@ -40,6 +40,8 @@
   export let bufferedRatio = 0;
   export let fullscreenTarget: HTMLElement | null = null;
   export let onSettings: () => void = () => {};
+  /** True while libvlc owns the current audio track (element carries no media). */
+  export let nativeActive = false;
 
   const PREVIEW_WIDTH = 160;
   const PREVIEW_HEIGHT = 90;
@@ -305,8 +307,10 @@
     prevTrack();
     const after = get(player);
 
-    // Restarting the first item does not remount the <video>.
-    if (videoEl && after.currentIndex === before.currentIndex) {
+    // Restarting the first item does not remount the <video>. In native mode
+    // the element carries no media; the store restart is pushed into libvlc
+    // by PlayerView's poll (store-time drift seek).
+    if (videoEl && !nativeActive && after.currentIndex === before.currentIndex) {
       videoEl.currentTime = 0;
     }
   }
@@ -316,7 +320,9 @@
     nextTrack();
     const after = get(player);
 
-    if (videoEl && after.currentIndex === before.currentIndex && !after.isPlaying) {
+    // The element-pause fallback only applies to the webview element; in
+    // native mode libvlc follows the store instead.
+    if (videoEl && !nativeActive && after.currentIndex === before.currentIndex && !after.isPlaying) {
       videoEl.pause();
     }
   }
@@ -334,9 +340,11 @@
     const next = Math.round(clamp(value, 0, 200));
     setVolume(next);
 
-    if (videoEl) {
+    if (videoEl && !nativeActive) {
       // The element itself stays within [0, 1]; the PlayerView GainNode
       // supplies the >100% boost, so capping here avoids IndexSizeError.
+      // In native mode libvlc receives the value through PlayerView's
+      // volume watcher instead.
       videoEl.volume = clamp(next / 100, 0, 1);
       videoEl.muted = next === 0;
     }
@@ -346,7 +354,8 @@
     const willMute = !$player.muted;
     toggleMute();
 
-    if (videoEl) videoEl.muted = willMute;
+    // Native mode: mute reaches libvlc through the volume watcher.
+    if (videoEl && !nativeActive) videoEl.muted = willMute;
   }
 
   function applySeekTime(time: number): void {
@@ -354,7 +363,9 @@
 
     const target = clamp(time, 0, duration);
 
-    if (videoEl && mediaAvailable) {
+    // Native mode: the element carries no media — libvlc is seeked through
+    // the store via PlayerView's poll. The store write stays unconditional.
+    if (videoEl && mediaAvailable && !nativeActive) {
       try {
         videoEl.currentTime = target;
       } catch (error) {
@@ -583,9 +594,13 @@
   function nudgeTime(seconds: number): void {
     if (duration <= 0) return;
 
-    const base = videoEl && Number.isFinite(videoEl.currentTime)
-      ? videoEl.currentTime
-      : $player.currentTime;
+    // Native mode: the element has no media, so the store time is the only
+    // meaningful base for the nudge.
+    const base = nativeActive
+      ? $player.currentTime
+      : videoEl && Number.isFinite(videoEl.currentTime)
+        ? videoEl.currentTime
+        : $player.currentTime;
     applySeekTime(base + seconds);
   }
 
