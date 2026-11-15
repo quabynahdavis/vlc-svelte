@@ -35,7 +35,10 @@ Phase 0 introduced the seam without touching default behavior. Nothing links lib
 
 ```toml
 [dependencies]
-vlc = { version = "0.1.0", optional = true }
+# NOTE: the bare `vlc` crate on crates.io is a binary application, not a
+# library. The actual binding crate is `vlc-rs`, whose lib target is named
+# `vlc` (so all code paths stay `vlc::Instance` etc.).
+vlc = { package = "vlc-rs", version = "0.1.0", optional = true }
 
 [features]
 libvlc = ["dep:vlc"]
@@ -45,23 +48,23 @@ The default feature set is unchanged: `cargo build` / `cargo test` never compile
 
 ### Command surface (`src-tauri/src/player.rs`)
 
-Nine commands, all gated behind `#[cfg(feature = "libvlc")]` for the native implementation and compiled as thin stubs otherwise:
+Nine commands, all compiled in both builds so the frontend contract is stable (the native half lives in a `#[cfg(feature = "libvlc")]` module; the stub half answers with a descriptive error):
 
 | Command | Signature | Semantics |
 | --- | --- | --- |
-| `player_probe` | `() -> 'html5' \| 'native'` | Reports which backend is active. `'html5'` unless the binary was built with `--features libvlc` **and** a libvlc runtime was found at startup. The frontend uses this to enable/disable the native toggle. |
-| `player_load` | `(path_or_url, opts?) -> ok` | Stops any current playback, creates a `MediaPlayer` for the media (local path or network URL), prepares it paused. Returns metadata the store needs (duration, tracks) where available. |
+| `player_probe` | `() -> 'html5' \| 'native'` | Purely compile-time: reports which half was built. `'native'` only when the binary was built with `--features libvlc`. The frontend uses this to enable/disable the native toggle. |
+| `player_load` | `(path) -> ok` | Stops any current playback, creates a fresh `Instance`/`Media`/`MediaPlayer` for an absolute file path and starts playback (HTML5 also starts on load). Network URLs and metadata returns arrive with the rendering phase. |
 | `player_play` | `() -> ok` | Resumes/plays. |
 | `player_pause` | `() -> ok` | Pauses. |
-| `player_toggle` | `() -> ok` | Play/pause toggle, mirroring the store's `togglePlayback`. |
+| `player_toggle` | `() -> bool` | Play/pause toggle, answering the new is-playing state. |
 | `player_stop` | `() -> ok` | Stops and releases the media (called on track change and teardown). |
 | `player_seek` | `(seconds: f64) -> ok` | Absolute time seek; libvlc handles keyframe snap internally. |
-| `player_set_volume` | `(0..200) -> ok` | Percent volume; see §4 for the >125% gap. |
-| `player_position` | `() -> { time, length }` | Current position poll (ms), replacing HTML5 `timeupdate` on the native path. |
+| `player_set_volume` | `(percent: i32) -> ok` | Percent volume clamped 0–200 native-side; see §4 for the >125% gap. |
+| `player_position` | `() -> (time, length)` | Current position poll in **seconds** (tuple; vlc-rs reports ms), replacing HTML5 `timeupdate` on the native path. |
 
 ### TS seam (`src/lib/playerBackend.ts`)
 
-Typed wrappers over `invoke` for the nine commands plus `playerBackend()` — a resolver that returns `'html5'` when `hasTauri()` is false, when the probe says so, or when the user's native toggle is off. All future call sites go through this module; no component ever invokes `player_*` directly.
+Typed wrappers over `invoke` for the nine commands plus `playerBackend()` — which returns `'html5'` for browser preview, when the probe fails, or whenever the shell reports the HTML5 build. All future call sites go through this module; no component ever invokes `player_*` directly.
 
 ### Enabling the flag locally
 
