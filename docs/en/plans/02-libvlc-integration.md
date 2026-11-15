@@ -1,6 +1,6 @@
 # libvlc Integration Plan
 
-**Status**: Phase 0 verified — the scaffold compiles against the dev machine's real libvlc 3.0.24 and runtime playback was proven (see §9)
+**Status**: Phase 1 verified — native audio playback is wired behind the `nativePlayback` toggle (Settings → Playback); HTML5 remains the default path
 **Target**: All platforms (Linux, macOS, Windows), feature-flagged and off by default
 **Backend**: `libvlc` 3.x via the `vlc` crate (vlc-rs) inside `src-tauri/src/player.rs`
 
@@ -254,7 +254,7 @@ Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
 | Phase | Scope | Effort | Exit criteria |
 | --- | --- | --- | --- |
 | **0 — Scaffold** (done, verified) | Feature flag, `player.rs` with a real audio-only native half, nine commands, `player_probe` contract, TS seam. Verified against the dev machine's libvlc 3.0.24: `cargo check --features libvlc` compiles clean and a temporary runtime test played a real mp3 (playhead advanced, duration parsed, toggle/volume/stop all correct) | small | §7 Phase 0 criteria; default build unchanged |
-| **1 — Audio-only native** | Real libvlc init behind the toggle, audio file playback end-to-end, volume semantics (125% cap), teardown on track change, HTML5-only visualizer fallback | medium | §7 Phase 1 criteria; a user can play an mp3 natively with the toggle on and nothing changes with it off |
+| **1 — Audio-only native** (done) | `nativePlayback` settings toggle (Settings → Playback, default off) + PlayerView native routing: `player_load` per audio track, 250 ms `player_position` poll drives the store clock, store-drift detection pushes user seeks into libvlc, end-of-track → next (repeat-one reloads in place), volume/mute mirrored at the native ~125% cap, teardown on mode flip/video switch/unmount, element carries no media in native mode (no double audio), fail-safe toggle-off if libvlc refuses a track. Visualizer stays HTML5-only | medium | §7 Phase 1 criteria; a user can play an mp3 natively with the toggle on and nothing changes with it off |
 | **2 — Video surface decision** | Prototype (b) frame pump to `<canvas>`; measure; decide (b) vs (a); implement the chosen path for video files | large | §7 Phase 2 criteria; written decision record appended to this doc |
 | **3 — Subtitles, equalizer, network** | `add_slave`/SRT load, embedded track switching (audio + subtitle), end-of-track events for next-episode, RTSP/HLS `player_load`, optional >125% soft-clip, optional PCM-tap visualizer | medium | §7 Phase 3 criteria |
 | **4 — Packaging** | Windows DLL+plugins bundling, macOS framework, Linux bundling-or-doc decision, plugin license review, clean-machine acceptance on all three OSes | medium–large | §7 Phase 4 criteria |
