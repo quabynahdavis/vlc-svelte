@@ -9,11 +9,53 @@ mod player;
 mod thumb;
 mod waveform;
 
+/// Build a `vlcframe://` protocol response. `Response::builder` only fails on
+/// invalid header values/statuses, which are static here — the fallback is an
+/// empty 200 the frontend already treats as "no new frame" (it validates the
+/// 16-byte header before painting).
+fn frame_response(
+    status: tauri::http::StatusCode,
+    body: Vec<u8>,
+) -> tauri::http::Response<Vec<u8>> {
+    tauri::http::Response::builder()
+        .status(status)
+        .header(tauri::http::header::CONTENT_TYPE, "application/octet-stream")
+        .header(tauri::http::header::CACHE_CONTROL, "no-store")
+        // The dev page (vite) and the packaged page have different origins;
+        // `*` keeps `fetch` happy on WebKit without reading headers client-side.
+        .header(tauri::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .body(body)
+        .unwrap_or_else(|_| tauri::http::Response::new(Vec::new()))
+}
+
 fn main() {
     use tauri::Manager;
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // Video-surface prototype (Phase 2): serves the latest libvlc frame
+        // to the webview canvas. Body layout is self-describing binary —
+        // [seq: u64 LE][width: u32 LE][height: u32 LE][rgba bytes...] — so
+        // the frontend never relies on response headers being readable.
+        // No live frame (audio-only media, before the first format callback,
+        // after stop): `204 No Content` with an empty body — chosen over 404
+        // because the poll loop treats "nothing new" as a normal event, not
+        // an error. Windows webviews fetch `http://vlcframe.localhost/frame`
+        // instead (Tauri maps custom schemes there); the handler itself is
+        // scheme-agnostic.
+        .register_uri_scheme_protocol("vlcframe", |_ctx, _request| {
+            match player::vlc_frame_snapshot() {
+                Some((width, height, seq, rgba)) => {
+                    let mut body = Vec::with_capacity(16 + rgba.len());
+                    body.extend_from_slice(&seq.to_le_bytes());
+                    body.extend_from_slice(&width.to_le_bytes());
+                    body.extend_from_slice(&height.to_le_bytes());
+                    body.extend_from_slice(&rgba);
+                    frame_response(tauri::http::StatusCode::OK, body)
+                }
+                None => frame_response(tauri::http::StatusCode::NO_CONTENT, Vec::new()),
+            }
+        })
         .setup(|app| {
             #[cfg(debug_assertions)]
             {

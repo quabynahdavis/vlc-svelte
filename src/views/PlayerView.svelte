@@ -21,7 +21,7 @@
   } from '../lib/audioAnalyser';
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
   import { settings } from '../stores/settings';
-  import { isAudioFile } from '../lib/audio';
+  import { isAudioFile, isVideoFile } from '../lib/audio';
   import {
     playerBackend,
     nativeLoad,
@@ -106,7 +106,7 @@
   // The mode suffix makes flipping the backend change the key, which forces
   // syncSource to run again (it early-returns on unchanged keys) — that is
   // what reloads the element on every native↔HTML5 handoff.
-  $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}:${nativeAudioActive ? 'native' : 'html5'}`;
+  $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}:${nativeRoutingActive ? 'native' : 'html5'}`;
   $: mediaTitle = $currentTrack?.title?.trim() || 'Kanea';
 
   /** True when the current AUDIO track should be played by libvlc. */
@@ -116,6 +116,29 @@
     $settings.nativePlayback === true &&
     $currentTrack !== null &&
     isAudioFile($currentTrack.id);
+
+  /**
+   * True when the current LOCAL VIDEO track should be rendered through the
+   * libvlc frame pump (Phase 2 prototype). Same gating as audio plus the
+   * local-file check inside isVideoFile — network URLs always stay on HTML5.
+   */
+  $: nativeVideoActive =
+    nativeMounted &&
+    backendKind === 'native' &&
+    $settings.nativePlayback === true &&
+    $currentTrack !== null &&
+    isVideoFile($currentTrack.id);
+
+  /** Either native route (audio or video) owns playback instead of the element. */
+  $: nativeRoutingActive = nativeAudioActive || nativeVideoActive;
+  // KNOWN GAP (prototype): TransportBar's hover preview sources its own
+  // off-screen element from videoEl.src, which native mode empties — the
+  // preview card is dead there (it never seeks the main element, so
+  // playback is unaffected).
+  // KNOWN GAP (prototype): subtitle tracks stay HTML5-only in native mode;
+  // libvlc renders nothing subtitle-shaped into the frame buffer.
+  // KNOWN GAP (prototype): the dock visualizer falls back to synthetic bars
+  // — its analyser has no element media to attach to in native mode.
 
   $: continueItems = $watchEntries
     .filter(e => !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
@@ -127,28 +150,33 @@
 
   // Store -> element: load a new source and rewind when the current track changes.
   // In native mode the element is emptied instead — libvlc owns playback.
-  $: syncSource(videoEl, mediaKey, videoSrc, $currentTrack?.duration ?? 0, nativeAudioActive);
+  $: syncSource(videoEl, mediaKey, videoSrc, $currentTrack?.duration ?? 0, nativeRoutingActive);
   // Store -> element: follow play/pause intent (including stop and context-menu actions).
-  $: if (!nativeAudioActive) syncPlayback(videoEl, $player.isPlaying, hasMedia);
+  $: if (!nativeRoutingActive) syncPlayback(videoEl, $player.isPlaying, hasMedia);
   // Store -> element: honour store-initiated rewinds (stop, re-clicking the current queue row).
-  $: if (!nativeAudioActive) syncStoreSeek(videoEl, $player.currentTime, $player.isPlaying);
+  $: if (!nativeRoutingActive) syncStoreSeek(videoEl, $player.currentTime, $player.isPlaying);
   // Store -> element: keep volume and mute in step with context-menu and transport actions.
-  // (Idle for native audio: the element carries no media and the dock
+  // (Idle for native routes: the element carries no media and the dock
   // visualizer stays HTML5-only.)
-  $: if (!nativeAudioActive) syncVolume(videoEl, $player.volume, $player.muted);
+  $: if (!nativeRoutingActive) syncVolume(videoEl, $player.volume, $player.muted);
 
-  // Store -> libvlc: load the native player for audio tracks / reconcile play state.
-  $: if (nativeAudioActive && $currentTrack) void syncNativeTrack($currentTrack.id, $player.isPlaying);
+  // Store -> libvlc: load the native player for local audio/video tracks /
+  // reconcile play state.
+  $: if (nativeRoutingActive && $currentTrack) void syncNativeTrack($currentTrack.id, $player.isPlaying);
   // Store -> libvlc: mirror volume and mute.
-  $: if (nativeAudioActive) void syncNativeVolume($player.volume, $player.muted);
+  $: if (nativeRoutingActive) void syncNativeVolume($player.volume, $player.muted);
 
-  // Leaving native mode (toggle off, video/network track): release libvlc so
+  // Leaving native mode (toggle off, network track): release libvlc so
   // it never plays on top of the webview element, and stop the poll.
-  $: if (!nativeAudioActive && nativeLoadedId) void releaseNativePlayer();
-  $: if (!nativeAudioActive && nativePollTimer) {
+  $: if (!nativeRoutingActive && nativeLoadedId) void releaseNativePlayer();
+  $: if (!nativeRoutingActive && nativePollTimer) {
     clearInterval(nativePollTimer);
     nativePollTimer = null;
   }
+
+  // Store -> canvas pump: fetch-and-paint while a local video is native.
+  $: if (nativeVideoActive) startNativeFramePump();
+  $: if (!nativeVideoActive) stopNativeFramePump();
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -308,7 +336,8 @@
 
     // Listen-history parity with the HTML5 path (a fresh load counts once;
     // recordMusicListen upserts by mediaKey so repeats never duplicate).
-    if (get(currentTrack)?.id === trackId) {
+    // Video tracks must NOT fire it: music listens stay audio-only.
+    if (isAudioFile(trackId) && get(currentTrack)?.id === trackId) {
       recordMusicListenForCurrentTrack();
     }
 
@@ -368,7 +397,7 @@
   }
 
   async function nativePollTick(): Promise<void> {
-    if (!nativeAudioActive || !nativeLoadedId) return;
+    if (!nativeRoutingActive || !nativeLoadedId) return;
 
     const state = get(player);
 
@@ -391,8 +420,28 @@
       duration: length > 0 ? length : s.duration,
     }));
 
+    // Watch-history parity with the HTML5 video path: handleTimeUpdate
+    // upserts progress on every `timeupdate` (≈250 ms cadence), which the
+    // 250 ms poll matches. Fires for native video only — native audio keeps
+    // music-listen history instead of watch entries.
+    const track = get(currentTrack);
+    if (nativeVideoActive && track && videoSrc) {
+      upsertWatch({
+        mediaKey: mediaKey,
+        type: 'video',
+        title: mediaTitle,
+        duration: get(player).duration || track.duration || 0,
+        position: time,
+        src: videoSrc,
+      });
+    }
+
     if (length > 0 && time >= length - 0.15 && nativeEndedFiredFor !== nativeLoadedId) {
       nativeEndedFiredFor = nativeLoadedId;
+
+      // Parity with handleEnded: the finished video counts as watched.
+      // markWatched no-ops when the poll never created an entry.
+      if (nativeVideoActive) markWatched(mediaKey, 'video');
 
       if (state.repeat === 'one') {
         // `next()` advances the queue and ignores repeat-one (the HTML5 path
@@ -420,6 +469,155 @@
     if (!track) return;
     const musicTrack = get(musicTracks).find((candidate) => candidate.id === track.id);
     if (musicTrack) recordMusicListen(musicTrack);
+  }
+
+  // ── Native video canvas pump (Phase 2 prototype) ───────────────────────
+  // libvlc decodes into a shared buffer (src-tauri player.rs); the custom
+  // `vlcframe://` protocol serves the latest frame; this loop fetches it on
+  // requestAnimationFrame and paints it onto the canvas. Always-on
+  // instrumentation exists because this build is meant to be measured.
+
+  /**
+   * Custom-protocol frame URL registered in `src-tauri/src/main.rs`. Windows
+   * webviews expose custom schemes as `http://vlcframe.localhost/frame`
+   * instead — this prototype targets the Linux WebKit build.
+   */
+  const FRAME_URL = 'vlcframe://localhost/frame';
+  /** Self-describing body header: [seq u64 LE][width u32 LE][height u32 LE]. */
+  const FRAME_HEADER_BYTES = 16;
+
+  /** Paint target, rendered exactly where the (src-less) video element sits. */
+  let nativeCanvasEl: HTMLCanvasElement | null = null;
+  /** Pending rAF handle; null while the pump is stopped. */
+  let nativeFrameRafId: number | null = null;
+  /** True while one frame fetch is in flight; rAF ticks skip until it lands. */
+  let nativeFrameFetchInFlight = false;
+  /** Sequence of the last painted frame; repeated seqs are skipped. */
+  let nativeLastPaintedSeq = -1;
+
+  // Rolling ~1 s instrumentation window (the deliverable of this prototype).
+  let frameStatsWindowStart = 0;
+  let frameStatsPainted = 0;
+  let frameStatsEmpty = 0;
+  let frameStatsFetchMs = 0;
+  let frameStatsFetchCount = 0;
+  let frameStatsPaintMs = 0;
+  let frameStatsPaintCount = 0;
+  let frameStatsBytes = 0;
+
+  function startNativeFramePump(): void {
+    if (nativeFrameRafId !== null) return;
+    frameStatsWindowStart = performance.now();
+    nativeFrameRafId = requestAnimationFrame(nativeFramePumpTick);
+  }
+
+  function stopNativeFramePump(): void {
+    if (nativeFrameRafId !== null) {
+      cancelAnimationFrame(nativeFrameRafId);
+      nativeFrameRafId = null;
+    }
+    nativeFrameFetchInFlight = false;
+  }
+
+  /**
+   * One rAF step: never queue or overlap fetches — if the previous one is
+   * still in flight, this tick only schedules the next one.
+   */
+  function nativeFramePumpTick(): void {
+    if (!nativeVideoActive) {
+      nativeFrameRafId = null;
+      return;
+    }
+    if (!nativeFrameFetchInFlight) {
+      nativeFrameFetchInFlight = true;
+      void fetchAndPaintNativeFrame();
+    }
+    nativeFrameRafId = requestAnimationFrame(nativeFramePumpTick);
+  }
+
+  function countFrameStatsFetch(startedAt: number): void {
+    frameStatsFetchMs += performance.now() - startedAt;
+    frameStatsFetchCount += 1;
+  }
+
+  async function fetchAndPaintNativeFrame(): Promise<void> {
+    const fetchStarted = performance.now();
+    try {
+      const response = await fetch(FRAME_URL);
+
+      // The handler answers 204 while no frame is live (audio-only media,
+      // before the first format callback, after a stop). Any other non-200
+      // is treated the same way: a poll without a paintable frame.
+      if (response.status !== 200) {
+        countFrameStatsFetch(fetchStarted);
+        frameStatsEmpty += 1;
+        return;
+      }
+
+      const buffer = await response.arrayBuffer();
+      countFrameStatsFetch(fetchStarted);
+
+      if (buffer.byteLength < FRAME_HEADER_BYTES) {
+        frameStatsEmpty += 1;
+        return;
+      }
+      const header = new DataView(buffer);
+      const seq = Number(header.getBigUint64(0, true));
+      const width = header.getUint32(8, true);
+      const height = header.getUint32(12, true);
+      const pixelBytes = width * height * 4;
+      if (width === 0 || height === 0 || buffer.byteLength < FRAME_HEADER_BYTES + pixelBytes) {
+        frameStatsEmpty += 1;
+        return;
+      }
+
+      const canvas = nativeCanvasEl;
+      const context = canvas?.getContext('2d');
+      if (!canvas || !context) {
+        frameStatsEmpty += 1;
+        return;
+      }
+
+      if (seq === nativeLastPaintedSeq) {
+        // Already on the canvas (e.g. 60 Hz rAF against ~30 fps frames).
+        frameStatsEmpty += 1;
+      } else {
+        const paintStarted = performance.now();
+        if (canvas.width !== width) canvas.width = width;
+        if (canvas.height !== height) canvas.height = height;
+        context.putImageData(
+          new ImageData(new Uint8ClampedArray(buffer, FRAME_HEADER_BYTES, pixelBytes), width, height),
+          0,
+          0,
+        );
+        nativeLastPaintedSeq = seq;
+        frameStatsPainted += 1;
+        frameStatsPaintMs += performance.now() - paintStarted;
+        frameStatsPaintCount += 1;
+        frameStatsBytes = pixelBytes;
+      }
+
+      // ~1 s heartbeat — the prototype's measurement output.
+      const elapsed = performance.now() - frameStatsWindowStart;
+      if (elapsed >= 1000) {
+        console.log(
+          `[vlcframe] fps=${Math.round((frameStatsPainted / elapsed) * 1000)} painted=${frameStatsPainted} empty=${frameStatsEmpty} fetchAvg=${(frameStatsFetchCount > 0 ? frameStatsFetchMs / frameStatsFetchCount : 0).toFixed(2)}ms paintAvg=${(frameStatsPaintCount > 0 ? frameStatsPaintMs / frameStatsPaintCount : 0).toFixed(2)}ms bytes=${frameStatsBytes}`,
+        );
+        frameStatsWindowStart = performance.now();
+        frameStatsPainted = 0;
+        frameStatsEmpty = 0;
+        frameStatsFetchMs = 0;
+        frameStatsFetchCount = 0;
+        frameStatsPaintMs = 0;
+        frameStatsPaintCount = 0;
+      }
+    } catch {
+      // Fetch failed (browser preview without Tauri, teardown race): a
+      // cheap no-op counted as an empty poll.
+      frameStatsEmpty += 1;
+    } finally {
+      nativeFrameFetchInFlight = false;
+    }
   }
 
   /**
@@ -927,6 +1125,9 @@
       nativePollTimer = null;
     }
 
+    // Stop the frame fetch loop before libvlc goes away.
+    stopNativeFramePump();
+
     // Release libvlc so playback never outlives the view.
     void releaseNativePlayer();
   });
@@ -1039,6 +1240,20 @@
           on:progress={updateBuffered}
           on:error={handleError}
         ></video>
+        {#if nativeVideoActive}
+          <!-- libvlc paints here: same stage slot as the (src-less) video
+               element underneath. `inset-0 m-auto` + max constraints center
+               the frame-sized canvas and letterbox it like object-contain;
+               the video's own click handlers cannot fire because the canvas
+               is a sibling painted above it, so gestures never double-fire. -->
+          <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+          <canvas
+            bind:this={nativeCanvasEl}
+            class="absolute inset-0 m-auto max-h-full max-w-full cursor-pointer bg-black"
+            on:click={handleStageClick}
+            on:dblclick={handleStageDoubleClick}
+          ></canvas>
+        {/if}
       {:else}
         <div class="flex h-full w-full flex-col items-center justify-start gap-6 overflow-y-auto px-6 py-10">
           <div class="flex flex-col items-center gap-4">
@@ -1212,7 +1427,7 @@
         mediaAvailable={hasMedia}
         bufferedRatio={buffered}
         fullscreenTarget={shellEl}
-        nativeActive={nativeAudioActive}
+        nativeActive={nativeAudioActive || nativeVideoActive}
         onSettings={() => dispatch('settings')}
       />
     </div>
