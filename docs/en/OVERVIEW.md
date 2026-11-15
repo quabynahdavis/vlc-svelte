@@ -24,6 +24,8 @@ The design reference exports (26 files: 25 PNGs + 1 SVG) live in the repository-
 | [guides/01-setup.md](guides/01-setup.md) | Prerequisites, installation, development, build, troubleshooting. |
 | [guides/02-design-reference.md](guides/02-design-reference.md) | Inventory of the 26 design exports and how to use them as an implementation spec. |
 | [guides/03-internationalization.md](guides/03-internationalization.md) | Language tags, translated landing pages, required files, terminology and the translation pull-request checklist. |
+| [plans/01-player-enhancements.md](plans/01-player-enhancements.md) | Playback enhancement plan: 200% volume via Web Audio, subtitle rendering status and the prepared libvlc migration pointer. |
+| [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md) | Phased plan for the feature-flagged native libvlc backend: command surface, rendering-surface decision, audio path, parity checklist, risks and packaging. |
 
 ## Documentation layout
 
@@ -45,10 +47,13 @@ docs/
     ├── design/
     │   ├── 01-design-system.md
     │   └── 02-redesign-vision.md
-    └── guides/
-        ├── 01-setup.md
-        ├── 02-design-reference.md
-        └── 03-internationalization.md
+    ├── guides/
+    │   ├── 01-setup.md
+    │   ├── 02-design-reference.md
+    │   └── 03-internationalization.md
+    └── plans/
+        ├── 01-player-enhancements.md
+        └── 02-libvlc-integration.md
 ```
 
 ## Status labels

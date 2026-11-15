@@ -2,6 +2,15 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-14
+
+### Added — libvlc native-backend scaffold and integration plan
+
+- Playback backend scaffolding landed for the future native libvlc path, fully feature-flagged and off by default: a `[features] libvlc = ["dep:vlc"]` flag with the optional `vlc = "0.1.0"` crate (vlc-rs, targets libvlc 3.x only) in `src-tauri/Cargo.toml`, plus `src-tauri/src/player.rs` exposing a nine-command surface (`player_probe`, `player_load`, `player_play`, `player_pause`, `player_toggle`, `player_stop`, `player_seek`, `player_set_volume` 0–200, `player_position` → time/length) compiled as thin stubs without the feature. `player_probe` reports `'html5' | 'native'`; default builds never link libvlc and keep `cargo build` / `cargo test` unchanged. A typed TS seam, `src/lib/playerBackend.ts`, wraps the commands and resolves the active backend.
+- New [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md): the full phased integration plan — current-state summary and what libvlc unlocks (HW decode HEVC/AV1, RTSP/HLS/DASH, DVD/Blu-ray, equalizer, audio track switching), per-OS libvlc 3.x install/bundling matrix, the video-rendering-surface decision (native window embedding vs `set_video_callbacks` frame pump — recommendation: prototype the callback path first to preserve all DOM overlays), the audio path (native 125% volume cap vs the 200% Web Audio boost, AnalyserNode replacement options), an HTML5-vs-libvlc feature parity checklist, frontend integration steps behind a `nativePlaybackEnabled` settings toggle, a manual test matrix with per-phase acceptance criteria, risks (vlc-rs 0.1.0 maturity, libvlc 4 API break, callback-thread panics via `catch_unwind`, frame-pump bandwidth) and a Phase 0–4 plan.
+- [plans/01-player-enhancements.md](plans/01-player-enhancements.md) §3 reworded from "Future: libvlc Migration (Deferred)" to "Prepared — see 02-libvlc-integration.md"; the inline architecture sketch was removed (it now lives in the new plan and the scaffold). The "when to consider" bullets stay.
+- [OVERVIEW.md](OVERVIEW.md) documentation index and layout tree now list the `plans/` domain with both plan documents.
+
 ## 2026-11-11
 
 ### Added — Clickable breadcrumb navigation and add-folder button on Music page

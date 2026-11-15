@@ -50,21 +50,16 @@ No changes needed for 200% volume — audio routing doesn't affect subtitle trac
 
 ---
 
-## 3. Future: libvlc Migration (Deferred)
+## 3. libvlc Migration (Prepared)
 
-**Status**: Not planned for now  
-**Reason**: HTML5 + Web Audio covers 200% volume and subtitle rendering for current needs.
+**Status**: Prepared — see [02-libvlc-integration.md](02-libvlc-integration.md) for the full phased plan  
+**Reason**: HTML5 + Web Audio covers 200% volume and subtitle rendering for current needs; the native path is scaffolded behind a cargo feature flag (`libvlc`) and stays off by default.
 
 ### When to Consider
 - Hardware decoding required (HEVC/AV1 on low-end)
 - Advanced audio (equalizer, spatial audio, audio track switching)
 - Network stream protocols (RTSP, HLS, DASH)
 - Blu-ray/DVD menu support
-
-### Architecture If Needed
-- New `src-tauri/src/player.rs` with `libvlc` crate
-- Tauri commands: `player_load`, `player_play`, `player_seek`, `player_set_volume(0-200)`
-- Frontend: Replace `<video>` with `div#vlc-container`, route all playback via `invoke`
 
 ---
 
