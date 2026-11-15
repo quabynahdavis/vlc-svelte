@@ -5,6 +5,7 @@ mod audio_meta;
 mod db;
 mod duration;
 mod library;
+mod player;
 mod thumb;
 mod waveform;
 
@@ -48,6 +49,15 @@ fn main() {
             waveform::waveform_get,
             waveform::waveform_generate,
             duration::media_duration,
+            player::player_probe,
+            player::player_load,
+            player::player_play,
+            player::player_pause,
+            player::player_toggle,
+            player::player_stop,
+            player::player_seek,
+            player::player_set_volume,
+            player::player_position,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
