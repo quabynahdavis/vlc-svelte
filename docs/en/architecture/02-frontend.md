@@ -92,12 +92,12 @@ There is no URL router. `activeNav`, `showSettings`, the property dock and `hide
 
 ### Network view (`src/views/NetworkView.svelte`)
 
-- A 200 px category sidebar: Saved Streams, Local Network, Podcasts, Internet Radio, Shoutcast, Jamendo and Icecast.
-- Saved Streams lists user streams with add, edit, play and remove actions, persisted under `vlc.network.streams.v1`; `AddStreamDialog` validates `http(s)://` and `rtsp://` URLs.
-- Internet Radio renders a searchable station list with genre, bitrate and country.
-- Podcasts render shows, then episodes, with a breadcrumb; episodes show publish date and duration.
-- Local Network renders a static UPnP/DLNA tree; other categories show a "No content" message.
-- Grid/list/compact view modes are available. Station and episode selection is local UI state; saved streams can queue into the player.
+- One surface, with the same drill-in as Videos and Playlists. There is no category sidebar. The root lists sources as folder cards in grid, list or compact. Opening a source replaces that list; back or a breadcrumb returns to the parent. Deeper levels (a UPnP or SMB folder, a podcast show, a saved stream) use the same stack.
+- Sources: Saved Streams, Open Network URL, Local Network (UPnP / DLNA and SMB), Podcasts, Internet Radio, Icecast, Jamendo and Shoutcast.
+- Saved Streams keeps add, edit, play and remove, persisted under `vlc.network.streams.v1`. `AddStreamDialog` accepts HTTP, HTTPS, RTSP, RTMP and MMS. Opening a saved stream shows its address and those three actions. The shared context menu offers the same three and hides library actions. A saved stream has no duration or artwork, so the row does not invent a thumbnail or a timestamp. Play queues the stream URL with `setQueue`.
+- Open Network URL plays HTTP, HTTPS, FTP, FTPS, SFTP, SMB, NFS, RTSP, RTP, UDP, MMS and RTMP through `setQueue`. HTTP, HTTPS, RTSP, RTMP and MMS can also be saved from that page. The other schemes play without being stored.
+- A browsed file or episode with a duration uses the library card or row, its thumbnail, the details hover preview, the duration timestamp and the shared media context menu. Watch Later and Show Info stay hidden when the file is audio.
+- UPnP/DLNA, SMB browse, podcasts, Internet Radio, Icecast, Jamendo and Shoutcast have no live scanner. Each source still drills in, and the page is an empty state that names the source and how it will be filled. Generated stations, generated episodes and the old placeholder UPnP tree are not listed.
 
 ### Settings view (`src/views/SettingsView.svelte`)
 

@@ -4,6 +4,13 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-17
 
+### Changed — Network page drills in like Videos and Playlists
+
+- The Network page no longer keeps a category sidebar. The root lists sources on one surface. Opening a source, a UPnP or SMB folder, or a saved stream replaces the list; back or the breadcrumb returns to the parent.
+- Saved streams still add, edit, play and remove, persisted under `vlc.network.streams.v1`. Open Network URL plays HTTP, HTTPS, FTP, FTPS, SFTP, SMB, NFS, RTSP, RTP, UDP, MMS and RTMP through the player queue.
+- UPnP/DLNA, SMB, podcasts, Internet Radio, Icecast, Jamendo and Shoutcast stay as sources. None of them has a live scanner, so each opens to an empty state that names how it will be filled. Generated stations, episodes and the placeholder UPnP tree are not listed.
+- Documented in [architecture/02-frontend.md](architecture/02-frontend.md) and [design/02-redesign-vision.md](design/02-redesign-vision.md).
+
 ### Changed — libvlc is the default playback engine
 
 - Video and music play through libvlc when the desktop build includes it. The webview `<video>` player is optional (Settings → Playback → Webview player, `html5Playback`, default off). A build without libvlc stays on that player and does not offer a native switch. A saved `nativePlayback: false` from the previous default is not kept as a choice to stay on the webview player.
