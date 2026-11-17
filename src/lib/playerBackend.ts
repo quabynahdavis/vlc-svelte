@@ -116,6 +116,26 @@ export async function nativeSetEqualizer(
 	return invokeCommand<null>('player_set_equalizer', { enabled, preamp, bands });
 }
 
+export type NativeSubtitleProfile = {
+	font: string;
+	textColor: string;
+	outlineColor: string;
+	sizeMode: 'relative' | 'exact';
+	size: number;
+	outlineWidth: number;
+	backgroundOpacity: number;
+	verticalPosition: string;
+	/** Seconds. Positive shows the subtitle later. */
+	delay: number;
+};
+
+/** Hand the active subtitle profile to libvlc's freetype renderer. */
+export async function nativeSetSubtitleProfile(
+	profile: NativeSubtitleProfile,
+): Promise<void | null> {
+	return invokeCommand<null>('player_set_subtitle_profile', { profile });
+}
+
 /** Current `(time, length)` of the loaded media, in seconds. */
 export async function nativePosition(): Promise<[number, number] | null> {
 	return invokeCommand<[number, number]>('player_position');

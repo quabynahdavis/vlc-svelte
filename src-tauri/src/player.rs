@@ -22,6 +22,7 @@
 //! - `player_seek`       (absolute position, seconds)
 //! - `player_set_volume` (0–200 percent, clamped by a pure helper)
 //! - `player_set_equalizer` (preamp + 10 ISO band gains, or off)
+//! - `player_set_subtitle_profile` (freetype style + SPU delay)
 //! - `player_position`   -> `(time, length)` seconds; vlc-rs reports ms
 //!
 //! Frame surface (Phase 2):
@@ -128,6 +129,166 @@ pub fn clamp_eq_db(value: f64) -> f32 {
         return 0.0;
     }
     value.clamp(-20.0, 20.0) as f32
+}
+
+/// Active subtitle profile, matching `subtitleProfiles` plus the live delay.
+///
+/// Delay is seconds (−10..+10). Colours are `#RRGGBB`. `size_mode` is
+/// `relative` (percent) or `exact` (pixels).
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubtitleProfileArgs {
+    pub font: String,
+    pub text_color: String,
+    pub outline_color: String,
+    pub size_mode: String,
+    pub size: f64,
+    pub outline_width: f64,
+    pub background_opacity: f64,
+    pub vertical_position: String,
+    pub delay: f64,
+}
+
+impl Default for SubtitleProfileArgs {
+    fn default() -> Self {
+        Self {
+            font: "Inter".to_string(),
+            text_color: "#B8B8B8".to_string(),
+            outline_color: "#0E0E0E".to_string(),
+            size_mode: "relative".to_string(),
+            size: 100.0,
+            outline_width: 1.5,
+            background_opacity: 25.0,
+            vertical_position: "bottom".to_string(),
+            delay: 0.0,
+        }
+    }
+}
+
+/// Values libvlc's freetype renderer and SPU delay actually consume.
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+#[derive(Clone, Debug, PartialEq)]
+pub struct SubtitleStyle {
+    /// `None` omits `--freetype-font` so libvlc keeps its own default face.
+    pub font: Option<String>,
+    pub text_color: u32,
+    pub outline_color: u32,
+    pub outline_opacity: i32,
+    pub fontsize_px: i32,
+    pub text_scale: i32,
+    pub outline_thickness: i32,
+    pub background_opacity: i32,
+    /// `sub-margin` in pixels. libvlc subtracts this from the subtitle y,
+    /// so a larger value sits higher on the frame.
+    pub margin: i32,
+    pub delay_us: i64,
+}
+
+impl SubtitleStyle {
+    /// Command-line options for `libvlc_new`. Text renderer options have to
+    /// be set there; media options do not reach freetype.
+    #[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+    pub fn libvlc_args(&self) -> Vec<String> {
+        let mut args = Vec::with_capacity(12);
+        if let Some(font) = &self.font {
+            args.push(format!("--freetype-font={font}"));
+        }
+        args.push(format!("--freetype-fontsize={}", self.fontsize_px));
+        args.push("--freetype-opacity=255".to_string());
+        args.push(format!("--freetype-color={}", self.text_color));
+        args.push(format!(
+            "--freetype-outline-opacity={}",
+            self.outline_opacity
+        ));
+        args.push(format!("--freetype-outline-color={}", self.outline_color));
+        args.push(format!(
+            "--freetype-outline-thickness={}",
+            self.outline_thickness
+        ));
+        args.push(format!(
+            "--freetype-background-opacity={}",
+            self.background_opacity
+        ));
+        args.push("--freetype-background-color=0".to_string());
+        args.push(format!("--sub-text-scale={}", self.text_scale));
+        args.push(format!("--sub-margin={}", self.margin));
+        args
+    }
+}
+
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+fn finite_or(value: f64, fallback: f64) -> f64 {
+    if value.is_finite() {
+        value
+    } else {
+        fallback
+    }
+}
+
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+fn parse_rrggbb(value: &str, fallback: u32) -> u32 {
+    let hex = value.trim().trim_start_matches('#');
+    if hex.len() != 6 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return fallback;
+    }
+    u32::from_str_radix(hex, 16).unwrap_or(fallback) & 0x00FF_FFFF
+}
+
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+fn usable_font_family(family: &str, available: bool) -> Option<String> {
+    if !available {
+        return None;
+    }
+    let trimmed = family.trim();
+    if trimmed.is_empty() || trimmed.len() > 80 {
+        return None;
+    }
+    if trimmed
+        .chars()
+        .any(|ch| ch.is_control() || matches!(ch, '"' | '\\' | '=' | ':'))
+    {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+/// Map a profile onto libvlc. `font_available` is a fontconfig answer for
+/// `profile.font`; a miss drops the family so playback keeps libvlc's face.
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+pub fn subtitle_style(profile: &SubtitleProfileArgs, font_available: bool) -> SubtitleStyle {
+    let exact = profile.size_mode == "exact";
+    let size = finite_or(profile.size, if exact { 24.0 } else { 100.0 });
+    let fontsize_px = if exact {
+        size.clamp(12.0, 72.0).round() as i32
+    } else {
+        0
+    };
+    let text_scale = if exact {
+        100
+    } else {
+        size.clamp(50.0, 200.0).round() as i32
+    };
+    let outline_thickness = finite_or(profile.outline_width, 1.5).clamp(0.0, 4.0).round() as i32;
+    let background = finite_or(profile.background_opacity, 25.0).clamp(0.0, 100.0);
+    let margin = match profile.vertical_position.as_str() {
+        "lower-middle" => 72,
+        "middle" => 180,
+        "top" => 360,
+        _ => 0,
+    };
+    let delay = finite_or(profile.delay, 0.0).clamp(-10.0, 10.0);
+    SubtitleStyle {
+        font: usable_font_family(&profile.font, font_available),
+        text_color: parse_rrggbb(&profile.text_color, 0x00B8_B8B8),
+        outline_color: parse_rrggbb(&profile.outline_color, 0x000E_0E0E),
+        outline_opacity: if outline_thickness > 0 { 255 } else { 0 },
+        fontsize_px,
+        text_scale,
+        outline_thickness,
+        background_opacity: (background * 255.0 / 100.0).round() as i32,
+        margin,
+        delay_us: (delay * 1_000_000.0).round() as i64,
+    }
 }
 
 /// Where a `player_load` / subtitle argument should be opened.
@@ -1223,8 +1384,11 @@ mod native {
         ensure_event_pump(app);
 
         // A fresh libvlc instance per load. Instance pooling stays deferred
-        // until the rendering decision lands.
-        let instance = Instance::new().ok_or("libvlc init failed")?;
+        // until the rendering decision lands. Freetype options are argv:
+        // media options never reach the text renderer.
+        let profile = current_subtitle();
+        let style = super::subtitle_style(&profile, fontconfig_has_family(&profile.font));
+        let instance = open_instance(&style).ok_or("libvlc init failed")?;
         let media = match &target {
             super::MediaTarget::Path(path) => {
                 Media::new_path(&instance, path).ok_or("libvlc failed to open media")?
@@ -1258,6 +1422,10 @@ mod native {
         // curve, then once more after the slot is visible in case a command
         // arrived while this load still held no player.
         let _ = apply_equalizer(&media_player, current_eq());
+        // Delay resets on every media change, so it is set after play.
+        unsafe {
+            let _ = ffi::libvlc_video_set_spu_delay(media_player.ptr, style.delay_us);
+        }
 
         *PLAYER
             .lock()
@@ -1273,6 +1441,7 @@ mod native {
             .as_ref()
         {
             let _ = apply_equalizer(&player.media_player, current_eq());
+            reapply_subtitle(player);
         }
         Ok(generation)
     }
@@ -1502,6 +1671,197 @@ mod native {
         };
         apply_equalizer(&player.media_player, request)
     }
+
+    fn subtitle_slot() -> &'static Mutex<super::SubtitleProfileArgs> {
+        static SLOT: OnceLock<Mutex<super::SubtitleProfileArgs>> = OnceLock::new();
+        SLOT.get_or_init(|| Mutex::new(super::SubtitleProfileArgs::default()))
+    }
+
+    fn current_subtitle() -> super::SubtitleProfileArgs {
+        subtitle_slot()
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .clone()
+    }
+
+    fn store_subtitle(profile: super::SubtitleProfileArgs) {
+        *subtitle_slot()
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = profile;
+    }
+
+    fn fontconfig_has_family(family: &str) -> bool {
+        let key = family.trim();
+        if key.is_empty()
+            || key
+                .chars()
+                .any(|ch| ch.is_control() || matches!(ch, '"' | '\\' | '=' | ':'))
+        {
+            return false;
+        }
+        static CACHE: OnceLock<Mutex<std::collections::HashMap<String, bool>>> = OnceLock::new();
+        let cache = CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+        if let Some(known) = cache
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .get(key)
+            .copied()
+        {
+            return known;
+        }
+        let pattern = format!(":family={key}");
+        let available = std::process::Command::new("fc-list")
+            .arg(&pattern)
+            .arg("file")
+            .output()
+            .map(|output| {
+                output.status.success()
+                    && output
+                        .stdout
+                        .iter()
+                        .any(|byte| !byte.is_ascii_whitespace())
+            })
+            .unwrap_or(false);
+        cache
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .insert(key.to_string(), available);
+        available
+    }
+
+    /// `libvlc_new` with the profile. A bad argv falls back to a plain
+    /// instance so a font or option problem cannot stop playback.
+    fn open_instance(style: &super::SubtitleStyle) -> Option<Instance> {
+        let args = style.libvlc_args();
+        let cstrings: Option<Vec<CString>> = args
+            .iter()
+            .map(|arg| CString::new(arg.as_str()).ok())
+            .collect();
+        if let Some(cstrings) = cstrings {
+            let ptrs: Vec<*const libc::c_char> = cstrings.iter().map(|arg| arg.as_ptr()).collect();
+            let ptr = unsafe { ffi::libvlc_new(ptrs.len() as i32, ptrs.as_ptr()) };
+            if !ptr.is_null() {
+                return Some(Instance { ptr });
+            }
+        }
+        Instance::new()
+    }
+
+    const VLC_VAR_INTEGER: i32 = 0x0030;
+    const VLC_VAR_STRING: i32 = 0x0040;
+
+    #[repr(C)]
+    union VlcValue {
+        i_int: i64,
+        psz_string: *const libc::c_char,
+    }
+
+    #[link(name = "vlccore")]
+    extern "C" {
+        fn var_SetChecked(
+            obj: *mut c_void,
+            name: *const libc::c_char,
+            expected_type: libc::c_int,
+            val: VlcValue,
+        ) -> libc::c_int;
+    }
+
+    fn libvlc_root(instance: &Instance) -> *mut c_void {
+        // `libvlc_instance_t`'s first field is `libvlc_int_t *`, the root
+        // object freetype inherits variables from. Layout from libvlc 3.0.24.
+        unsafe { *(instance.ptr as *const *mut c_void) }
+    }
+
+    fn set_vlc_int(obj: *mut c_void, name: &str, value: i64) {
+        let Ok(cname) = CString::new(name) else {
+            return;
+        };
+        unsafe {
+            let _ = var_SetChecked(
+                obj,
+                cname.as_ptr(),
+                VLC_VAR_INTEGER,
+                VlcValue { i_int: value },
+            );
+        }
+    }
+
+    fn set_vlc_string(obj: *mut c_void, name: &str, value: &str) {
+        let Ok(cname) = CString::new(name) else {
+            return;
+        };
+        let Ok(cvalue) = CString::new(value) else {
+            return;
+        };
+        unsafe {
+            let _ = var_SetChecked(
+                obj,
+                cname.as_ptr(),
+                VLC_VAR_STRING,
+                VlcValue {
+                    psz_string: cvalue.as_ptr(),
+                },
+            );
+        }
+    }
+
+    /// Push style onto the live instance and set the SPU delay.
+    ///
+    /// Freetype re-reads text colour, background opacity, outline thickness,
+    /// and `sub-text-scale` on each render. Font, exact pixel size, outline
+    /// colour, and `sub-margin` are copied when the renderer and SPU are
+    /// created, which is every `load` (a new instance) and any renderer
+    /// start that has not happened yet. Delay is the public 3.0 API and
+    /// applies immediately; libvlc clears it on each media change.
+    fn apply_subtitle_live(player: &NativePlayer, style: &super::SubtitleStyle) {
+        unsafe {
+            let _ = ffi::libvlc_video_set_spu_delay(player.media_player.ptr, style.delay_us);
+        }
+        let root = libvlc_root(&player._instance);
+        if root.is_null() {
+            return;
+        }
+        if let Some(font) = &style.font {
+            set_vlc_string(root, "freetype-font", font);
+        }
+        set_vlc_int(root, "freetype-fontsize", style.fontsize_px as i64);
+        set_vlc_int(root, "freetype-opacity", 255);
+        set_vlc_int(root, "freetype-color", style.text_color as i64);
+        set_vlc_int(root, "freetype-outline-opacity", style.outline_opacity as i64);
+        set_vlc_int(root, "freetype-outline-color", style.outline_color as i64);
+        set_vlc_int(
+            root,
+            "freetype-outline-thickness",
+            style.outline_thickness as i64,
+        );
+        set_vlc_int(
+            root,
+            "freetype-background-opacity",
+            style.background_opacity as i64,
+        );
+        set_vlc_int(root, "freetype-background-color", 0);
+        set_vlc_int(root, "sub-text-scale", style.text_scale as i64);
+        set_vlc_int(root, "sub-margin", style.margin as i64);
+    }
+
+    fn reapply_subtitle(player: &NativePlayer) {
+        let profile = current_subtitle();
+        let style = super::subtitle_style(&profile, fontconfig_has_family(&profile.font));
+        apply_subtitle_live(player, &style);
+    }
+
+    pub fn set_subtitle_profile(profile: super::SubtitleProfileArgs) -> Result<(), String> {
+        let style = super::subtitle_style(&profile, fontconfig_has_family(&profile.font));
+        store_subtitle(profile);
+        let guard = PLAYER
+            .lock()
+            .map_err(|_| "player mutex poisoned".to_string())?;
+        let Some(player) = guard.as_ref() else {
+            return Ok(());
+        };
+        apply_subtitle_live(player, &style);
+        Ok(())
+    }
 }
 
 /// Stub half: identical signatures, so the command surface (and the
@@ -1574,6 +1934,10 @@ mod native {
         Err(unavailable())
     }
 
+    pub fn set_subtitle_profile(_profile: super::SubtitleProfileArgs) -> Result<(), String> {
+        Err(unavailable())
+    }
+
     pub fn position() -> Result<(f64, f64), String> {
         Err(unavailable())
     }
@@ -1637,6 +2001,15 @@ pub fn player_set_equalizer(enabled: bool, preamp: f64, bands: Vec<f64>) -> Resu
     native::set_equalizer(enabled, preamp, &bands)
 }
 
+/// Style libvlc's freetype subtitles and set the SPU delay.
+///
+/// A font family fontconfig does not know is omitted, so libvlc keeps its
+/// default face and playback still starts. HTML5 does not use this command.
+#[tauri::command]
+pub fn player_set_subtitle_profile(profile: SubtitleProfileArgs) -> Result<(), String> {
+    native::set_subtitle_profile(profile)
+}
+
 /// Current `(time, length)` in seconds. Async so the mutex/lock roundtrip
 /// never blocks the main thread. `length` is `0` when the media has no
 /// known duration (typical of live streams).
@@ -1672,7 +2045,7 @@ pub fn player_set_spu(id: i32) -> Result<(), String> {
 }
 
 /// Add an external subtitle (path or URL) and select it. libvlc blends SPU
-/// into the callback picture on this build; profile styling is not applied.
+/// into the callback picture. Styling comes from `player_set_subtitle_profile`.
 #[tauri::command]
 pub fn player_add_subtitle(path: String) -> Result<(), String> {
     native::add_subtitle(&path)
@@ -1727,6 +2100,60 @@ mod tests {
         assert_eq!(clamp_eq_db(-40.0), -20.0);
         assert_eq!(clamp_eq_db(f64::NAN), 0.0);
         assert_eq!(NATIVE_EQ_BANDS, 10);
+    }
+
+    #[test]
+    fn subtitle_profile_maps_onto_libvlc_freetype() {
+        let mut profile = SubtitleProfileArgs::default();
+        let style = subtitle_style(&profile, true);
+        assert_eq!(style.font.as_deref(), Some("Inter"));
+        assert_eq!(style.text_color, 0x00B8_B8B8);
+        assert_eq!(style.outline_color, 0x000E_0E0E);
+        assert_eq!(style.fontsize_px, 0);
+        assert_eq!(style.text_scale, 100);
+        assert_eq!(style.outline_thickness, 2);
+        assert_eq!(style.outline_opacity, 255);
+        assert_eq!(style.background_opacity, 64);
+        assert_eq!(style.margin, 0);
+        assert_eq!(style.delay_us, 0);
+        let args = style.libvlc_args();
+        assert!(args.iter().any(|arg| arg == "--freetype-font=Inter"));
+        assert!(args.iter().any(|arg| arg == "--freetype-fontsize=0"));
+        assert!(args.iter().any(|arg| arg == "--sub-text-scale=100"));
+        assert!(args.iter().any(|arg| arg == "--sub-margin=0"));
+        assert!(args.iter().any(|arg| arg == "--freetype-color=12105912"));
+
+        profile.size_mode = "exact".to_string();
+        profile.size = 36.0;
+        profile.outline_width = 0.0;
+        profile.background_opacity = 100.0;
+        profile.vertical_position = "top".to_string();
+        profile.delay = -4.0;
+        profile.font = "Nope".to_string();
+        let exact = subtitle_style(&profile, false);
+        assert!(exact.font.is_none());
+        assert_eq!(exact.fontsize_px, 36);
+        assert_eq!(exact.text_scale, 100);
+        assert_eq!(exact.outline_thickness, 0);
+        assert_eq!(exact.outline_opacity, 0);
+        assert_eq!(exact.background_opacity, 255);
+        assert_eq!(exact.margin, 360);
+        assert_eq!(exact.delay_us, -4_000_000);
+        assert!(!exact
+            .libvlc_args()
+            .iter()
+            .any(|arg| arg.starts_with("--freetype-font=")));
+
+        profile.size_mode = "relative".to_string();
+        profile.size = 150.0;
+        profile.vertical_position = "lower-middle".to_string();
+        let relative = subtitle_style(&profile, false);
+        assert_eq!(relative.fontsize_px, 0);
+        assert_eq!(relative.text_scale, 150);
+        assert_eq!(relative.margin, 72);
+
+        profile.vertical_position = "middle".to_string();
+        assert_eq!(subtitle_style(&profile, false).margin, 180);
     }
 
     #[test]

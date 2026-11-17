@@ -6,9 +6,10 @@
  * and falls back to a sensible default, while blocked/quota-exceeded storage
  * silently degrades to in-memory state.
  *
- * Important: this store only records preferences. The current app has no
- * subtitle cue parser or renderer, so none of these values are painted on the
- * video surface yet.
+ * This store records preferences. It does not parse cues or paint a DOM
+ * subtitle layer. When native playback is on, the active formatting and the
+ * live delay are passed to libvlc's freetype renderer, which blends them
+ * into the frame. HTML5 playback leaves these values on screen only.
  */
 import { get, writable } from 'svelte/store';
 import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';

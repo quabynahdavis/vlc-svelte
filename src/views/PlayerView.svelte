@@ -26,6 +26,7 @@
   } from '../lib/audioAnalyser';
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
   import { settings } from '../stores/settings';
+  import { subtitleProfiles } from '../stores/subtitleProfiles';
   import { isAudioFile, isVideoFile, isVisualStream, streamLocationOf } from '../lib/audio';
   import { hasTauri } from '../lib/tauriFs';
   import {
@@ -37,6 +38,7 @@
     nativePosition,
     nativeSeek,
     nativeSetEqualizer,
+    nativeSetSubtitleProfile,
     nativeSetVolume,
     nativeSpuTracks,
     nativeStop,
@@ -125,6 +127,8 @@
   let nativeMounted = false;
   /** Last equalizer curve pushed to libvlc, so unrelated settings writes do not re-send it. */
   let nativeEqSignature = '';
+  /** Last subtitle profile pushed to libvlc. */
+  let nativeSubtitleSignature = '';
 
   $: videoSrc = $currentTrack?.src ?? src;
   $: hasMedia = Boolean(videoSrc);
@@ -156,8 +160,9 @@
   // element from videoEl.src, which native mode empties.
   // KNOWN GAP: the dock visualizer falls back to synthetic bars — its
   // analyser has no element media to attach to in native mode.
-  // Subtitles in native mode are libvlc's own SPU blended into the frame,
-  // not the dock's subtitle profiles.
+  // Subtitles in native mode are libvlc's freetype SPU blended into the
+  // frame. The active profile (font, colours, size, outline, background,
+  // vertical margin, delay) is passed to that renderer.
 
   $: continueItems = $watchEntries
     .filter(e => !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
@@ -186,6 +191,10 @@
   $: if (nativeRoutingActive) void syncNativeVolume($player.volume, $player.muted);
   // Store -> libvlc: preamp + the ten ISO bands, or a bypass when the toggle is off.
   $: if (nativeRoutingActive) void syncNativeEqualizer($settings.equalizer, $settings.eqGains);
+  // Store -> libvlc: freetype style and SPU delay. HTML5 does not consume this.
+  $: if (nativeRoutingActive) {
+    void syncNativeSubtitle($subtitleProfiles.formatting, $settings.subtitleDelay);
+  }
 
   // Leaving native mode (toggle off, network track): release libvlc so
   // it never plays on top of the webview element, and stop the poll.
@@ -360,6 +369,10 @@
     nativeAcceptingEvents = false;
     clearNativeTracks();
 
+    // Style is read when the libvlc instance is created, so publish it first.
+    const before = get(settings);
+    await syncNativeSubtitle(get(subtitleProfiles).formatting, before.subtitleDelay, true);
+
     // Local ids are absolute file paths. Streams are allowlisted URLs.
     const generation = await nativeLoad(trackId);
     if (epoch !== nativeLoadEpoch) return;
@@ -405,6 +418,8 @@
     await syncNativeVolume(state.volume, state.muted);
     const audio = get(settings);
     await syncNativeEqualizer(audio.equalizer, audio.eqGains, true);
+    // Delay is cleared on each media change, so push the profile again now.
+    await syncNativeSubtitle(get(subtitleProfiles).formatting, audio.subtitleDelay, true);
 
     startNativePoll();
   }
@@ -442,6 +457,68 @@
     const bands = [];
     for (let index = 1; index <= 10; index += 1) bands.push(gains[index] ?? 0);
     await nativeSetEqualizer(enabled, preamp, bands);
+  }
+
+  function subtitleSignature(
+    formatting: {
+      font: string;
+      textColor: string;
+      outlineColor: string;
+      sizeMode: string;
+      size: number;
+      outlineWidth: number;
+      backgroundOpacity: number;
+      verticalPosition: string;
+    },
+    delay: string,
+  ): string {
+    return [
+      formatting.font,
+      formatting.textColor,
+      formatting.outlineColor,
+      formatting.sizeMode,
+      formatting.size,
+      formatting.outlineWidth,
+      formatting.backgroundOpacity,
+      formatting.verticalPosition,
+      delay,
+    ].join('|');
+  }
+
+  function parseSubtitleDelay(value: string): number {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  /** Mirror the active subtitle profile into libvlc's freetype renderer. */
+  async function syncNativeSubtitle(
+    formatting: {
+      font: string;
+      textColor: string;
+      outlineColor: string;
+      sizeMode: 'relative' | 'exact';
+      size: number;
+      outlineWidth: number;
+      backgroundOpacity: number;
+      verticalPosition: string;
+    },
+    delay: string,
+    force = false,
+  ): Promise<void> {
+    const signature = subtitleSignature(formatting, delay);
+    if (!force && signature === nativeSubtitleSignature) return;
+    nativeSubtitleSignature = signature;
+    await nativeSetSubtitleProfile({
+      font: formatting.font,
+      textColor: formatting.textColor,
+      outlineColor: formatting.outlineColor,
+      sizeMode: formatting.sizeMode,
+      size: formatting.size,
+      outlineWidth: formatting.outlineWidth,
+      backgroundOpacity: formatting.backgroundOpacity,
+      verticalPosition: formatting.verticalPosition,
+      delay: parseSubtitleDelay(delay),
+    });
   }
 
   /**
