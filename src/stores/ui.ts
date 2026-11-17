@@ -22,7 +22,8 @@ export type ContextMenuContext =
   | 'media'
   | 'watchLater'
   | 'history'
-  | 'bookmark';
+  | 'bookmark'
+  | 'savedStream';
 
 export const currentContext = writable<ContextMenuContext>('global');
 
@@ -100,6 +101,14 @@ export function openHistoryContextMenu(event: MouseEvent, id: string): void {
   event.preventDefault();
   contextItemId.set(id);
   currentContext.set('history');
+  openContextMenu(event);
+}
+
+/** Open the saved-stream menu: play, edit and remove. */
+export function openSavedStreamContextMenu(event: MouseEvent, id: string): void {
+  event.preventDefault();
+  contextItemId.set(id);
+  currentContext.set('savedStream');
   openContextMenu(event);
 }
 

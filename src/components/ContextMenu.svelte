@@ -21,6 +21,7 @@
     ListPlus,
     LogOut,
     MonitorPlay,
+    Pencil,
     Play,
     Puzzle,
     Radio,
@@ -42,8 +43,10 @@
   import { musicTracks } from '../stores/musicLibrary';
   import { libraryItems } from '../stores/library';
   import { playlistsData } from '../stores/playlists';
+  import { hasVideoExtension, isAudioFile } from '../lib/audio';
   import { findPlaylistTrack, playlistTrackIsVideo } from '../lib/playlistMedia';
   import { history, type HistoryEntry } from '../stores/history';
+  import { networkContextMedia } from '../stores/network';
 
   export let x = 0;
   export let y = 0;
@@ -283,6 +286,22 @@
     contextLibraryItem === null &&
     !contextMediaIsMusic;
 
+  /**
+   * A network file with a duration. Audio, and anything without a picture,
+   * has no Watch Later row — that action only applies to video.
+   */
+  $: contextNetworkItem =
+    $networkContextMedia.find((item) => item.id === $contextItemId) ?? null;
+  $: contextNetworkAudioOnly = (() => {
+    const item = contextNetworkItem;
+    if (!item || contextLibraryItem || contextMediaIsMusic || contextPlaylistTrack) return false;
+    const candidates = [item.src ?? '', item.title].filter((value) => value.length > 0);
+    if (candidates.some((value) => hasVideoExtension(value))) return false;
+    if (item.thumbnailPath) return false;
+    if (candidates.some((value) => isAudioFile(value))) return true;
+    return true;
+  })();
+
   // Substitute menu based on UI context – global, folder, media, or a
   // player-view library entry. Every action is handled in App.svelte.
   $: activeMenuItems = (() => {
@@ -321,7 +340,7 @@
       ];
       // Watch Later is a video-only collection; music tracks use playlists.
       // Playlist audio has no watch entry to toggle, so the row stays hidden.
-      if (!contextMediaIsMusic && !contextPlaylistAudioOnly) {
+      if (!contextMediaIsMusic && !contextPlaylistAudioOnly && !contextNetworkAudioOnly) {
         items.push({
           id: 'media-toggle-watch-later',
           label: contextMediaInWatchLater ? 'Remove from Watch Later' : 'Add to Watch Later',
@@ -329,12 +348,22 @@
           tone: 'neutral',
         });
       }
-      // Show Info opens the library details view. Playlist audio has no item
-      // for that view, so the entry is omitted instead of dispatching a no-op.
-      if (!contextPlaylistAudioOnly) {
+      // Show Info opens the library details view, including its hover preview.
+      // Audio has no picture for that view, so the entry is omitted.
+      if (!contextPlaylistAudioOnly && !contextNetworkAudioOnly) {
         items.push({ type: 'divider' });
         items.push({ id: 'media-show-info', label: 'Show Info', icon: Info, tone: 'neutral' });
       }
+      return items;
+    }
+
+    // Saved stream: play, edit and remove. Library actions do not apply.
+    if (ctx === 'savedStream') {
+      const items: MenuItem[] = [
+        { id: 'stream-play', label: 'Play', icon: Play, tone: 'accent' },
+        { id: 'stream-edit', label: 'Edit', icon: Pencil, tone: 'neutral' },
+        { id: 'stream-remove', label: 'Remove', icon: Trash2, tone: 'neutral' },
+      ];
       return items;
     }
 

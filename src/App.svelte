@@ -58,6 +58,7 @@
     mediaItemForPlaylistTrack,
     playlistTrackIsVideo,
   } from './lib/playlistMedia';
+  import { savedStreams, networkContextMedia } from './stores/network';
   import { removeLibraryFolder, removeMusicLibraryFolder, settings } from './stores/settings';
   import { bookmarks, removeBookmark } from './stores/bookmarks';
   import { clearHistory, history, removeHistory } from './stores/history';
@@ -242,6 +243,9 @@
     const item = contextMediaItem();
     if (item) return trackFromMediaItem(item);
 
+    const networkItem = contextNetworkMediaItem();
+    if (networkItem?.src) return trackFromMediaItem(networkItem);
+
     const playlistTrack = contextPlaylistTrack();
     if (!playlistTrack?.src) return null;
     return {
@@ -251,6 +255,13 @@
       duration: playlistTrack.duration,
       src: playlistTrack.src,
     };
+  }
+
+  /** Playable network file currently listed on the Network page. */
+  function contextNetworkMediaItem(): MediaItem | null {
+    const id = get(contextItemId);
+    if (!id) return null;
+    return get(networkContextMedia).find((item) => item.id === id) ?? null;
   }
 
   /** Configured music root containing `path` (the root itself or a subfolder). */
@@ -488,7 +499,7 @@
         break;
       }
       case 'media-toggle-watch-later': {
-        const item = contextMediaItem();
+        const item = contextMediaItem() ?? contextNetworkMediaItem();
         if (!item) break;
         toggleWatchLater({
           mediaKey: item.id,
@@ -506,6 +517,23 @@
         window.dispatchEvent(new CustomEvent<string>('vlc-show-media-info', { detail: itemId }));
         break;
       }
+      case 'stream-play': {
+        const stream = get(savedStreams).find((entry) => entry.id === get(contextItemId));
+        if (!stream) break;
+        setQueue([{ id: stream.id, title: stream.name, duration: 0, src: stream.url }], 0);
+        navigate('home');
+        break;
+      }
+      case 'stream-edit':
+        window.dispatchEvent(
+          new CustomEvent<string>('vlc-edit-saved-stream', { detail: get(contextItemId) }),
+        );
+        break;
+      case 'stream-remove':
+        window.dispatchEvent(
+          new CustomEvent<string>('vlc-remove-saved-stream', { detail: get(contextItemId) }),
+        );
+        break;
       // ---- Watch Later entries in the player-view library overlay ----
       case 'watchlater-play': {
         const entry = get(watchLater).find((candidate) => candidate.id === get(contextItemId));

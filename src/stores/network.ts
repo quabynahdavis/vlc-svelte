@@ -1,6 +1,7 @@
 import { get, writable } from 'svelte/store';
 import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
 import { hasTauri } from '../lib/tauriFs';
+import type { MediaItem } from '../lib/mock';
 
 /** A stream the user saved from the Network section. */
 export type SavedStream = {
@@ -22,10 +23,111 @@ export const MAX_STREAM_URL_LENGTH = 2048;
 /** Protocols accepted for saved streams (case-insensitive). */
 const SUPPORTED_STREAM_PROTOCOLS = ['http:', 'https:', 'rtsp:', 'rtmp:', 'mms:'] as const;
 
-export const networkSelectedCategory = writable<string>('Local Network');
+export const networkSelectedCategory = writable<string>('Network');
+/** Drill-in stack. Empty is the source list; each segment is a source or a saved stream id. */
 export const networkPath = writable<string[]>([]);
 export const networkSearch = writable('');
 export const networkViewSubPath = writable<string | null>(null);
+
+/**
+ * Playable files currently shown on the Network page (a browsed file or an
+ * episode with a real duration). The shared context menu resolves these ids.
+ * Live stations and directories are not registered here.
+ */
+export const networkContextMedia = writable<MediaItem[]>([]);
+
+/** Schemes the Open Network URL page will play. Mirrors VLC's network MRLs. */
+const NETWORK_LOCATION_SCHEMES = new Set([
+  'http:',
+  'https:',
+  'ftp:',
+  'ftps:',
+  'sftp:',
+  'smb:',
+  'nfs:',
+  'rtsp:',
+  'rtp:',
+  'udp:',
+  'mms:',
+  'rtmp:',
+]);
+
+const SOURCE_CATEGORY: Record<string, string> = {
+  saved: 'Saved Streams',
+  'open-url': 'Open Network URL',
+  local: 'Local Network',
+  podcasts: 'Podcasts',
+  radio: 'Internet Radio',
+  icecast: 'Icecast',
+  jamendo: 'Jamendo',
+  shoutcast: 'Shoutcast',
+};
+
+networkPath.subscribe((path) => {
+  const next = SOURCE_CATEGORY[path[0] ?? ''] ?? 'Network';
+  if (get(networkSelectedCategory) !== next) networkSelectedCategory.set(next);
+});
+
+/**
+ * Canonical playback URL for an address the user typed, or null when the
+ * scheme is outside VLC's network set. `udp://@:port` and `rtp://@:port`
+ * stay intact because the URL parser rejects a bind-all host.
+ */
+export function normalizeNetworkLocation(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed || trimmed.length > MAX_STREAM_URL_LENGTH) return null;
+
+  const bindAll = trimmed.match(/^(udp|rtp):\/\/@:(\d{1,5})$/i);
+  if (bindAll) {
+    const port = Number(bindAll[2]);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+    return `${bindAll[1].toLowerCase()}://@:${port}`;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (!NETWORK_LOCATION_SCHEMES.has(parsed.protocol.toLowerCase())) return null;
+  if (!parsed.hostname) return null;
+  return parsed.href;
+}
+
+/** Human-readable validation error, or null when the address can be played. */
+export function describeNetworkLocationError(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return 'Enter a network URL.';
+  if (trimmed.length > MAX_STREAM_URL_LENGTH) return 'That URL is too long.';
+  if (normalizeNetworkLocation(trimmed)) return null;
+  return 'Use HTTP, HTTPS, FTP, FTPS, SFTP, SMB, NFS, RTSP, RTP, UDP, MMS or RTMP.';
+}
+
+/** Short label for a playback URL: host, plus the last path segment when there is one. */
+export function networkLocationTitle(href: string): string {
+  if (/^(udp|rtp):\/\/@:\d+$/i.test(href)) return href;
+
+  try {
+    const parsed = new URL(href);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    const last = segments.length > 0 ? segments[segments.length - 1] : '';
+    let decoded = last;
+    if (last) {
+      try {
+        decoded = decodeURIComponent(last);
+      } catch {
+        decoded = last;
+      }
+    }
+    const host = parsed.host || parsed.hostname;
+    const label = decoded ? `${host} · ${decoded}` : host || href;
+    return label.slice(0, MAX_STREAM_NAME_LENGTH);
+  } catch {
+    return href.slice(0, MAX_STREAM_NAME_LENGTH);
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
