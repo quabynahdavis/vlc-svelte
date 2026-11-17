@@ -21,7 +21,10 @@ import { openMediaContextMenu } from '../stores/ui';
   $: hasProgress = progress > 0;
   $: progressPercent = `${progress * 100}%`;
   $: progressLabel = `${Math.round(progress * 100)}% watched`;
-  $: episodeCode = `S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`;
+  $: episodeCode =
+    item.season > 0 && item.episode > 0
+      ? `S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`
+      : '';
   $: durationLabel =
     item.durationSeconds > 0 ? formatDuration(item.durationSeconds) : '—:—';
 
@@ -31,7 +34,9 @@ import { openMediaContextMenu } from '../stores/ui';
   onMount(() => {
     ensureItemThumbnail(item);
   });
-  $: ariaLabel = `Play ${item.title}, ${episodeCode}, ${durationLabel}${hasProgress ? `, ${progressLabel}` : ''}`;
+  $: ariaLabel = episodeCode
+    ? `Play ${item.title}, ${episodeCode}, ${durationLabel}${hasProgress ? `, ${progressLabel}` : ''}`
+    : `Play ${item.title}, ${durationLabel}${hasProgress ? `, ${progressLabel}` : ''}`;
 
   const actionClass =
     'flex h-6 w-6 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60';
@@ -114,8 +119,10 @@ import { openMediaContextMenu } from '../stores/ui';
         <span class="block truncate text-[13px] leading-4 text-vlc-text">{item.title}</span>
 
         <span class="mt-1 flex items-center gap-1.5 text-[11px] leading-4 text-vlc-secondary">
-          <span class="tabular-nums">{episodeCode}</span>
-          <span class="text-vlc-dim" aria-hidden="true">·</span>
+          {#if episodeCode}
+            <span class="tabular-nums">{episodeCode}</span>
+            <span class="text-vlc-dim" aria-hidden="true">·</span>
+          {/if}
           <span class="tabular-nums">{durationLabel}</span>
           {#if hasProgress}
             <span class="text-vlc-dim" aria-hidden="true">·</span>
@@ -145,12 +152,14 @@ import { openMediaContextMenu } from '../stores/ui';
 
       <span class="min-w-0 flex-1 truncate text-xs text-vlc-text">{item.title}</span>
 
-      <span
-        class="hidden w-16 shrink-0 text-[11px] tabular-nums text-vlc-secondary sm:block"
-        aria-hidden="true"
-      >
-        {episodeCode}
-      </span>
+      {#if episodeCode}
+        <span
+          class="hidden w-16 shrink-0 text-[11px] tabular-nums text-vlc-secondary sm:block"
+          aria-hidden="true"
+        >
+          {episodeCode}
+        </span>
+      {/if}
 
       <span class="hidden w-24 shrink-0 items-center gap-2 sm:flex" aria-hidden="true">
         <span class="h-[2px] flex-1 overflow-hidden rounded-full bg-vlc-raised">
