@@ -1,0 +1,16 @@
+---
+description: Use bun and bunx only; do not introduce other package managers
+alwaysApply: true
+---
+
+# Shell and package manager
+
+- This is a bun project. Use `bun` / `bunx` for installs, scripts, and one-off CLIs.
+- Do not introduce npm, yarn, or pnpm, and do not add `package-lock.json`, `yarn.lock`, or `pnpm-lock.yaml`.
+
+## Example
+
+```
+Good: bun install && bun run check
+Bad: npm install, or adding package-lock.json, yarn.lock, or pnpm-lock.yaml
+```

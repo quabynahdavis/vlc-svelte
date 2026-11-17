@@ -1,0 +1,22 @@
+---
+description: Atomic conventional commits credited only to the user
+alwaysApply: true
+---
+
+# Git and commits
+
+- Make chronological, atomic commits after every feat, fix, chore, or docs update.
+- Group ONLY related files under the same commit message.
+- **CRITICAL:** DO NOT add yourself or any AI model as a co-author (`Co-authored-by:`). All commit authorship must remain strictly credited to the user, using the existing global git config. Never pass `--author`. Never amend git config.
+- Follow the repository's conventional commit style. Pass the message via HEREDOC. Never use `git -i`, `--no-verify`, force push, or amend unless the user explicitly asks.
+
+## Example
+
+```
+Good: git commit -m "$(cat <<'EOF'
+fix: keep playback position across track changes
+
+EOF
+)"
+Bad: git commit --author="bot" --no-verify, a Co-authored-by trailer, git commit --amend, or git push --force
+```

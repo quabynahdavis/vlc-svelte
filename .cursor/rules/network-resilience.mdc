@@ -1,0 +1,16 @@
+---
+description: Recover from timeouts without repeating finished work
+alwaysApply: true
+---
+
+# Network resilience
+
+- If a subagent or tool execution call fails due to a network interruption or stream timeout, do not repeat completed sub-tasks.
+- Break long tool actions into smaller, modular execution blocks to allow easy recovery if the connection drops.
+
+## Example
+
+```
+Good: after a stream timeout, resume only the unfinished file write and leave the commit that already landed alone.
+Bad: rerun a finished research subagent and a successful commit because a later tool call timed out.
+```

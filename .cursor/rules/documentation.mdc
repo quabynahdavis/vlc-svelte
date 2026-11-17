@@ -1,0 +1,22 @@
+---
+description: Project docs live under /docs with OVERVIEW and CHANGELOG in every folder
+alwaysApply: true
+---
+
+# Documentation
+
+- All project documentation MUST live inside `/docs` with isolated domain subdirectories.
+- EVERY directory MUST contain `OVERVIEW.md` and `CHANGELOG.md`.
+- Group docs into domain-specific subfolders (e.g., `docs/env`, `docs/architecture`, `docs/tensorflow`).
+- **EVERY SINGLE FOLDER** (including `/docs` and every subdirectory inside it) MUST contain:
+  1. `OVERVIEW.md` (Domain scope and file index)
+  2. `CHANGELOG.md` (Doc revision history for that domain)
+- Topic docs must follow clean sequential naming (e.g., `01-setup.md`, `02-integration.md`).
+- Delegate all doc tasks to the `docs-writer` subagent. In Cursor that role is the `generalPurpose` subagent with a docs-only prompt. Write only under `/docs`.
+
+## Example
+
+```
+Good: docs/architecture/OVERVIEW.md, CHANGELOG.md, and 01-playback.md, written by a docs-only generalPurpose subagent.
+Bad: a root README for a new domain, or docs/architecture/notes.md with no OVERVIEW.md or CHANGELOG.md.
+```
