@@ -1,5 +1,6 @@
 import { get, writable } from 'svelte/store';
 import {
+  EQ_LAYOUT_ID,
   loadSettings,
   parseSettingsJson,
   scheduleSettingsSave,
@@ -64,6 +65,11 @@ export interface SettingsState {
   equalizer: boolean;
   equalizerPreset: string;
   equalizerOpen: boolean;
+  /**
+   * `libvlc-iso-10` once gains are for the libvlc ISO bands below.
+   * Older saves used 60/170/310/600/1k/3k/6k/12k/14k/16k and are reset.
+   */
+  eqLayout: string;
   eqGains: number[];
   twoPass: boolean;
   spatialAudio: boolean;
@@ -174,19 +180,46 @@ export interface SettingsState {
   scriptSecurity: string;
 }
 
+/**
+ * Preamp plus libvlc 3.0.24's ten ISO bands
+ * (`libvlc_audio_equalizer_get_band_frequency`).
+ * Index 0 of `eqGains` is the preamp; the rest follow this list.
+ */
 export const EQ_BANDS: EqualizerBand[] = [
   { id: 'preamp', label: 'Preamp', min: -20, max: 20 },
-  { id: '60', label: '60 Hz', min: -20, max: 20 },
-  { id: '170', label: '170 Hz', min: -20, max: 20 },
-  { id: '310', label: '310 Hz', min: -20, max: 20 },
-  { id: '600', label: '600 Hz', min: -20, max: 20 },
-  { id: '1k', label: '1 KHz', min: -20, max: 20 },
-  { id: '3k', label: '3 KHz', min: -20, max: 20 },
-  { id: '6k', label: '6 KHz', min: -20, max: 20 },
-  { id: '12k', label: '12 KHz', min: -20, max: 20 },
-  { id: '14k', label: '14 KHz', min: -20, max: 20 },
-  { id: '16k', label: '16 KHz', min: -20, max: 20 },
+  { id: '31.25', label: '31.25 Hz', min: -20, max: 20 },
+  { id: '62.5', label: '62.5 Hz', min: -20, max: 20 },
+  { id: '125', label: '125 Hz', min: -20, max: 20 },
+  { id: '250', label: '250 Hz', min: -20, max: 20 },
+  { id: '500', label: '500 Hz', min: -20, max: 20 },
+  { id: '1000', label: '1 kHz', min: -20, max: 20 },
+  { id: '2000', label: '2 kHz', min: -20, max: 20 },
+  { id: '4000', label: '4 kHz', min: -20, max: 20 },
+  { id: '8000', label: '8 kHz', min: -20, max: 20 },
+  { id: '16000', label: '16 kHz', min: -20, max: 20 },
 ];
+
+export { EQ_LAYOUT_ID } from '../lib/settingsPersistence';
+
+export const EQ_PRESET_NAMES = ['None', 'Flat', 'Rock', 'Jazz', 'Classical', 'Podcast'] as const;
+
+/**
+ * Preamp followed by the ten ISO bands.
+ *
+ * Flat, Rock, and Classical are libvlc 3.0.24's presets of the same name
+ * (`libvlc_audio_equalizer_new_from_preset`). Flat's preamp is +12 dB with
+ * every band at 0; on this equalizer that is unity, because the filter
+ * scales input by 0.25. None zeros the preamp and the bands.
+ * Jazz and Podcast are local curves written for these frequencies.
+ */
+export const EQ_PRESETS: Record<(typeof EQ_PRESET_NAMES)[number], readonly number[]> = {
+  None: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  Flat: [12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  Rock: [5, 8, 4.8, -5.6, -8, -3.2, 4, 8.8, 11.2, 11.2, 11.2],
+  Jazz: [12, 3, 4, 2, -1, -2, -1, 2, 3, 3, 2],
+  Classical: [12, 0, 0, 0, 0, 0, 0, -7.2, -7.2, -7.2, -9.6],
+  Podcast: [12, -4, -2, -1, -2, 1, 2, 4, 3, 1, -2],
+};
 
 export const ACCENT_COLORS = [
   { color: '#D37918', label: 'Orange' },
@@ -257,6 +290,7 @@ export const defaultSettings: SettingsState = {
   equalizer: false,
   equalizerPreset: 'None',
   equalizerOpen: true,
+  eqLayout: EQ_LAYOUT_ID,
   eqGains: [12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   twoPass: false,
   spatialAudio: false,
@@ -476,6 +510,18 @@ export function setEqualizerGain(index: number, gain: number): void {
   settings.update((state) => ({
     ...state,
     eqGains: state.eqGains.map((current, i) => (i === index ? gain : current)),
+  }));
+}
+
+/** Load a named preset into the preamp and the ten ISO bands. */
+export function applyEqualizerPreset(name: string): void {
+  const gains = EQ_PRESETS[name as (typeof EQ_PRESET_NAMES)[number]];
+  if (!gains) return;
+  settings.update((state) => ({
+    ...state,
+    equalizerPreset: name,
+    eqLayout: EQ_LAYOUT_ID,
+    eqGains: [...gains],
   }));
 }
 

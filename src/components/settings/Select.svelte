@@ -20,6 +20,7 @@
 <div class="relative w-full">
   <select
     bind:value
+    on:change
     aria-label={ariaLabel}
     {disabled}
     class="h-9 w-full appearance-none rounded-[8px] border border-vlc-border bg-vlc-card pl-3 pr-9 text-[13px] text-vlc-text outline-none transition-colors hover:border-vlc-borderStrong focus:border-vlc-orange/70 disabled:cursor-not-allowed disabled:opacity-50"

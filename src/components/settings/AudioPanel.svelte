@@ -1,12 +1,19 @@
 <script lang="ts">
   import { ChevronDown } from 'lucide-svelte';
-  import { EQ_BANDS, settings, setEqualizerGain, toggleSetting } from '../../stores/settings';
+  import {
+    EQ_BANDS,
+    EQ_PRESET_NAMES,
+    applyEqualizerPreset,
+    settings,
+    setEqualizerGain,
+    toggleSetting,
+  } from '../../stores/settings';
   import Section from './Section.svelte';
   import SettingRow from './SettingRow.svelte';
   import Select from './Select.svelte';
   import Toggle from './Toggle.svelte';
 
-  const equalizerPresets = ['None', 'Flat', 'Rock', 'Jazz', 'Classical', 'Podcast'];
+  const equalizerPresets = [...EQ_PRESET_NAMES];
   const spatialModes = [
     'Headphone virtualization',
     'Stereo widening',
@@ -15,6 +22,12 @@
 
   function percentFor(value: number, min: number, max: number): number {
     return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+  }
+
+  function onEqualizerPresetChange(event: Event): void {
+    const select = event.currentTarget;
+    if (!(select instanceof HTMLSelectElement)) return;
+    applyEqualizerPreset(select.value);
   }
 </script>
 
@@ -29,6 +42,7 @@
           bind:value={$settings.equalizerPreset}
           options={equalizerPresets}
           ariaLabel="Equalizer preset"
+          on:change={onEqualizerPresetChange}
         />
       </div>
     </SettingRow>

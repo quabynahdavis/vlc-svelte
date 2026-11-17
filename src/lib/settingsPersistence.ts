@@ -19,6 +19,12 @@ import { isHexColor } from './theme';
 /** Bump the suffix when the persisted shape changes incompatibly. */
 export const SETTINGS_STORAGE_KEY = 'vlc.settings.v1';
 
+/**
+ * Gains are for libvlc's ISO bands. Saves without this marker used the old
+ * 60/170/310/600/1k/3k/6k/12k/14k/16k centres and are not reused.
+ */
+export const EQ_LAYOUT_ID = 'libvlc-iso-10';
+
 const SAVE_DEBOUNCE_MS = 250;
 const MAX_STRING_LENGTH = 4096;
 const MAX_LIST_ITEMS = 500;
@@ -124,7 +130,14 @@ export function validateSettings(input: unknown, defaults: SettingsState): Setti
     result[key] = sanitizeValue(key, baseRecord[key], input[key]);
   }
 
-  return result as unknown as SettingsState;
+  const settings = result as unknown as SettingsState;
+  // Gains saved for the old 60 Hz centres must not land on 31.25 Hz.
+  if (input.eqLayout !== EQ_LAYOUT_ID) {
+    settings.eqGains = clone(defaults.eqGains);
+    settings.equalizerPreset = defaults.equalizerPreset;
+    settings.eqLayout = EQ_LAYOUT_ID;
+  }
+  return settings;
 }
 
 /** Parse exported/imported JSON and merge it over the defaults. */
