@@ -6,18 +6,19 @@
     ArrowUp,
     ArrowUpDown,
     Check,
-    Ellipsis,
     GripVertical,
     ListMusic,
     Pin,
     PinOff,
     Plus,
+    Trash2,
   } from 'lucide-svelte';
-  import { isTrackDrag, readTrackDrag } from '../lib/dragTrack';
-  import { DEMO_MEDIA_SRC, type Playlist } from '../lib/mock';
+  import { isTrackDrag, readTrackDrag, startTrackDrag } from '../lib/dragTrack';
   import {
     addTrackToPlaylist,
+    deletePlaylist,
     movePlaylistTrack,
+    type Playlist,
     pinnedPlaylistIds,
     playlistsData,
     playlistsSearch,
@@ -210,23 +211,26 @@
     playlistsSelectedId.set(null);
   }
 
-  function handleTrackContext(e: MouseEvent, playlistId: string, trackId: string) {
-    e.preventDefault();
-  }
-
-  /** Queue the open playlist through each track's source (demo clip for mock rows). */
+  /** Queue the open playlist from the clicked track, using each track's own source. */
   function playPlaylistTrack(index: number) {
     if (!activePlaylist) return;
 
-    const tracks: Track[] = activePlaylist.tracks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artist,
-      duration: t.durationSeconds,
-      src: t.source ?? DEMO_MEDIA_SRC,
-    }));
+    const clicked = activePlaylist.tracks[index];
+    if (!clicked?.src) return;
 
-    setQueue(tracks, index);
+    const tracks: Track[] = activePlaylist.tracks
+      .filter((t) => t.src)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist,
+        duration: t.duration,
+        src: t.src,
+      }));
+    const start = tracks.findIndex((t) => t.id === clicked.id && t.src === clicked.src);
+    if (start < 0) return;
+
+    setQueue(tracks, start);
     navigate('home');
   }
 
@@ -252,11 +256,17 @@
   }
 
   function handleCreate(playlist: Playlist) {
-    // Session-only: the tracks hold blob: URLs, which cannot survive a reload.
     playlistsData.update((items) => [playlist, ...items]);
     playlistsSelectedId.set(playlist.id);
     clearSearch();
     createOpen = false;
+  }
+
+  function deleteOpenPlaylist() {
+    const id = $playlistsSelectedId;
+    if (!id) return;
+    deletePlaylist(id);
+    playlistsSelectedId.set(null);
   }
 
   $: activePlaylist = $playlistsData.find((playlist) => playlist.id === selected) ?? null;
@@ -296,7 +306,17 @@
     reorderDrag = { playlistId: activePlaylist.id, fromIndex };
     reorderTarget = null;
 
-    event.dataTransfer.effectAllowed = 'move';
+    if (track?.src) {
+      startTrackDrag(event, {
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        duration: track.duration,
+        src: track.src,
+      });
+    }
+
+    event.dataTransfer.effectAllowed = 'copyMove';
     event.dataTransfer.setData(
       PLAYLIST_TRACK_DRAG_TYPE,
       JSON.stringify({ playlistId: activePlaylist.id, index: fromIndex }),
@@ -431,14 +451,14 @@
   function addDroppedTrack(event: DragEvent, playlistId: string) {
     const track = readTrackDrag(event);
     const playlist = $playlistsData.find((item) => item.id === playlistId);
-    if (!track || !playlist) return;
+    if (!track?.src || !playlist) return;
 
     const added = addTrackToPlaylist(playlistId, {
       id: track.id,
       title: track.title,
       artist: track.artist ?? '',
-      durationSeconds: track.duration,
-      source: track.src,
+      duration: track.duration,
+      src: track.src,
     });
 
     showFeedback(
@@ -449,7 +469,9 @@
   }
 
   function handlePlaylistDragOver(event: DragEvent, playlistId: string) {
-    if (!isTrackDrag(event)) {
+    // A reorder drag also carries the queue payload. Keep that drop on the
+    // queue, and don't treat it as "add this track to another playlist".
+    if (hasPlaylistTrackDrag(event) || !isTrackDrag(event)) {
       if (dropTargetId === playlistId) dropTargetId = null;
       return;
     }
@@ -475,7 +497,7 @@
 
   function handlePlaylistDrop(event: DragEvent, playlistId: string) {
     if (dropTargetId === playlistId) dropTargetId = null;
-    if (!isTrackDrag(event)) return;
+    if (hasPlaylistTrackDrag(event) || !isTrackDrag(event)) return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -483,7 +505,7 @@
   }
 
   function handleDetailDragOver(event: DragEvent) {
-    if (!isTrackDrag(event)) {
+    if (hasPlaylistTrackDrag(event) || !isTrackDrag(event)) {
       detailDragActive = false;
       return;
     }
@@ -508,7 +530,7 @@
 
   function handleDetailDrop(event: DragEvent) {
     detailDragActive = false;
-    if (!activePlaylist || !isTrackDrag(event)) return;
+    if (!activePlaylist || hasPlaylistTrackDrag(event) || !isTrackDrag(event)) return;
 
     event.preventDefault();
     addDroppedTrack(event, activePlaylist.id);
@@ -529,6 +551,24 @@
 />
 
 <div class="flex h-full bg-vlc-app">
+  {#if $playlistsData.length === 0}
+    <div
+      class="flex h-full min-h-[320px] w-full flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+    >
+      <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
+      <p class="text-sm font-medium text-vlc-secondary">No playlists yet</p>
+      <p class="max-w-xs text-xs text-vlc-muted">
+        Create a playlist, then add tracks from your library.
+      </p>
+      <button
+        type="button"
+        class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+        on:click={openCreateDialog}
+      >
+        Create playlist
+      </button>
+    </div>
+  {:else}
   <aside class="w-[200px] shrink-0 border-r border-vlc-border bg-vlc-panel flex flex-col">
     <header class="flex h-11 items-center gap-2 border-b border-vlc-border px-3">
       <button
@@ -637,25 +677,7 @@
     </header>
 
     <div class="flex-1 overflow-y-auto px-2 py-2">
-      {#if $playlistsData.length === 0}
-        <div class="flex flex-col items-center gap-3 px-3 py-10 text-center">
-          <ListMusic size={24} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
-          <div>
-            <p class="text-[13px] font-medium text-vlc-text">No playlists yet</p>
-            <p class="mt-1 text-[11px] leading-4 text-vlc-muted">
-              Create one to collect your media.
-            </p>
-          </div>
-          <button
-            type="button"
-            class="flex h-8 items-center gap-1.5 rounded-control bg-vlc-orange px-3 text-[11px] font-medium text-[var(--selection-ink)] transition-colors hover:bg-vlc-orangeDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
-            on:click={openCreateDialog}
-          >
-            <Plus size={14} strokeWidth={2} aria-hidden="true" />
-            Create playlist
-          </button>
-        </div>
-      {:else if sortedPlaylists.length === 0}
+      {#if sortedPlaylists.length === 0}
         <p class="px-2 py-6 text-center text-[11px] leading-4 text-vlc-muted">
           No playlists match “{query}”.
         </p>
@@ -690,9 +712,11 @@
                   on:click={() => openPlaylist(pl.id)}
                 >
                   <span
-                    class="flex h-8 w-8 items-center justify-center rounded-md bg-vlc-card text-sm"
-                    aria-hidden="true">📋</span
+                    class="flex h-8 w-8 items-center justify-center rounded-md bg-vlc-card text-vlc-muted"
+                    aria-hidden="true"
                   >
+                    <ListMusic size={16} strokeWidth={1.75} />
+                  </span>
                   <span class="w-full truncate">{pl.name}</span>
                 </button>
                 <button
@@ -745,7 +769,7 @@
                   aria-current={selected === pl.id ? 'true' : undefined}
                   on:click={() => openPlaylist(pl.id)}
                 >
-                  <span class="shrink-0" aria-hidden="true">📋</span>
+                  <ListMusic size={15} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
                   <span class="truncate">{pl.name}</span>
                 </button>
                 <button
@@ -799,7 +823,7 @@
                   aria-current={selected === pl.id ? 'true' : undefined}
                   on:click={() => openPlaylist(pl.id)}
                 >
-                  <span class="shrink-0 text-[11px]" aria-hidden="true">📋</span>
+                  <ListMusic size={13} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
                   <span class="truncate">{pl.name}</span>
                 </button>
                 <button
@@ -846,8 +870,20 @@
           <span class="text-vlc-secondary">Playlists</span>
           <span class="text-vlc-muted">/</span>
           <span class="truncate text-vlc-text">{activePlaylist.name}</span>
+          {#if pinnedIds.includes(activePlaylist.id)}
+            <Pin size={13} strokeWidth={1.75} class="shrink-0 text-vlc-orangeText" aria-hidden="true" />
+          {/if}
         </nav>
         <div class="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+            title={`Delete ${activePlaylist.name}`}
+            aria-label={`Delete ${activePlaylist.name}`}
+            on:click={deleteOpenPlaylist}
+          >
+            <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
+          </button>
           <div class="w-56">
             {#key searchKey}
               <FuzzySearch placeholder="Search…" on:search={handleSearch} />
@@ -882,9 +918,9 @@
         {#if activePlaylist.tracks.length === 0}
           <div class="flex min-h-[240px] flex-col items-center justify-center gap-2 p-8 text-center">
             <ListMusic size={30} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
-            <p class="text-[14px] font-medium text-vlc-text">This playlist is empty</p>
-            <p class="max-w-xs text-[12px] leading-5 text-vlc-muted">
-              There are no tracks in this playlist yet.
+            <p class="text-sm font-medium text-vlc-secondary">This playlist is empty</p>
+            <p class="max-w-xs text-xs text-vlc-muted">
+              Drag a track here from your library, or use Add to playlist on a track.
             </p>
           </div>
         {:else if $playlistsViewMode === 'grid'}
@@ -913,7 +949,7 @@
                     <span
                       class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] text-vlc-secondary"
                     >
-                      {formatDuration(track.durationSeconds)}
+                      {formatDuration(track.duration)}
                     </span>
                   </div>
                   <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">
@@ -1028,7 +1064,7 @@
                   <span class="truncate text-vlc-text">{track.title}</span>
                   <span class="truncate">{track.artist}</span>
                   <span class="text-right text-vlc-muted">
-                    {formatDuration(track.durationSeconds)}
+                    {formatDuration(track.duration)}
                   </span>
                 </button>
 
@@ -1058,16 +1094,6 @@
                     on:click={() => moveTrackBy(i, 1)}
                   >
                     <ArrowDown size={14} strokeWidth={2} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    class="flex h-6 w-6 items-center justify-center rounded-input text-vlc-muted hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
-                    aria-label={`More options for ${track.title}`}
-                    on:click={(e) =>
-                      handleTrackContext(e, activePlaylist?.id ?? '', track.id)}
-                    on:contextmenu={(e) => handleTrackContext(e, activePlaylist?.id ?? '', track.id)}
-                  >
-                    <Ellipsis size={14} strokeWidth={1.75} aria-hidden="true" />
                   </button>
                 </span>
 
@@ -1111,7 +1137,7 @@
                     {track.artist}
                   </span>
                   <span class="w-12 shrink-0 text-right text-[11px] text-vlc-muted">
-                    {formatDuration(track.durationSeconds)}
+                    {formatDuration(track.duration)}
                   </span>
                 </button>
 
@@ -1174,6 +1200,7 @@
       </div>
     {/if}
   </div>
+  {/if}
 
   {#if feedback}
     <div

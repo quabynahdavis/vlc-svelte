@@ -332,13 +332,15 @@
     if (queue.length === 0) return;
     const name = prompt('Playlist name', 'Queue playlist');
     if (!name) return;
-    const tracks = queue.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artist ?? '',
-      durationSeconds: t.duration,
-      source: t.src ?? '',
-    }));
+    const tracks = queue
+      .filter((t) => t.src)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist ?? '',
+        duration: t.duration,
+        src: t.src ?? '',
+      }));
     createPlaylistFromTracks(name, tracks);
   }
 </script>

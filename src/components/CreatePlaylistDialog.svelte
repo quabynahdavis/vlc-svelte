@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, tick } from 'svelte';
   import { Upload, X } from 'lucide-svelte';
-  import type { Playlist, PlaylistTrack } from '../lib/mock';
+  import type { Playlist, PlaylistTrack } from '../stores/playlists';
 
   export let open = false;
   /** Element that opened the dialog; focus returns here when it closes. */
@@ -174,16 +174,16 @@
       const tracks: PlaylistTrack[] = selectedFiles.map((file, index) => ({
         id: makeId('pt'),
         title: titleFromFilename(file.name),
-        artist: 'Imported',
-        durationSeconds: durations[index] ?? 0,
-        source: URL.createObjectURL(file),
+        artist: '',
+        duration: durations[index] ?? 0,
+        src: URL.createObjectURL(file),
       }));
 
       const playlist: Playlist = {
         id: makeId('pl'),
         name: playlistName,
         trackCount: tracks.length,
-        totalDurationSeconds: tracks.reduce((total, track) => total + track.durationSeconds, 0),
+        totalDurationSeconds: tracks.reduce((total, track) => total + track.duration, 0),
         lastModified: Date.now(),
         tracks,
       };

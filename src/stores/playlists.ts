@@ -1,5 +1,4 @@
 import { writable, type Writable } from 'svelte/store';
-import { playlists as mockPlaylists, type Playlist, type PlaylistTrack } from '../lib/mock';
 import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
 import { hasTauri } from '../lib/tauriFs';
 
@@ -12,16 +11,220 @@ export type SortDirection = 'asc' | 'desc';
 export const playlistsSort = writable<PlaylistsSortKey>('manual');
 export const playlistsSortDirection = writable<SortDirection>('asc');
 
+/** A track saved on a playlist. `src` is what the player queues. */
+export interface PlaylistTrack {
+  id: string;
+  title: string;
+  artist: string;
+  /** Duration in seconds. */
+  duration: number;
+  /**
+   * Playable source. `blob:` object URLs work for the current session and are
+   * omitted when the playlist is written to disk.
+   */
+  src: string;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  trackCount: number;
+  totalDurationSeconds: number;
+  lastModified: number;
+  tracks: PlaylistTrack[];
+}
+
+const MAX_PLAYLISTS = 200;
+const MAX_TRACKS = 1000;
+const MAX_NAME = 80;
+const MAX_TEXT = 300;
+const MAX_SRC = 8000;
+
+/** Bump the version suffix when the persisted shape changes. */
+export const PLAYLISTS_STORAGE_KEY = 'vlc.playlists.v1';
+/** Bump the version suffix when the persisted shape changes. */
+export const PLAYLIST_PINS_STORAGE_KEY = 'vlc.playlists.pins.v1';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function cleanString(value: unknown, max: number): string {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, max);
+}
+
+function cleanDuration(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 0;
+  return value;
+}
+
+/** `blob:` URLs die with the document; everything else can be queued after reload. */
+export function isDurablePlaylistSrc(src: string): boolean {
+  return src.length > 0 && !src.startsWith('blob:');
+}
+
+function sanitizeTrack(value: unknown): PlaylistTrack | null {
+  if (!isRecord(value)) return null;
+
+  const id = cleanString(value.id, MAX_TEXT);
+  const title = cleanString(value.title, MAX_TEXT);
+  if (!id || !title) return null;
+
+  const src = cleanString(value.src ?? value.source, MAX_SRC);
+  if (!src) return null;
+
+  const duration = cleanDuration(
+    typeof value.duration === 'number' ? value.duration : value.durationSeconds,
+  );
+
+  return {
+    id,
+    title,
+    artist: cleanString(value.artist, MAX_TEXT),
+    duration,
+    src,
+  };
+}
+
+function sanitizePlaylist(value: unknown): Playlist | null {
+  if (!isRecord(value)) return null;
+
+  const id = cleanString(value.id, MAX_TEXT);
+  const name = cleanString(value.name, MAX_NAME);
+  if (!id || !name) return null;
+
+  const tracksRaw = Array.isArray(value.tracks) ? value.tracks : [];
+  const seen = new Set<string>();
+  const tracks: PlaylistTrack[] = [];
+
+  for (const entry of tracksRaw) {
+    if (tracks.length >= MAX_TRACKS) break;
+    const track = sanitizeTrack(entry);
+    if (!track) continue;
+    const key = `${track.id}\0${track.src}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tracks.push(track);
+  }
+
+  const lastModified =
+    typeof value.lastModified === 'number' && Number.isFinite(value.lastModified)
+      ? value.lastModified
+      : Date.now();
+
+  return {
+    id,
+    name,
+    trackCount: tracks.length,
+    totalDurationSeconds: tracks.reduce((sum, track) => sum + track.duration, 0),
+    lastModified,
+    tracks,
+  };
+}
+
+/** Stored playlists are untrusted: drop malformed rows and recompute totals. */
+export function sanitizePlaylists(value: unknown): Playlist[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const playlists: Playlist[] = [];
+
+  for (const entry of value) {
+    if (playlists.length >= MAX_PLAYLISTS) break;
+    const playlist = sanitizePlaylist(entry);
+    if (!playlist || seen.has(playlist.id)) continue;
+    seen.add(playlist.id);
+    playlists.push(playlist);
+  }
+
+  return playlists;
+}
+
 /**
- * Writable playlist collection seeded from the demo data.
- *
- * User-created playlists live only for the current session: their tracks point
- * at `blob:` object URLs, which are meaningless after a reload. Never persist
- * this store (or the object URLs it can contain).
+ * Disk shape. Blob-backed tracks stay in memory for this session and are left
+ * out here so a reload does not resurrect a dead object URL.
  */
-export const playlistsData: Writable<Playlist[]> = writable(
-  mockPlaylists.map((playlist) => ({ ...playlist, tracks: [...playlist.tracks] })),
-);
+function serializePlaylists(items: Playlist[]): Array<{
+  id: string;
+  name: string;
+  lastModified: number;
+  tracks: Array<{ id: string; title: string; artist: string; duration: number; src: string }>;
+}> {
+  return items.map((playlist) => ({
+    id: playlist.id,
+    name: playlist.name,
+    lastModified: playlist.lastModified,
+    tracks: playlist.tracks
+      .filter((track) => isDurablePlaylistSrc(track.src))
+      .map((track) => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        duration: track.duration,
+        src: track.src,
+      })),
+  }));
+}
+
+function loadPlaylists(): Playlist[] {
+  // Desktop shell: start empty; the snapshot is applied by the boot hydration.
+  if (hasTauri()) return [];
+
+  try {
+    const raw = window.localStorage.getItem(PLAYLISTS_STORAGE_KEY);
+    if (raw === null) return [];
+    return sanitizePlaylists(JSON.parse(raw) as unknown);
+  } catch {
+    return [];
+  }
+}
+
+const writePlaylists = createKeyWriter(PLAYLISTS_STORAGE_KEY);
+
+function createPlaylistsStore(): Writable<Playlist[]> {
+  const store = writable<Playlist[]>(loadPlaylists());
+
+  /** Set when a mutation lands before the SQLite snapshot has been applied. */
+  let changedSinceBoot = false;
+
+  function persistPlaylists(items: Playlist[]): void {
+    changedSinceBoot = true;
+    void writePlaylists(JSON.stringify(serializePlaylists(items)));
+  }
+
+  void (async () => {
+    const raw = await loadPersistedRaw(PLAYLISTS_STORAGE_KEY);
+    if (raw === null || changedSinceBoot) return;
+    try {
+      store.set(sanitizePlaylists(JSON.parse(raw) as unknown));
+    } catch {
+      // Malformed legacy blob: start with no playlists.
+    }
+  })();
+
+  return {
+    subscribe: store.subscribe,
+    set(value) {
+      const next = sanitizePlaylists(value);
+      store.set(next);
+      persistPlaylists(next);
+    },
+    update(updater) {
+      store.update((current) => {
+        const next = sanitizePlaylists(updater(current));
+        persistPlaylists(next);
+        return next;
+      });
+    },
+  };
+}
+
+/**
+ * User playlists, persisted under `vlc.playlists.v1`.
+ * A fresh install has none. Tracks keep id, title, artist, duration and src.
+ */
+export const playlistsData: Writable<Playlist[]> = createPlaylistsStore();
 
 function createPlaylistId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -30,21 +233,25 @@ function createPlaylistId(): string {
   return `playlist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function trackFromPayload(track: PlaylistTrack): PlaylistTrack {
+function trackFromPayload(track: PlaylistTrack): PlaylistTrack | null {
+  return sanitizeTrack(track);
+}
+
+function totals(tracks: PlaylistTrack[]): { trackCount: number; totalDurationSeconds: number } {
   return {
-    id: track.id,
-    title: track.title,
-    artist: track.artist,
-    durationSeconds: track.durationSeconds,
-    source: track.source,
+    trackCount: tracks.length,
+    totalDurationSeconds: tracks.reduce((sum, track) => sum + track.duration, 0),
   };
 }
 
 /**
  * Append a track to an existing playlist. Returns false when the playlist no
- * longer exists or the exact source is already part of it.
+ * longer exists, the track is incomplete, or the exact source is already in it.
  */
 export function addTrackToPlaylist(playlistId: string, track: PlaylistTrack): boolean {
+  const nextTrack = trackFromPayload(track);
+  if (!nextTrack) return false;
+
   let added = false;
 
   playlistsData.update((items) =>
@@ -52,18 +259,17 @@ export function addTrackToPlaylist(playlistId: string, track: PlaylistTrack): bo
       if (playlist.id !== playlistId) return playlist;
 
       const duplicate = playlist.tracks.some(
-        (entry) => entry.id === track.id && entry.source === track.source,
+        (entry) => entry.id === nextTrack.id && entry.src === nextTrack.src,
       );
       if (duplicate) return playlist;
 
-      const nextTrack = trackFromPayload(track);
       added = true;
+      const tracks = [...playlist.tracks, nextTrack];
 
       return {
         ...playlist,
-        tracks: [...playlist.tracks, nextTrack],
-        trackCount: playlist.tracks.length + 1,
-        totalDurationSeconds: playlist.totalDurationSeconds + nextTrack.durationSeconds,
+        tracks,
+        ...totals(tracks),
         lastModified: Date.now(),
       };
     }),
@@ -113,9 +319,7 @@ export function movePlaylistTrack(
       const updated: Playlist = {
         ...playlist,
         tracks,
-        trackCount: tracks.length,
-        // Reordering cannot change the total runtime.
-        totalDurationSeconds: playlist.totalDurationSeconds,
+        ...totals(tracks),
         lastModified: Date.now(),
       };
 
@@ -127,14 +331,16 @@ export function movePlaylistTrack(
   return result;
 }
 
-/** Create a session-only playlist that starts with the supplied track. */
-export function createPlaylistWithTrack(name: string, track: PlaylistTrack): Playlist {
+/** Create a playlist that starts with the supplied track. */
+export function createPlaylistWithTrack(name: string, track: PlaylistTrack): Playlist | null {
   const entry = trackFromPayload(track);
+  const trimmed = name.trim().slice(0, MAX_NAME);
+  if (!entry || !trimmed) return null;
+
   const playlist: Playlist = {
     id: createPlaylistId(),
-    name: name.trim(),
-    trackCount: 1,
-    totalDurationSeconds: entry.durationSeconds,
+    name: trimmed,
+    ...totals([entry]),
     lastModified: Date.now(),
     tracks: [entry],
   };
@@ -143,15 +349,18 @@ export function createPlaylistWithTrack(name: string, track: PlaylistTrack): Pla
   return playlist;
 }
 
-/** Create a session-only playlist from an array of tracks. */
-export function createPlaylistFromTracks(name: string, tracks: PlaylistTrack[]): Playlist {
-  const entries = tracks.map(trackFromPayload);
-  const totalDurationSeconds = entries.reduce((sum, t) => sum + (t.durationSeconds ?? 0), 0);
+/** Create a playlist from an array of tracks. Empty lists are allowed. */
+export function createPlaylistFromTracks(name: string, tracks: PlaylistTrack[]): Playlist | null {
+  const trimmed = name.trim().slice(0, MAX_NAME);
+  if (!trimmed) return null;
+
+  const entries = tracks
+    .map((track) => trackFromPayload(track))
+    .filter((track): track is PlaylistTrack => track !== null);
   const playlist: Playlist = {
     id: createPlaylistId(),
-    name: name.trim(),
-    trackCount: entries.length,
-    totalDurationSeconds,
+    name: trimmed,
+    ...totals(entries),
     lastModified: Date.now(),
     tracks: entries,
   };
@@ -160,8 +369,11 @@ export function createPlaylistFromTracks(name: string, tracks: PlaylistTrack[]):
   return playlist;
 }
 
-/** Bump the version suffix when the persisted shape changes. */
-export const PLAYLIST_PINS_STORAGE_KEY = 'vlc.playlists.pins.v1';
+/** Remove a playlist. Callers should also drop its pin. */
+export function deletePlaylist(playlistId: string): void {
+  playlistsData.update((items) => items.filter((playlist) => playlist.id !== playlistId));
+  pinnedPlaylistIds.update((ids) => ids.filter((id) => id !== playlistId));
+}
 
 /** Stored pins are untrusted: keep only unique, non-empty string ids. */
 function sanitizePinnedIds(value: unknown): string[] {
@@ -240,6 +452,6 @@ function createPinnedPlaylistStore(): Writable<string[]> {
 
 /**
  * Ids of pinned playlists, persisted under `vlc.playlists.pins.v1`.
- * Unknown ids are harmless (session-only playlists disappear after reload).
+ * Unknown ids are harmless and are removed when that playlist is deleted.
  */
 export const pinnedPlaylistIds: Writable<string[]> = createPinnedPlaylistStore();

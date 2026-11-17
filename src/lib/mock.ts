@@ -107,24 +107,6 @@ export interface RecentMediaItem {
   thumbnailPath?: string;
 }
 
-/** Playlists domain types */
-export interface PlaylistTrack {
-  id: string;
-  title: string;
-  artist: string;
-  durationSeconds: number;
-  source?: string;
-}
-
-export interface Playlist {
-  id: string;
-  name: string;
-  trackCount: number;
-  totalDurationSeconds: number;
-  lastModified: number; // epoch ms
-  tracks: PlaylistTrack[];
-}
-
 /* ---------- Music mock ---------- */
 const ARTIST_NAMES = [
   'Nirvana', 'Radiohead', 'Tame Impala', 'Fleetwood Mac', 'Beyoncé', 'Kendrick Lamar', 'Ariana Grande', 'The Weeknd', 'Daft Punk', 'Billie Eilish', 'Coldplay', 'Lorde'
@@ -239,49 +221,3 @@ export const recentMediaItems: RecentMediaItem[] = [
 ];
 
 export const recentItems = recentMediaItems.sort((a, b) => b.timestamp - a.timestamp);
-
-/* ---------- Playlists mock ---------- */
-export const playlists: Playlist[] = [
-  {
-    id: 'pl-1',
-    name: 'Cool Songs',
-    trackCount: 12,
-    totalDurationSeconds: 0,
-    lastModified: daysAgo(0),
-    tracks: Array.from({ length: 12 }, (_, i) => ({
-      id: `pt-${i + 1}`,
-      title: `Song ${i + 1}`,
-      artist: ARTIST_NAMES[i % ARTIST_NAMES.length],
-      durationSeconds: 180 + Math.floor(Math.random() * 150),
-    })),
-  },
-  {
-    id: 'pl-2',
-    name: 'Anime to Watch',
-    trackCount: 8,
-    totalDurationSeconds: 0,
-    lastModified: daysAgo(2),
-    tracks: Array.from({ length: 8 }, (_, i) => ({
-      id: `pt-a-${i + 1}`,
-      title: `Anime Track ${i + 1}`,
-      artist: 'Various Artists',
-      durationSeconds: 200 + Math.floor(Math.random() * 120),
-    })),
-  },
-  {
-    id: 'pl-3',
-    name: 'Workout Mix',
-    trackCount: 15,
-    totalDurationSeconds: 0,
-    lastModified: daysAgo(1),
-    tracks: Array.from({ length: 15 }, (_, i) => ({
-      id: `pt-w-${i + 1}`,
-      title: `Workout ${i + 1}`,
-      artist: ARTIST_NAMES[(i + 3) % ARTIST_NAMES.length],
-      durationSeconds: 180 + Math.floor(Math.random() * 180),
-    })),
-  },
-].map(pl => ({
-  ...pl,
-  totalDurationSeconds: pl.tracks.reduce((a, t) => a + t.durationSeconds, 0),
-}));

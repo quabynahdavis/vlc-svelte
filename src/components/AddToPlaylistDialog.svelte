@@ -10,7 +10,7 @@
     closePlaylistTarget,
     playlistTarget,
   } from '../stores/playlistTarget';
-  import type { PlaylistTrack } from '../lib/mock';
+  import type { PlaylistTrack } from '../stores/playlists';
 
   let dialogEl: HTMLDialogElement | null = null;
   let nameEl: HTMLInputElement | null = null;
@@ -24,13 +24,13 @@
 
   $: open = $playlistTarget.open;
   $: track = $playlistTarget.track;
-  $: playlistTrack = track
+  $: playlistTrack = track?.src
     ? ({
         id: track.id,
         title: track.title,
         artist: track.artist ?? 'Unknown artist',
-        durationSeconds: track.duration,
-        source: track.src,
+        duration: track.duration,
+        src: track.src,
       } satisfies PlaylistTrack)
     : null;
 
@@ -132,6 +132,11 @@
 
     creating = true;
     const playlist = createPlaylistWithTrack(name, playlistTrack);
+    if (!playlist) {
+      creating = false;
+      nameEl?.focus();
+      return;
+    }
     addedTo = `Created ${playlist.name}`;
     scheduleClose();
   }
