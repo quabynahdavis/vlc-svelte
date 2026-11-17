@@ -133,6 +133,8 @@
     wavePeaksKey === waveformPath &&
     wavePeaks !== null &&
     wavePeaks.length > 0;
+  // A video hover frame must not survive the switch onto an audio waveform.
+  $: if (waveActive && previewFrameReady) previewFrameReady = false;
   // Redraw when the playhead moves or a new peak array arrives. `wavePeaks`
   // has to be an argument: Svelte does not track reads inside the callee.
   $: if (waveCanvas && waveActive && wavePeaks) drawWaveCanvas(wavePeaks, elapsed, duration);
@@ -482,9 +484,12 @@
     previewX = clamp(ratio * bounds.width, half, bounds.width - half);
     previewVisible = true;
 
-    // Waveform mode: the timestamp card is enough — audio files are never
-    // decoded into the hover preview element.
-    if (waveActive) return;
+    // Waveform mode: the timestamp card is enough. Drop any video frame so a
+    // previous track's thumbnail cannot sit on the audio seek strip.
+    if (waveActive) {
+      previewFrameReady = false;
+      return;
+    }
     schedulePreviewSeek(previewTime);
   }
 
