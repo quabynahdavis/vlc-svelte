@@ -28,8 +28,9 @@
     toggleMute,
   } from '../stores/player';
   import type { PlayerState, Track } from '../stores/player';
-  import { isAudioFile } from '../lib/audio';
+  import { waveformFilePath } from '../lib/audio';
   import { waveformGenerate, waveformGet } from '../lib/audioMeta';
+  import { musicTracks } from '../stores/musicLibrary';
   import { hasTauri } from '../lib/tauriFs';
   import { toggleFullscreen } from '../lib/gestures';
   import { layout } from '../stores/layout';
@@ -61,11 +62,11 @@
   let isFullscreen = false;
 
   // ── Waveform seekbar (audio tracks only) ────────────────────────────────
-  // Audio detection: Phase 4 guarantees `MusicTrack.id === file path`, so a
-  // track whose id carries an audio extension is a music track. Video ids
-  // are media keys of video files (video extensions) or http(s) streams, so
-  // the same extension check never fires for them — video/stream/src-less
-  // tracks keep the plain bar below.
+  // Audio is a music-library track, an audio extension on the id/src, or an
+  // explicit audio kind/mime. Video containers keep the plain bar below even
+  // when they also contain an audio stream. Peaks still come from the Rust
+  // f32 pipeline (`waveform_get` → `waveform_generate`); no local file means
+  // the plain bar stays.
   const WAVEFORM_BUCKETS = 800;
   const WAVEFORM_BAR_WIDTH = 2;
   const WAVEFORM_BAR_GAP = 2;
@@ -123,35 +124,39 @@
     $layout.playerControls.fullscreen ||
     $layout.playerControls.queue;
 
-  $: currentTrackPath = $currentTrack?.id ?? '';
-  $: isAudioTrack = isAudioFile(currentTrackPath);
-  $: resolveWavePeaks(isAudioTrack, currentTrackPath);
-  // Waveform strip only once peaks exist; before that (resolving, or the
-  // Rust pipeline returned nothing) the plain bar stays — no layout jump.
-  $: waveActive = isAudioTrack && wavePeaks !== null && wavePeaks.length > 0;
+  $: waveformPath = waveformFilePath($currentTrack, $musicTracks);
+  $: resolveWavePeaks(waveformPath);
+  // Waveform strip only once peaks for THIS path exist. While they resolve,
+  // or when the track is video / has no local file, the plain bar stays.
+  $: waveActive =
+    waveformPath !== null &&
+    wavePeaksKey === waveformPath &&
+    wavePeaks !== null &&
+    wavePeaks.length > 0;
   // Redraw whenever the playhead moves (timeupdate, scrubbing) or peaks load.
   $: if (waveCanvas && waveActive) drawWaveCanvas(elapsed, duration);
 
   /**
-   * Resolve peaks for the current audio track: session cache → persisted
+   * Resolve peaks for the current audio file: session cache → persisted
    * row (`waveform_get`) → fresh decode (`waveform_generate`, which itself
-   * persists). While resolving or when nothing can be produced, `wavePeaks`
-   * stays null and the plain bar is kept.
+   * persists). `path` is already a local audio path. While resolving, or
+   * when nothing can be produced, `wavePeaks` stays null and the plain bar
+   * is kept.
    */
-  async function resolveWavePeaks(audio: boolean, path: string): Promise<void> {
-    if (!audio || !path) {
+  async function resolveWavePeaks(path: string | null): Promise<void> {
+    if (!path) {
       waveLoadToken += 1;
       wavePeaks = null;
       wavePeaksKey = '';
       return;
     }
 
-    if (wavePeaksKey === path) return;
+    if (wavePeaksKey === path && wavePeaks && wavePeaks.length > 0) return;
     wavePeaksKey = path;
 
     const token = ++waveLoadToken;
     const cached = waveformCache.get(path);
-    if (cached) {
+    if (cached && cached.length > 0) {
       wavePeaks = cached;
       return;
     }

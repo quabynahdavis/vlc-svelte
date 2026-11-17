@@ -72,3 +72,107 @@ export function isVideoFile(path: string): boolean {
   const extension = audioExtensionOf(path);
   return extension !== null && VIDEO_EXTENSIONS.has(extension);
 }
+
+/** True when `path` ends in a video extension, including URLs and asset srcs. */
+export function hasVideoExtension(path: string): boolean {
+  const extension = audioExtensionOf(path);
+  return extension !== null && VIDEO_EXTENSIONS.has(extension);
+}
+
+/** Player track fields the waveform seekbar can see. `kind` / `mime` are optional. */
+export type WaveformTrackHint = {
+  id?: string;
+  src?: string;
+  title?: string;
+  kind?: string | null;
+  mime?: string | null;
+};
+
+/** Music-library row the seekbar can resolve back to a filesystem path. */
+export type WaveformLibraryTrack = {
+  id: string;
+  path: string;
+};
+
+function labelOf(track: WaveformTrackHint, key: 'kind' | 'mime'): string {
+  const value = track[key];
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function isAbsoluteFilePath(value: string): boolean {
+  return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\');
+}
+
+/**
+ * Absolute audio path the Rust waveform commands can decode.
+ * Video containers are rejected even when the string also looks like audio.
+ */
+function localAudioPath(value: string): string | null {
+  if (!isAbsoluteFilePath(value) || hasVideoExtension(value) || !isAudioFile(value)) return null;
+  return value;
+}
+
+/**
+ * `convertFileSrc` URLs (`asset://` / `http://asset.localhost/...`) back to a
+ * local audio path. Anything else (blob, http stream, video) is ignored.
+ */
+function audioPathFromAssetSrc(src: string): string | null {
+  try {
+    const url = new URL(src);
+    const isAsset = url.protocol === 'asset:' || url.hostname === 'asset.localhost';
+    if (!isAsset) return null;
+    return localAudioPath(decodeURIComponent(url.pathname));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when the transport should use the waveform seekbar for this track.
+ * Video files win even if they contain an audio stream or sit in a music queue.
+ * Audio is a music-library id, an audio extension on the id or src, or an
+ * explicit audio/music kind or `audio/*` mime when one is present.
+ */
+export function trackUsesWaveform(
+  track: WaveformTrackHint | null | undefined,
+  library: readonly WaveformLibraryTrack[] = [],
+): boolean {
+  if (!track) return false;
+
+  const kind = labelOf(track, 'kind');
+  const mime = labelOf(track, 'mime');
+  const id = track.id ?? '';
+  const src = track.src ?? '';
+
+  if (kind === 'video' || mime.startsWith('video/')) return false;
+  if ((id && hasVideoExtension(id)) || (src && hasVideoExtension(src))) return false;
+
+  if (kind === 'audio' || kind === 'music' || mime.startsWith('audio/')) return true;
+  if ((id && isAudioFile(id)) || (src && isAudioFile(src))) return true;
+
+  if (!id) return false;
+  return library.some((item) => item.id === id || item.path === id);
+}
+
+/**
+ * Filesystem path passed to `waveform_get` / `waveform_generate`.
+ * Null for video, streams, and audio that has no local file to decode —
+ * the seekbar then keeps the plain progress bar.
+ */
+export function waveformFilePath(
+  track: WaveformTrackHint | null | undefined,
+  library: readonly WaveformLibraryTrack[] = [],
+): string | null {
+  if (!trackUsesWaveform(track, library) || !track) return null;
+
+  const id = track.id ?? '';
+  const fromId = id ? localAudioPath(id) : null;
+  if (fromId) return fromId;
+
+  const fromLibrary = library.find((item) => item.id === id || item.path === id);
+  const fromLibraryPath = fromLibrary ? localAudioPath(fromLibrary.path) : null;
+  if (fromLibraryPath) return fromLibraryPath;
+
+  const src = track.src ?? '';
+  return (src ? localAudioPath(src) : null) ?? audioPathFromAssetSrc(src);
+}
