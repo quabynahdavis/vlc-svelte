@@ -52,7 +52,7 @@ No changes needed for 200% volume — audio routing doesn't affect subtitle trac
 
 ## 3. libvlc Migration (Prepared)
 
-**Status**: In progress — see [02-libvlc-integration.md](02-libvlc-integration.md). Phases 0–1 are done, the Phase 2 frame pump is waiting on a measurement, and the Phase 3 network / event / track seam has landed.  
+**Status**: In progress — see [02-libvlc-integration.md](02-libvlc-integration.md). Phases 0–1 are done, Phase 2 keeps the canvas frame pump (a native window embed is not the next slice), and the Phase 3 network / event / track seam has landed.  
 **Reason**: HTML5 + Web Audio remains the default. The native path stays behind the `libvlc` cargo feature and the Settings → Playback toggle.
 
 ### When to Consider

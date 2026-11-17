@@ -4,6 +4,10 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-17
 
+### Decided — native video stays on the canvas frame pump
+
+- Phase 2 keeps the shipped canvas frame pump: 960 px wide, even dimensions, RV32, latest frame wins, and DOM overlays (transport, hover chrome, docks, subtitle UI) stay. The old gate — smooth 1080p30 at <25% of one core, or pivot to a native window — is closed. The copy measured about 2.53 ms/frame in release; the 1080p sample was software-decode bound at about 14 fps. A native window (`set_xwindow` / `set_hwnd` / `set_nsobject`) is a later mode, only if a real file is unwatchable in the app. Hardware decode and 4K are the reason to revisit it. Recorded in [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md).
+
 ### Changed — Transport waveform for music and other audio
 
 - `TransportBar.svelte` draws the existing 0..1 waveform peaks on the seek bar for a music-library track or any other local audio file (audio extension, or an audio/music kind or `audio/*` mime). Played bars use the accent and unplayed bars stay muted. Click and drag still seek. Video files keep the thick seek bar and hover thumbnails.
@@ -12,7 +16,7 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 ### Added — libvlc Phase 3 network, events, and track switching
 
 - The native backend now opens allowlisted network MRLs (`http`, `https`, `rtsp`, `rtmp`, `mms`, `rtp`, `udp`, including HLS and DASH URLs) as well as filesystem paths. `player_load` returns a generation. End-of-track and playback-error notices are emitted as `player://event` off libvlc's callback thread. Audio and subtitle tracks can be listed and selected, and one external subtitle file can be attached. The default build still does not link libvlc.
-- [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md) records the Phase 3 outcome and what was deliberately left: the Phase 2 frame-pump measurement, the optional >125% soft-clip, the optional PCM visualizer, equalizer band mapping, subtitle profile painting, and Phase 4 packaging.
+- [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md) records the Phase 3 outcome and what was deliberately left: the optional >125% soft-clip, the optional PCM visualizer, equalizer band mapping, subtitle profile painting, and Phase 4 packaging.
 - [plans/01-player-enhancements.md](plans/01-player-enhancements.md) §3 now points at that in-progress state.
 
 ## 2026-11-14
