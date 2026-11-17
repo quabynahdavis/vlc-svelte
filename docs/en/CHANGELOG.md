@@ -4,6 +4,11 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-17
 
+### Changed — Playlists page drills in like Music and Videos
+
+- The Playlists page no longer keeps a playlist sidebar beside the tracks. The root lists the user's playlists on one surface (toolbar, grid/list/compact, pinned section). Opening a playlist replaces that list with its tracks or an empty playlist; back or the breadcrumb returns to the list.
+- Documented in [architecture/02-frontend.md](architecture/02-frontend.md) and [design/02-redesign-vision.md](design/02-redesign-vision.md).
+
 ### Added — native equalizer bands and libvlc subtitle styling
 
 - The equalizer faders are a preamp plus libvlc 3.0.24's ten bands: 31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, and 16000 Hz. Flat, Rock, and Classical load that library's presets. Jazz and Podcast are local curves for those bands. None and Flat leave the frequency bands at 0 dB. Older 60 Hz-layout saves are reset.

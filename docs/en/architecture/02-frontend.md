@@ -78,8 +78,8 @@ There is no URL router. `activeNav`, `showSettings`, the property dock and `hide
 
 ### Playlists view (`src/views/PlaylistsView.svelte`)
 
-- With no playlists, the page is a single empty state and a create action. Once the user has playlists, a 200 px sidebar lists them with back, sort menu (manual, name, date, item count), create, search and pin/unpin. Pinned rows use the accent pin and sit in a **Pinned** section.
-- Opening a playlist lists its saved tracks in grid/list/compact, or an empty playlist when it has none. Choosing a track queues that playlist from the track's own `src` and navigates to the player. The grip handle can also drag a track onto the queue.
+- With no playlists, the page is a single empty state and a create action. Once the user has playlists, that list fills the page the way Music and Videos do: a toolbar with back, breadcrumb, search, sort (manual, name, date, item count), view mode and create. Pinned playlists use the accent pin and sit in a **Pinned** section. There is no playlist sidebar.
+- Choosing a playlist replaces the list with its saved tracks in grid/list/compact, or an empty playlist when it has none. Back, or the Playlists breadcrumb, returns to the list. Choosing a track queues that playlist from the track's own `src` and navigates to the player. The grip handle can also drag a track onto the queue.
 - `CreatePlaylistDialog` creates a playlist, optionally with picked files; `AddToPlaylistDialog` appends an existing track and can create a named playlist inline. Names, pins and tracks with a durable `src` persist. `blob:` sources stay in memory for the session and are omitted from `vlc.playlists.v1`.
 
 ### Recent view (`src/views/RecentView.svelte`)
