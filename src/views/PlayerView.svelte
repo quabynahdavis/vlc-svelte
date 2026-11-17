@@ -21,18 +21,23 @@
   } from '../lib/audioAnalyser';
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
   import { settings } from '../stores/settings';
-  import { isAudioFile, isVideoFile } from '../lib/audio';
+  import { isAudioFile, isVideoFile, isVisualStream, streamLocationOf } from '../lib/audio';
+  import { hasTauri } from '../lib/tauriFs';
   import {
     playerBackend,
+    nativeAudioTracks,
     nativeLoad,
     nativePause,
     nativePlay,
     nativePosition,
     nativeSeek,
     nativeSetVolume,
+    nativeSpuTracks,
     nativeStop,
+    type NativePlayerEvent,
     type PlayerBackend,
   } from '../lib/playerBackend';
+  import { clearNativeTracks, nativeAudioTrackState, nativeSpuTrackState } from '../stores/nativeTracks';
   import { addBookmark, formatTimestamp, mediaKeyFor } from '../stores/bookmarks';
   import { navigate } from '../stores/navigation';
   import { markWatched, removeWatch, watchEntries, upsertWatch, type WatchEntry } from '../stores/watch';
@@ -88,8 +93,20 @@
   // ── Native (libvlc) audio backend ──────────────────────────────────────
   /** Compiled backend, resolved once on mount; 'html5' until proven otherwise. */
   let backendKind: PlayerBackend = 'html5';
-  /** Track id (== absolute file path) currently loaded into libvlc; '' = nothing. */
+  /** Location currently loaded into libvlc (path or stream URL); '' = nothing. */
   let nativeLoadedId = '';
+  /** Generation returned by the last successful native load. Stale events are ignored. */
+  let nativeGeneration = 0;
+  /** False while a load is in flight, so an end event from the previous media cannot advance twice. */
+  let nativeAcceptingEvents = false;
+  /** One-line notice when native playback gives up for the session. */
+  let nativeNotice = '';
+  /** Cancels the `player://event` listener. */
+  let unlistenNativeEvents: (() => void) | null = null;
+  /** Bumped to drop in-flight track-list retries after a new load. */
+  let nativeTrackRefresh = 0;
+  /** Bumped on every load so a slow load cannot finish over a newer one. */
+  let nativeLoadEpoch = 0;
   /** Local mirror of the native play state, avoiding redundant commands. */
   let nativeIsPlaying = false;
   /** Store-clock sampler for the native player; null while inactive. */
@@ -109,36 +126,30 @@
   $: mediaKey = `${$currentTrack?.id ?? 'external'}:${videoSrc}:${nativeRoutingActive ? 'native' : 'html5'}`;
   $: mediaTitle = $currentTrack?.title?.trim() || 'Kanea';
 
-  /** True when the current AUDIO track should be played by libvlc. */
-  $: nativeAudioActive =
-    nativeMounted &&
-    backendKind === 'native' &&
-    $settings.nativePlayback === true &&
-    $currentTrack !== null &&
-    isAudioFile($currentTrack.id);
-
   /**
-   * True when the current LOCAL VIDEO track should be rendered through the
-   * libvlc frame pump (Phase 2 prototype). Same gating as audio plus the
-   * local-file check inside isVideoFile — network URLs always stay on HTML5.
+   * What libvlc should open for the current track, when the toggle is on.
+   * Local audio/video ids win; otherwise an allowlisted stream URL on `src`
+   * or `id`. `visual` turns the frame pump on (local video, HLS/DASH
+   * playlists, and RTSP-family URLs).
    */
-  $: nativeVideoActive =
-    nativeMounted &&
-    backendKind === 'native' &&
-    $settings.nativePlayback === true &&
-    $currentTrack !== null &&
-    isVideoFile($currentTrack.id);
+  $: nativeTarget = resolveNativeTarget(
+    nativeMounted && backendKind === 'native' && $settings.nativePlayback === true
+      ? $currentTrack
+      : null,
+  );
 
-  /** Either native route (audio or video) owns playback instead of the element. */
-  $: nativeRoutingActive = nativeAudioActive || nativeVideoActive;
-  // KNOWN GAP (prototype): TransportBar's hover preview sources its own
-  // off-screen element from videoEl.src, which native mode empties — the
-  // preview card is dead there (it never seeks the main element, so
-  // playback is unaffected).
-  // KNOWN GAP (prototype): subtitle tracks stay HTML5-only in native mode;
-  // libvlc renders nothing subtitle-shaped into the frame buffer.
-  // KNOWN GAP (prototype): the dock visualizer falls back to synthetic bars
-  // — its analyser has no element media to attach to in native mode.
+  /** True when the current item is native and has no video surface. */
+  $: nativeAudioActive = nativeTarget !== null && !nativeTarget.visual;
+  /** True when libvlc should paint frames (local video or a visual stream). */
+  $: nativeVideoActive = nativeTarget !== null && nativeTarget.visual;
+  /** Either native route owns playback instead of the element. */
+  $: nativeRoutingActive = nativeTarget !== null;
+  // KNOWN GAP: TransportBar's hover preview sources its own off-screen
+  // element from videoEl.src, which native mode empties.
+  // KNOWN GAP: the dock visualizer falls back to synthetic bars — its
+  // analyser has no element media to attach to in native mode.
+  // Subtitles in native mode are libvlc's own SPU blended into the frame,
+  // not the dock's subtitle profiles.
 
   $: continueItems = $watchEntries
     .filter(e => !e.watched && e.position > 0 && e.duration > 0 && e.position / e.duration < 0.98 && e.position / e.duration > 0.02)
@@ -162,7 +173,7 @@
 
   // Store -> libvlc: load the native player for local audio/video tracks /
   // reconcile play state.
-  $: if (nativeRoutingActive && $currentTrack) void syncNativeTrack($currentTrack.id, $player.isPlaying);
+  $: if (nativeRoutingActive && nativeTarget) void syncNativeTrack(nativeTarget.location, $player.isPlaying);
   // Store -> libvlc: mirror volume and mute.
   $: if (nativeRoutingActive) void syncNativeVolume($player.volume, $player.muted);
 
@@ -180,6 +191,17 @@
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
+  }
+
+  function resolveNativeTarget(
+    track: { id: string; src?: string } | null,
+  ): { location: string; visual: boolean } | null {
+    if (!track) return null;
+    if (isVideoFile(track.id)) return { location: track.id, visual: true };
+    if (isAudioFile(track.id)) return { location: track.id, visual: false };
+    const stream = streamLocationOf(track.src) ?? streamLocationOf(track.id);
+    if (!stream) return null;
+    return { location: stream, visual: isVisualStream(stream) };
   }
 
   function syncSource(
@@ -309,25 +331,36 @@
       return;
     }
 
+    const epoch = ++nativeLoadEpoch;
     if (nativeLoadedId) {
       await nativeStop();
     }
+    if (epoch !== nativeLoadEpoch) return;
     nativeLoadedId = '';
     nativeIsPlaying = false;
     nativeLastPolledTime = 0;
     nativeEndedFiredFor = '';
+    nativeGeneration = 0;
+    nativeAcceptingEvents = false;
+    clearNativeTracks();
 
-    // Music-track ids are absolute file paths, exactly what libvlc wants.
-    const result = await nativeLoad(trackId);
-    if (result === null) {
-      // The shell is native-capable but refused this track (or the command
+    // Local ids are absolute file paths. Streams are allowlisted URLs.
+    const generation = await nativeLoad(trackId);
+    if (epoch !== nativeLoadEpoch) return;
+    if (generation === null) {
+      // The shell is native-capable but refused this item (or the command
       // failed): flip the toggle off so HTML5 resumes via the mediaKey flip.
-      console.warn('Native backend refused the track; staying on HTML5 for this track.', trackId);
+      nativeNotice = 'Native playback could not open this item. Switched back to the webview player.';
+      console.warn('Native backend refused the item; staying on HTML5.', trackId);
       settings.update((s) => ({ ...s, nativePlayback: false }));
       return;
     }
 
+    nativeNotice = '';
+    nativeGeneration = generation;
+    nativeAcceptingEvents = true;
     nativeLoadedId = trackId;
+    void refreshNativeTracks(generation);
     if (!shouldPlay) {
       await nativePause();
     } else {
@@ -380,8 +413,78 @@
     nativeIsPlaying = false;
     nativeLastPolledTime = 0;
     nativeEndedFiredFor = '';
+    nativeGeneration = 0;
+    nativeAcceptingEvents = false;
+    nativeTrackRefresh += 1;
+    clearNativeTracks();
 
     await nativeStop();
+  }
+
+  /**
+   * Ask libvlc for audio and subtitle tracks a few times. They are often
+   * empty until the input has opened, especially on network media.
+   */
+  async function refreshNativeTracks(generation: number): Promise<void> {
+    const token = ++nativeTrackRefresh;
+    const delays = [0, 400, 1200];
+    for (const delay of delays) {
+      if (delay > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, delay));
+      }
+      if (token !== nativeTrackRefresh || nativeGeneration !== generation) return;
+      const audio = await nativeAudioTracks();
+      const spu = await nativeSpuTracks();
+      if (token !== nativeTrackRefresh || nativeGeneration !== generation) return;
+      nativeAudioTrackState.set(audio);
+      nativeSpuTrackState.set(spu);
+    }
+  }
+
+  function handleNativePlayerEvent(payload: NativePlayerEvent): void {
+    if (!nativeAcceptingEvents || !nativeRoutingActive || payload.generation !== nativeGeneration) return;
+    if (payload.kind === 'error') {
+      nativeNotice = 'Native playback failed. Switched back to the webview player.';
+      console.warn('Native backend reported an error; staying on HTML5.');
+      settings.update((s) => ({ ...s, nativePlayback: false }));
+      return;
+    }
+    if (payload.kind === 'ended') {
+      void advanceNativeEnded();
+    }
+  }
+
+  /**
+   * End-of-media for the native player: repeat-one reloads in place, anything
+   * else advances the queue. Shared by the `player://event` listener and the
+   * position-poll fallback (files whose length is known).
+   */
+  async function advanceNativeEnded(): Promise<void> {
+    if (!nativeLoadedId || nativeEndedFiredFor === nativeLoadedId) return;
+    nativeEndedFiredFor = nativeLoadedId;
+
+    const state = get(player);
+    if (nativeVideoActive) markWatched(mediaKey, 'video');
+
+    if (state.repeat === 'one') {
+      const path = nativeLoadedId;
+      nativeAcceptingEvents = false;
+      const generation = await nativeLoad(path);
+      if (generation === null) {
+        nativeNotice = 'Native playback could not restart this item. Switched back to the webview player.';
+        settings.update((s) => ({ ...s, nativePlayback: false }));
+        return;
+      }
+      nativeGeneration = generation;
+      nativeAcceptingEvents = true;
+      nativeEndedFiredFor = '';
+      nativeLastPolledTime = 0;
+      nativeIsPlaying = true;
+      void refreshNativeTracks(generation);
+      return;
+    }
+
+    next();
   }
 
   /**
@@ -436,24 +539,10 @@
       });
     }
 
-    if (length > 0 && time >= length - 0.15 && nativeEndedFiredFor !== nativeLoadedId) {
-      nativeEndedFiredFor = nativeLoadedId;
-
-      // Parity with handleEnded: the finished video counts as watched.
-      // markWatched no-ops when the poll never created an entry.
-      if (nativeVideoActive) markWatched(mediaKey, 'video');
-
-      if (state.repeat === 'one') {
-        // `next()` advances the queue and ignores repeat-one (the HTML5 path
-        // restarts the element itself). Reload the same file — player_load
-        // auto-plays from the start — and re-arm the ended detection.
-        const path = nativeLoadedId;
-        await nativeLoad(path);
-        nativeEndedFiredFor = '';
-        nativeLastPolledTime = 0;
-      } else {
-        next();
-      }
+    // Fallback for local files when the end event is missed. Live streams
+    // report length 0, so this never fires for them — the end event does.
+    if (length > 0 && time >= length - 0.15) {
+      void advanceNativeEnded();
     }
   }
 
@@ -1097,11 +1186,19 @@
     void (async () => {
       backendKind = await playerBackend();
       nativeMounted = true;
+      if (backendKind !== 'native' || !hasTauri()) return;
+      const { listen } = await import('@tauri-apps/api/event');
+      const unlisten = await listen<NativePlayerEvent>('player://event', (event) => {
+        handleNativePlayerEvent(event.payload);
+      });
+      unlistenNativeEvents = unlisten;
     })();
 
     return () => {
       document.removeEventListener('fullscreenchange', syncFullscreen);
       window.removeEventListener('keydown', handleGlobalKeydown);
+      unlistenNativeEvents?.();
+      unlistenNativeEvents = null;
     };
   });
 
@@ -1240,6 +1337,14 @@
           on:progress={updateBuffered}
           on:error={handleError}
         ></video>
+        {#if nativeNotice}
+          <p
+            class="pointer-events-none absolute inset-x-0 bottom-4 z-30 mx-auto w-fit max-w-[min(36rem,calc(100%-2rem))] rounded-control bg-black/75 px-3 py-1.5 text-center text-[12px] text-white"
+            role="status"
+          >
+            {nativeNotice}
+          </p>
+        {/if}
         {#if nativeVideoActive}
           <!-- libvlc paints here: same stage slot as the (src-less) video
                element underneath. `inset-0 m-auto` + max constraints center

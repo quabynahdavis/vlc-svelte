@@ -100,6 +100,11 @@ fn main() {
             player::player_seek,
             player::player_set_volume,
             player::player_position,
+            player::player_audio_tracks,
+            player::player_set_audio_track,
+            player::player_spu_tracks,
+            player::player_set_spu,
+            player::player_add_subtitle,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

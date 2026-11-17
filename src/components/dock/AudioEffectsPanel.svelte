@@ -1,6 +1,9 @@
 <script lang="ts">
   import { ChevronDown } from 'lucide-svelte';
+  import { nativeSetAudioTrack } from '../../lib/playerBackend';
   import { currentTrack } from '../../stores/player';
+  import { nativeAudioTrackState } from '../../stores/nativeTracks';
+  import { settings } from '../../stores/settings';
   import {
     AUDIO_TRACK_OPTIONS,
     OUTPUT_DEVICE_OPTIONS,
@@ -15,9 +18,31 @@
   import TogglePill from './TogglePill.svelte';
 
   $: hasMedia = $currentTrack !== null;
+  $: nativeAudioOptions = $settings.nativePlayback ? $nativeAudioTrackState.tracks : [];
+  $: useNativeAudioTracks = nativeAudioOptions.length > 0;
+
+  let nativeAudioSelection = '';
+  let seenNativeAudioKey = '';
+
+  $: {
+    const key = nativeAudioOptions.map((track) => String(track.id)).join(',');
+    if (key !== seenNativeAudioKey) {
+      seenNativeAudioKey = key;
+      const current = $nativeAudioTrackState.current;
+      const match = nativeAudioOptions.find((track) => track.id === current);
+      nativeAudioSelection = String((match ?? nativeAudioOptions[0])?.id ?? '');
+    }
+  }
 
   function handleAudioTrackChange(event: Event): void {
-    setAudioTrack((event.currentTarget as HTMLSelectElement).value as AudioTrackId);
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    if (useNativeAudioTracks) {
+      nativeAudioSelection = value;
+      const id = Number(value);
+      if (Number.isInteger(id)) void nativeSetAudioTrack(id);
+      return;
+    }
+    setAudioTrack(value as AudioTrackId);
   }
 
   function handleOutputDeviceChange(event: Event): void {
@@ -62,15 +87,21 @@
         <div class="relative">
           <select
             id="audio-track-select"
-            value={$avPrefs.audioTrack}
+            value={useNativeAudioTracks ? nativeAudioSelection : $avPrefs.audioTrack}
             disabled={!hasMedia}
             aria-describedby={!hasMedia ? 'audio-track-empty-note' : undefined}
             class="h-[38px] w-full appearance-none rounded-[6px] border border-vlc-border/70 bg-vlc-app pl-3 pr-8 text-[13px] text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60 focus-visible:ring-2 focus-visible:ring-vlc-orange/40 disabled:cursor-not-allowed disabled:opacity-50"
             on:change={handleAudioTrackChange}
           >
-            {#each AUDIO_TRACK_OPTIONS as track (track.id)}
-              <option value={track.id}>{track.label}</option>
-            {/each}
+            {#if useNativeAudioTracks}
+              {#each nativeAudioOptions as track (track.id)}
+                <option value={String(track.id)}>{track.name}</option>
+              {/each}
+            {:else}
+              {#each AUDIO_TRACK_OPTIONS as track (track.id)}
+                <option value={track.id}>{track.label}</option>
+              {/each}
+            {/if}
           </select>
           <ChevronDown
             size={14}

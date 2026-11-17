@@ -1,6 +1,6 @@
 # libvlc Integration Plan
 
-**Status**: Phase 2 prototype landed — the video frame pump (callbacks → shared buffer → `vlcframe://` protocol → webview canvas) is implemented and compiles clean; awaiting the user's in-app measurement for the §9 decision gate
+**Status**: Phase 3 seam landed (network MRLs, end/error events, audio and subtitle track switching, external subtitle load). The Phase 2 frame-pump decision gate is still open — it needs an in-app measurement. Equalizer mapping, the >125% soft-clip, the PCM visualizer, and packaging are not started.
 **Target**: All platforms (Linux, macOS, Windows), feature-flagged and off by default
 **Backend**: `libvlc` 3.x via the `vlc` crate (vlc-rs) inside `src-tauri/src/player.rs`
 
@@ -48,23 +48,28 @@ The default feature set is unchanged: `cargo build` / `cargo test` never compile
 
 ### Command surface (`src-tauri/src/player.rs`)
 
-Nine commands, all compiled in both builds so the frontend contract is stable (the native half lives in a `#[cfg(feature = "libvlc")]` module; the stub half answers with a descriptive error):
+Fourteen commands, all compiled in both builds so the frontend contract is stable (the native half lives in a `#[cfg(feature = "libvlc")]` module; the stub half answers with a descriptive error, except the track-list commands, which answer with an empty list):
 
 | Command | Signature | Semantics |
 | --- | --- | --- |
 | `player_probe` | `() -> 'html5' \| 'native'` | Purely compile-time: reports which half was built. `'native'` only when the binary was built with `--features libvlc`. The frontend uses this to enable/disable the native toggle. |
-| `player_load` | `(path) -> ok` | Stops any current playback, creates a fresh `Instance`/`Media`/`MediaPlayer` for an absolute file path and starts playback (HTML5 also starts on load). Network URLs and metadata returns arrive with the rendering phase. |
+| `player_load` | `(path) -> generation` | Stops any current playback, creates a fresh `Instance`/`Media`/`MediaPlayer` and starts playback. A filesystem path uses `new_path`; `http`/`https` (HLS and DASH included), `rtsp`, `rtmp`, `mms`, `rtp` and `udp` use `new_location`; `file://` is decoded to a path. The returned generation is stamped on that media's events. |
 | `player_play` | `() -> ok` | Resumes/plays. |
 | `player_pause` | `() -> ok` | Pauses. |
 | `player_toggle` | `() -> bool` | Play/pause toggle, answering the new is-playing state. |
 | `player_stop` | `() -> ok` | Stops and releases the media (called on track change and teardown). |
 | `player_seek` | `(seconds: f64) -> ok` | Absolute time seek; libvlc handles keyframe snap internally. |
 | `player_set_volume` | `(percent: i32) -> ok` | Percent volume clamped 0–200 native-side; see §4 for the >125% gap. |
-| `player_position` | `() -> (time, length)` | Current position poll in **seconds** (tuple; vlc-rs reports ms), replacing HTML5 `timeupdate` on the native path. |
+| `player_position` | `() -> (time, length)` | Current position poll in **seconds**. Length falls back from the media to the player, and is `0` when unknown (live streams). |
+| `player_audio_tracks` | `() -> { tracks, current }` | Audio elementary streams once the input has opened them. Empty when nothing is loaded. |
+| `player_set_audio_track` | `(id) -> ok` | Select an audio track by libvlc id. |
+| `player_spu_tracks` | `() -> { tracks, current }` | Subtitle tracks. `-1` is libvlc's disable entry when it offers one. |
+| `player_set_spu` | `(id) -> ok` | Select a subtitle track. `-1` disables. libvlc blends the SPU into the callback picture. |
+| `player_add_subtitle` | `(path) -> ok` | Add an external subtitle (path or allowlisted URL) and select it. |
 
 ### TS seam (`src/lib/playerBackend.ts`)
 
-Typed wrappers over `invoke` for the nine commands plus `playerBackend()` — which returns `'html5'` for browser preview, when the probe fails, or whenever the shell reports the HTML5 build. All future call sites go through this module; no component ever invokes `player_*` directly.
+Typed wrappers over `invoke` for the commands plus `playerBackend()` — which returns `'html5'` for browser preview, when the probe fails, or whenever the shell reports the HTML5 build. All future call sites go through this module; no component ever invokes `player_*` directly. The shell emits `player://event` with `{ kind: 'ended' \| 'error', generation }` from a channel drained off libvlc's callback thread. The main window capability includes `core:event:allow-listen` so the webview can subscribe.
 
 ### Enabling the flag locally
 
@@ -188,7 +193,7 @@ Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
 | Queue / next-episode | Store-driven | Unchanged | None — store logic is backend-agnostic |
 | Keyboard shortcuts | Global handlers → store | Unchanged | None |
 | Watch progress / history | Store + SQLite | Unchanged | None |
-| Network streams | HTTP progressive via `<video src>` | RTSP/HLS/DASH via libvlc | New capability on native (Phase 3); `NetworkPanel` URLs pass through `player_load` unchanged |
+| Network streams | HTTP progressive via `<video src>` | RTSP/HLS/DASH via libvlc | Phase 3 routes allowlisted URLs through `player_load` when the native toggle is on. HTML5 stays the path when the toggle is off. |
 
 ---
 
@@ -256,7 +261,7 @@ Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
 | **0 — Scaffold** (done, verified) | Feature flag, `player.rs` with a real audio-only native half, nine commands, `player_probe` contract, TS seam. Verified against the dev machine's libvlc 3.0.24: `cargo check --features libvlc` compiles clean and a temporary runtime test played a real mp3 (playhead advanced, duration parsed, toggle/volume/stop all correct) | small | §7 Phase 0 criteria; default build unchanged |
 | **1 — Audio-only native** (done) | `nativePlayback` settings toggle (Settings → Playback, default off) + PlayerView native routing: `player_load` per audio track, 250 ms `player_position` poll drives the store clock, store-drift detection pushes user seeks into libvlc, end-of-track → next (repeat-one reloads in place), volume/mute mirrored at the native ~125% cap, teardown on mode flip/video switch/unmount, element carries no media in native mode (no double audio), fail-safe toggle-off if libvlc refuses a track. Visualizer stays HTML5-only | medium | §7 Phase 1 criteria; a user can play an mp3 natively with the toggle on and nothing changes with it off |
 | **2 — Video surface decision** (prototype done, decision gate pending) | Approach (b) frame pump landed: local video files route native when `nativePlayback` is on; libvlc video callbacks (RV32, width capped ≤960, even dims) pump frames through a process-global published buffer; a `vlcframe://` custom URI scheme protocol serves self-describing frames `[seq u64 LE][width u32 LE][height u32 LE][rgba…]` (204 = no live frame); the frontend rAF loop fetches and paints a `<canvas>` with seq-skip and an always-on ~1 s `[vlcframe]` console heartbeat for the decision-gate measurement. Decision gate itself unchanged (measured outcome below) | large | §7 Phase 2 criteria; written decision record appended to this doc |
-| **3 — Subtitles, equalizer, network** | `add_slave`/SRT load, embedded track switching (audio + subtitle), end-of-track events for next-episode, RTSP/HLS `player_load`, optional >125% soft-clip, optional PCM-tap visualizer | medium | §7 Phase 3 criteria |
+| **3 — Subtitles, network, events** (seam done; optional items not started) | `player_load` accepts network MRLs and the player routes them when the toggle is on; `player://event` (`ended` / `error`) drives next-episode, with the position poll kept as a fallback for files that have a length; audio and subtitle tracks can be listed and selected; one external subtitle file can be added from the subtitle dialog and is selected by libvlc. Not in this slice: equalizer (band map unspecified), >125% soft-clip, PCM-tap visualizer | medium | §7 Phase 3 criteria for RTSP/HLS, track switching, and the end event. Equalizer and the two optional audio items remain |
 | **4 — Packaging** | Windows DLL+plugins bundling, macOS framework, Linux bundling-or-doc decision, plugin license review, clean-machine acceptance on all three OSes | medium–large | §7 Phase 4 criteria |
 
 Phases 2 and 3 are independent enough to interleave (network-stream support is valuable even before the video surface is final, since audio streams need no surface).
@@ -266,4 +271,16 @@ Phases 2 and 3 are independent enough to interleave (network-stream support is v
 - **libvlc 3.0 API discovery**: `libvlc_media_player_set_video_callbacks` does not exist in 3.0.24 — that name is VLC 4 (verified against `/usr/include/vlc/libvlc_media_player.h` and `nm -D /usr/lib/libvlc.so`). The 3.0-era installer `libvlc_video_set_callbacks(mp, lock, unlock, display, opaque)` is used instead, declared locally because vlc-rs 0.1.0 does not export it and its `libvlc_video_lock_cb` alias mis-types the `planes` parameter (`*mut c_void` vs the header's `void **`).
 - **Temp-test measurements** (test added, run, then removed — same pattern as Phase 0): source `/home/davisville/Videos/Swife Demo.mp4` (1080p → capped 960×544), 2,088,960 bytes/frame; display-callback swizzle+publish cost **2.53 ms/frame release** (pump ceiling ≈ 395 fps) vs **13.09 ms debug**; the rework from a byte-loop to `as_chunks::<4>` + a pre-sized published buffer was a **4.4×** improvement (57.6 ms → 13.09 ms debug).
 - **Wall fps is decode-bound, not pump-bound** on the dev box: avcodec logged "more than 5 seconds of late video -> dropping frame (computer too slow ?)" — software decode of the 1080p file cannot sustain real time, so displayed fps tracked the decoder (27.5 fps debug / 13.8 release runs), NOT the pump. Consequence: the §9 decision gate (smooth 1080p30 at <25% single-core) must be measured by the user in-app — build with `--features libvlc`, enable Settings → Playback → Native audio backend, play a local video, and read the `[vlcframe] fps=… fetchAvg=… paintAvg=…` heartbeat in the webview console.
-- **Known prototype gaps** (already commented in code): hover preview dead in native mode (it sources from the emptied element), subtitles HTML5-only, dock visualizer on synthetic fallback bars, volume still ≈125% native-side, network streams never route native (`isVideoFile` requires an absolute local path).
+- **Known prototype gaps** that Phase 3 did not close: hover preview dead in native mode (it sources from the emptied element), dock visualizer on synthetic fallback bars, volume still ≈125% native-side. Network streams now route native when the toggle is on (see below). Subtitles in native mode are libvlc SPU blended into the frame, not the dock's profile styles.
+
+### Phase 3 outcome
+
+- **Network load.** `classify_media_target` (unit-tested in the default build) sends filesystem paths, including decoded `file://` URLs and Windows drive paths, to `libvlc_media_new_path`, and `http`, `https`, `rtsp`, `rtsps`, `rtmp`, `rtmps`, `mms`, `mmsh`, `rtp`, and `udp` to `libvlc_media_new_location`. Other schemes are rejected. PlayerView uses the same allowlist: a local audio or video id still wins; otherwise `src` or `id` is opened when it is an allowlisted URL. RTSP-family URLs and playlist/video extensions (`m3u8`, `m3u`, `mpd`, and the local video extensions) use the existing frame pump. Other HTTP(S) URLs stay audio-only so a radio stream does not sit under an empty canvas.
+- **End and error events.** libvlc's `MediaPlayerEndReached` and `MediaPlayerEncounteredError` callbacks only enqueue a `{ kind, generation }` notice. A process thread emits `player://event`. The callback never calls libvlc or Tauri. `stop()` and the start of `load()` suppress events so libvlc's stop-triggered end does not advance the queue. The webview ignores a notice whose generation is not the one `player_load` just returned. Repeat-one reloads in place; any other end calls `next()`. An error notice turns the native toggle off for the session by writing the setting back to false and shows a one-line stage notice. The 250 ms poll still seeks and clocks the store, and still advances when `length > 0` and time is within 150 ms of the end, in case the event is missed. Live streams (`length == 0`) advance only from the event.
+- **Tracks and external subtitles.** `player_audio_tracks` / `player_spu_tracks` copy libvlc's track-description list (capped at 64) and the current id. The audio dock and the subtitle dock show those lists only while the native toggle is on and the list is non-empty; the HTML5 mock options and the subtitle profile fields stay in place otherwise. Choosing an entry calls `player_set_audio_track` or `player_set_spu`. With the toggle on, the subtitle dialog's file picker is the native open dialog and `player_add_subtitle` turns the path into a `file://` URI (`libvlc_media_slave_type_subtitle`, select = true). libvlc documents that callback output blends sub-pictures on the CPU, so the selected subtitle is painted into the `vlcframe://` picture. Folder and playlist association in that dialog still store no filesystem paths.
+- **Left unfinished on purpose.**
+  - Phase 2's decision gate (smooth 1080p30 at <25% of one core) still needs a measurement in the running app. This slice does not pick embedding versus the frame pump.
+  - The >125% soft-clip and the PCM-tap visualizer are the optional Phase 3 items. Phase 1's 125% cap and the synthetic visualizer bars stay.
+  - The equalizer UI (preamp plus 60/170/310/600/1k/3k/6k/12k/14k/16k) does not match libvlc's own band frequencies. No mapping was specified, so nothing is applied on the native player.
+  - Subtitle profile fonts and colours are still not painted. Native subtitles use libvlc's own SPU look.
+  - Phase 4 packaging is untouched. It needs a bundling decision plus Windows and macOS libvlc binaries that are not on this machine.

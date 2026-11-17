@@ -9,6 +9,12 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 - `TransportBar.svelte` draws the existing 0..1 waveform peaks on the seek bar for a music-library track or any other local audio file (audio extension, or an audio/music kind or `audio/*` mime). Played bars use the accent and unplayed bars stay muted. Click and drag still seek. Video files keep the thick seek bar and hover thumbnails.
 - Described in [architecture/02-frontend.md](architecture/02-frontend.md), [design/02-redesign-vision.md](design/02-redesign-vision.md) and [plans/01-player-enhancements.md](plans/01-player-enhancements.md).
 
+### Added — libvlc Phase 3 network, events, and track switching
+
+- The native backend now opens allowlisted network MRLs (`http`, `https`, `rtsp`, `rtmp`, `mms`, `rtp`, `udp`, including HLS and DASH URLs) as well as filesystem paths. `player_load` returns a generation. End-of-track and playback-error notices are emitted as `player://event` off libvlc's callback thread. Audio and subtitle tracks can be listed and selected, and one external subtitle file can be attached. The default build still does not link libvlc.
+- [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md) records the Phase 3 outcome and what was deliberately left: the Phase 2 frame-pump measurement, the optional >125% soft-clip, the optional PCM visualizer, equalizer band mapping, subtitle profile painting, and Phase 4 packaging.
+- [plans/01-player-enhancements.md](plans/01-player-enhancements.md) §3 now points at that in-progress state.
+
 ## 2026-11-14
 
 ### Added — libvlc native-backend scaffold and integration plan

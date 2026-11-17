@@ -57,8 +57,8 @@
       </div>
     </SettingRow>
 
-    <SettingRow label="Native audio backend" info hint="Play audio through libvlc (experimental). Requires the desktop build to include the native backend; otherwise the app silently stays on the webview backend.">
-      <Toggle bind:value={$settings.nativePlayback} label="Native audio backend" />
+    <SettingRow label="Native playback" info hint="Play local files and network streams through libvlc (experimental). Video uses the frame pump. Requires a desktop build with the native backend; otherwise the app stays on the webview player.">
+      <Toggle bind:value={$settings.nativePlayback} label="Native playback" />
     </SettingRow>
 
     <SettingRow label="Allow speed playback">

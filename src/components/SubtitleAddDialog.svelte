@@ -1,8 +1,13 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
+  import { get } from 'svelte/store';
   import { X, Check, FolderOpen, FileText, ListMusic } from 'lucide-svelte';
+  import { nativeAddSubtitle, nativeSpuTracks, playerBackend } from '../lib/playerBackend';
+  import { hasTauri } from '../lib/tauriFs';
   import { subtitleAdd, closeSubtitleAdd } from '../stores/subtitleAdd';
+  import { nativeSpuTrackState } from '../stores/nativeTracks';
   import { playlistsData } from '../stores/playlists';
+  import { settings } from '../stores/settings';
   import { rememberShowDefaults, showKeyFromTitle } from '../stores/subtitleProfiles';
   import { currentTrack } from '../stores/player';
 
@@ -22,6 +27,8 @@
 
   // File tab state
   let fileChosen: File | null = null;
+  /** Absolute path from the native file dialog, when libvlc can load it. */
+  let nativeSubtitlePath = '';
 
   // Folder tab state
   let folderFiles: File[] = [];
@@ -48,6 +55,7 @@
     resultMessage = '';
     clearResultTimer();
     fileChosen = null;
+    nativeSubtitlePath = '';
     folderFiles = [];
     matchedPairs = [];
     saveForFuture = false;
@@ -173,7 +181,41 @@
     }, 3000);
   }
 
-  function addFile() {
+  async function chooseSubtitle(): Promise<void> {
+    if (!get(settings).nativePlayback || !hasTauri()) return;
+    const dialog = await import('@tauri-apps/plugin-dialog');
+    const picked = await dialog.open({
+      multiple: false,
+      title: 'Add subtitle',
+      filters: [{ name: 'Subtitles', extensions: ['srt', 'vtt', 'ass', 'ssa', 'sub', 'txt'] }],
+    });
+    if (typeof picked !== 'string' || picked.length === 0) return;
+    nativeSubtitlePath = picked;
+    fileChosen = null;
+  }
+
+  async function addFile() {
+    if (nativeSubtitlePath) {
+      if (!track) {
+        showResult('No track selected');
+        requestClose();
+        return;
+      }
+      if ((await playerBackend()) !== 'native') {
+        showResult('This build has no native player');
+        return;
+      }
+      const loaded = await nativeAddSubtitle(nativeSubtitlePath);
+      if (loaded === null) {
+        showResult('Could not load that subtitle');
+        return;
+      }
+      nativeSpuTrackState.set(await nativeSpuTracks());
+      const name = nativeSubtitlePath.split(/[/\\]/).pop() ?? nativeSubtitlePath;
+      showResult(`Loaded ${name}`);
+      requestClose();
+      return;
+    }
     if (!fileChosen) return;
     if (!track) {
       showResult('No track selected');
@@ -244,7 +286,7 @@
         <div class="min-w-0 flex-1">
           <h2 id="subtitle-add-title" class="text-[15px] font-medium text-vlc-text">Add subtitles</h2>
           <p class="mt-1 text-[12px] leading-5 text-vlc-muted">
-            Choose how to associate subtitle files. This build has no subtitle renderer; selections are stored as associations only.
+            Choose how to associate subtitle files. With native playback on, one file is loaded into the player. Otherwise selections are stored as associations only.
           </p>
         </div>
         <button
@@ -296,11 +338,22 @@
         {#if mode === 'file'}
           <div class="space-y-3">
             <p class="text-[12px] text-vlc-secondary">Pick a subtitle file for the current track.</p>
-            <label class="flex cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-vlc-borderStrong bg-vlc-card px-3 py-6 text-center text-[12px] text-vlc-secondary hover:border-vlc-orange/50 hover:text-vlc-text focus-within:ring-1 focus-within:ring-vlc-orange/50">
-              <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
-              <span>{fileChosen ? fileChosen.name : 'Choose .srt, .vtt, .ass, .ssa, .sub, .txt'}</span>
-              <input bind:this={fileInputEl} type="file" accept=".srt,.vtt,.ass,.ssa,.sub,.txt" class="sr-only" on:change={handleFileSelect} />
-            </label>
+            {#if $settings.nativePlayback && hasTauri()}
+              <button
+                type="button"
+                class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-vlc-borderStrong bg-vlc-card px-3 py-6 text-center text-[12px] text-vlc-secondary hover:border-vlc-orange/50 hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+                on:click={() => void chooseSubtitle()}
+              >
+                <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+                <span>{nativeSubtitlePath ? nativeSubtitlePath.split(/[/\\]/).pop() : 'Choose .srt, .vtt, .ass, .ssa, .sub, .txt'}</span>
+              </button>
+            {:else}
+              <label class="flex cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-vlc-borderStrong bg-vlc-card px-3 py-6 text-center text-[12px] text-vlc-secondary hover:border-vlc-orange/50 hover:text-vlc-text focus-within:ring-1 focus-within:ring-vlc-orange/50">
+                <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+                <span>{fileChosen ? fileChosen.name : 'Choose .srt, .vtt, .ass, .ssa, .sub, .txt'}</span>
+                <input bind:this={fileInputEl} type="file" accept=".srt,.vtt,.ass,.ssa,.sub,.txt" class="sr-only" on:change={handleFileSelect} />
+              </label>
+            {/if}
             {#if fileChosen}
               <p class="text-[11px] text-vlc-muted">Will be linked to: {track?.title ?? 'No track selected'}</p>
             {/if}
@@ -371,11 +424,11 @@
           type="button"
           class="h-8 rounded-control bg-vlc-orange px-3 text-[12px] font-medium text-black transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-panel disabled:cursor-not-allowed disabled:opacity-40"
           on:click={() => {
-            if (mode === 'file') addFile();
+            if (mode === 'file') void addFile();
             else if (mode === 'folder') addFolder();
             else addPlaylist();
           }}
-          disabled={mode === 'file' ? !fileChosen : false}
+          disabled={mode === 'file' ? !fileChosen && !nativeSubtitlePath : false}
         >
           Add
         </button>
