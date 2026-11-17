@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { Bookmark, ChevronDown, Settings as SettingsIcon, Trash2 } from 'lucide-svelte';
+  import { nativeSetSpu } from '../../lib/playerBackend';
   import { currentTrack } from '../../stores/player';
+  import { nativeSpuTrackState } from '../../stores/nativeTracks';
   import { settings } from '../../stores/settings';
   import { openSubtitleAdd } from '../../stores/subtitleAdd';
   import {
@@ -28,6 +30,28 @@
   import DockSlider from './DockSlider.svelte';
   import SubtitleTimeline from './SubtitleTimeline.svelte';
   import TogglePill from './TogglePill.svelte';
+
+  $: nativeSpuOptions = $settings.nativePlayback ? $nativeSpuTrackState.tracks : [];
+
+  let nativeSpuSelection = '';
+  let seenNativeSpuKey = '';
+
+  $: {
+    const key = nativeSpuOptions.map((track) => String(track.id)).join(',');
+    if (key !== seenNativeSpuKey) {
+      seenNativeSpuKey = key;
+      const current = $nativeSpuTrackState.current;
+      const match = nativeSpuOptions.find((track) => track.id === current);
+      nativeSpuSelection = String((match ?? nativeSpuOptions[0])?.id ?? '');
+    }
+  }
+
+  function handleNativeSpuChange(event: Event): void {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    nativeSpuSelection = value;
+    const id = Number(value);
+    if (Number.isInteger(id)) void nativeSetSpu(id);
+  }
 
   export let onAdvancedSettings: (category?: string) => void = () => {};
 
@@ -360,6 +384,29 @@
       <h3 class="text-[15px] leading-5 text-vlc-text">Defaults</h3>
 
       <div class="mt-4 space-y-3">
+        {#if nativeSpuOptions.length > 0}
+          <div class="flex items-center justify-between gap-3">
+            <span class="min-w-0 truncate text-[13px] text-vlc-secondary">Embedded track</span>
+            <div class="relative w-[148px] shrink-0">
+              <select
+                value={nativeSpuSelection}
+                aria-label="Native subtitle track"
+                class="h-[38px] w-full appearance-none rounded-[6px] border border-vlc-border/70 bg-vlc-app pl-3 pr-8 text-[13px] text-vlc-secondary outline-none transition-colors focus:border-vlc-orange/60 focus-visible:ring-2 focus-visible:ring-vlc-orange/40"
+                on:change={handleNativeSpuChange}
+              >
+                {#each nativeSpuOptions as track (track.id)}
+                  <option value={String(track.id)}>{track.name}</option>
+                {/each}
+              </select>
+              <ChevronDown
+                size={14}
+                strokeWidth={1.7}
+                class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-vlc-muted"
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+        {/if}
         <div class="flex items-center justify-between gap-3">
           <span class="min-w-0 truncate text-[13px] text-vlc-secondary">Subtitle Track</span>
           <input
