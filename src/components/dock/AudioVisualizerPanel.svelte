@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { getAudioAnalyser, isAudioAnalyserUsable } from '../../lib/audioAnalyser';
+  import { getAudioAnalyser, isVisualizerAnalyserLive } from '../../lib/audioAnalyser';
   import { t } from '../../lib/t';
 
   const BAR_COUNT = 40;
@@ -110,10 +110,10 @@
     ctx.fillRect(0, 0, width, height);
 
     const analyser = getAudioAnalyser();
-    // Real FFT while playback feeds usable data; synthetic sine bars before
-    // playback starts, without an analyser, or after the mute guard proved
-    // the analyser dead.
-    const useReal = Boolean(analyser && isAudioAnalyserUsable());
+    // Real FFT while HTML5 playback feeds a usable analyser, or while native
+    // PCM is actually arriving. Synthetic sine bars before playback, when the
+    // native tap is silent, or after the HTML5 mute guard proved it dead.
+    const useReal = Boolean(analyser && isVisualizerAnalyserLive());
 
     if (useReal && analyser) {
       if (freqData?.length !== analyser.frequencyBinCount) {

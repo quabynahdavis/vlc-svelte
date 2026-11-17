@@ -49,6 +49,8 @@ const NATIVE_PCM_HEADER_BYTES = 24;
 const NATIVE_PCM_MAX_LEAD_SEC = 0.12;
 /** First buffer after an underrun starts this far ahead of `currentTime`. */
 const NATIVE_PCM_START_LEAD_SEC = 0.04;
+/** No chunk for this long means the tap is silent and the panel may fall back. */
+const NATIVE_PCM_FLOW_MS = 250;
 
 let nativeActive = false;
 let nativePlaying = false;
@@ -60,6 +62,7 @@ let nativeEpoch = 0;
 let nativeNextTime = 0;
 let nativeGeneration = -1;
 let nativeScheduled: AudioBufferSourceNode[] = [];
+let lastNativeChunkAt = 0;
 
 function audioContextCtor(): typeof AudioContext | null {
   return (
@@ -154,6 +157,19 @@ export function getAudioAnalyser(): AnalyserNode | null {
 /** True when the mute guard has proven the analyser reports only zeros. */
 export function isAudioAnalyserUsable(): boolean {
   return analyser !== null && !analyserUnusable;
+}
+
+/**
+ * Whether the dock visualizer should read the analyser.
+ * Native mode uses real bars only while PCM chunks are arriving. Otherwise
+ * the HTML5 mute-guard result stands, and a silent tap stays on the
+ * synthetic bars.
+ */
+export function isVisualizerAnalyserLive(): boolean {
+  if (nativeActive) {
+    return lastNativeChunkAt > 0 && performance.now() - lastNativeChunkAt < NATIVE_PCM_FLOW_MS;
+  }
+  return isAudioAnalyserUsable();
 }
 
 /**
@@ -293,6 +309,7 @@ function scheduleNativePcm(samples: Float32Array, frames: number, rate: number):
   node.start(nativeNextTime);
   nativeNextTime += frames / rate;
   nativeScheduled.push(node);
+  lastNativeChunkAt = performance.now();
 }
 
 function parseNativePcm(buffer: ArrayBuffer): {
@@ -412,6 +429,7 @@ export function stopNativePcmPlayback(): void {
   nativeEpoch += 1;
   nativeFetchInFlight = false;
   nativeGeneration = -1;
+  lastNativeChunkAt = 0;
   if (nativeRaf) {
     cancelAnimationFrame(nativeRaf);
     nativeRaf = 0;
