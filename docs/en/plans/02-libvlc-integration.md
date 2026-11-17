@@ -1,6 +1,6 @@
 # libvlc Integration Plan
 
-**Status**: Phase 3 seam landed (network MRLs, end/error events, audio and subtitle track switching, external subtitle load). Phase 2 is decided: native video stays on the canvas frame pump (960 px wide, even dimensions, RV32, latest frame wins, DOM overlays stay). A native window is a later mode, only if a real file is unwatchable in the app. Equalizer mapping, the >125% soft-clip, the PCM visualizer, and packaging are not started.
+**Status**: Phase 3 seam landed (network MRLs, end/error events, audio and subtitle track switching, external subtitle load). The >125% soft-clip and the PCM visualizer are in: one libvlc audio callback feeds both. Phase 2 is decided: native video stays on the canvas frame pump (960 px wide, even dimensions, RV32, latest frame wins, DOM overlays stay). A native window is a later mode, only if a real file is unwatchable in the app. Equalizer mapping and packaging are not started.
 **Target**: All platforms (Linux, macOS, Windows), feature-flagged and off by default
 **Backend**: `libvlc` 3.x via the `vlc` crate (vlc-rs) inside `src-tauri/src/player.rs`
 
@@ -59,7 +59,7 @@ Fourteen commands, all compiled in both builds so the frontend contract is stabl
 | `player_toggle` | `() -> bool` | Play/pause toggle, answering the new is-playing state. |
 | `player_stop` | `() -> ok` | Stops and releases the media (called on track change and teardown). |
 | `player_seek` | `(seconds: f64) -> ok` | Absolute time seek; libvlc handles keyframe snap internally. |
-| `player_set_volume` | `(percent: i32) -> ok` | Percent volume clamped 0–200 native-side; see §4 for the >125% gap. |
+| `player_set_volume` | `(percent: i32) -> ok` | 0–200. libvlc is held at 125; the PCM tap soft-clips the rest. See §4. |
 | `player_position` | `() -> (time, length)` | Current position poll in **seconds**. Length falls back from the media to the player, and is `0` when unknown (live streams). |
 | `player_audio_tracks` | `() -> { tracks, current }` | Audio elementary streams once the input has opened them. Empty when nothing is loaded. |
 | `player_set_audio_track` | `(id) -> ok` | Select an audio track by libvlc id. |
@@ -167,25 +167,44 @@ mp.set_video_callbacks(
 
 ## 4. Audio Path
 
-The native backend bypasses the entire Web Audio chain — the `<video>` element no longer exists, so `createMediaElementSource` has nothing to attach to.
+The native backend does not play through the `<video>` element. `libvlc_audio_set_callbacks` replaces the normal audio output, so the samples are silent unless something else plays them. One play callback fills a ring. The webview plays that PCM, and the same chunks are what the dock visualizer hears.
+
+Phase 1 shipped the 125% cap and the synthetic bars. Both are replaced by the behavior below. The canvas frame pump is unchanged.
+
+### What the callback receives
+
+libvlc 3.0.24's `amem` module is the output behind these callbacks. Two facts about it decided the code:
+
+- **Sample format.** `amem` only accepts `S16N`. Asking for `FL32` makes `Start()` fail, and native playback goes silent. The setup callback requests stereo, 48 kHz, `S16N`. The play callback converts those samples to float as it copies them. The webview only sees float PCM.
+- **Volume is post-volume.** There is no `libvlc_audio_set_volume_callback`, so amem uses its software volume (`SoftVolumeSet` / `SoftMuteSet`). That cubes the linear gain — `(percent / 100)³` — and amplifies the PCM *before* `play`. 100% cubes to 1, so unity is unchanged. The callback does not receive pre-volume samples.
+
+`SoftVolumeSet` itself does not stop at 125. This app still holds the libvlc call at 125, which is the cap Phase 1 hit on the normal output. The tap applies everything above that.
+
+Because the amplifier runs on s16, a 125% setting (about 1.95× after the cube) can already hard-clip inside int16. The tanh stage only softens what is left.
 
 ### Volume
 
-The store's 0–200% volume maps to `player_set_volume(0..200)`, but `libvlc_audio_set_volume` caps at **125%** on the native side. Options, in preference order:
+The UI stays 0–200.
 
-1. **Soft-clip gain above 125%**: register an audio callback (`set_audio_callbacks`), apply `gain = vol/125` in the PCM tap ourselves, and normalize through `libvlc_audio_set_volume` up to 125 only. Adds a copy through the callback path and clip risk at extreme settings.
-2. **Accept a 125% cap in native mode** and surface the difference honestly in the volume HUD (simplest, no audio-quality risk). The 200% capability remains an HTML5-mode feature.
+| UI percent | `libvlc_audio_set_volume` | Tap, before the chunk is played |
+| --- | --- | --- |
+| 0, or mute | 0 | Silence. The Web Audio gain is also 0, so chunks already queued go silent immediately. |
+| 1–125 | That same percent | Gain 1. Samples pass through, so 100% stays unity. |
+| 126–200 | 125 | Gain `percent / 125`, then `tanh`. Not a hard clamp to ±1. |
 
-Decide during Phase 1 based on how loud users actually need native mode to be; option 2 is the Phase 1 default, option 1 is a Phase 3 refinement.
+0–125 follow libvlc's cubic curve, not the HTML5 linear `GainNode`. 50% is much quieter in native mode than in the webview player. 100% matches.
 
-### Visualizer
+### PCM path and the visualizer
 
-The `AnalyserNode` loses its media-element source in native mode. Replacement options:
+The play callback only copies into a ring sized ahead of time (~171 ms of stereo 48 kHz). It does not call libvlc or Tauri, and it does not allocate. If the webview falls behind, the oldest unread samples are dropped. Each callback body is wrapped so a panic cannot unwind across FFI.
 
-- **PCM tap → Web Audio**: the same `set_audio_callbacks` tap posts interleaved float PCM to the webview, where it feeds an `AudioWorklet`/`AnalyserNode` fed by a script-processed source. Preserves the existing visualizer panel untouched but adds continuous audio IPC (a modest, stereo-48kHz-sized stream — far cheaper than video frames).
-- **HTML5-only visualizer initially**: in native mode the dock panel shows the synthetic fallback bars it already uses when the analyser is unusable. Zero new code; ship this in Phase 1.
+`vlcaudio://localhost/pcm` serves at most ~20 ms per poll: `[seq u64][generation u32][rate u32][channels u32][frames u32][interleaved f32 LE]`. No chunk answers `204`. The player polls from `requestAnimationFrame`, one fetch at a time, and skips the poll while more than ~120 ms is already scheduled.
 
-Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
+Those chunks play through the existing graph: `GainNode` → `AnalyserNode` → destination. The gain node is only the mute and 0% switch. HTML5 playback still uses `createMediaElementSource` on the media element. Native mode clears that element's `src`, so it does not also play.
+
+`AudioVisualizerPanel` is the same panel. While native mode is on and a chunk has arrived in the last 250 ms, it reads that analyser. Synthetic bars remain when the tap is silent or native mode is off.
+
+Track changes, seek, pause, stop, and leaving native mode flush the ring (the generation counter bumps) and drop buffers the webview had already scheduled.
 
 ---
 
@@ -195,7 +214,7 @@ Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
 | --- | --- | --- | --- |
 | Play / pause / toggle | `<video>` events | `player_play` / `player_pause` / `player_toggle` | None — store routes through the seam |
 | Seek | `currentTime` | `player_seek(seconds)` + `player_position` poll | Poll cadence replaces `timeupdate`; same store shape |
-| Volume 0–200% | Web Audio `GainNode` | `player_set_volume`, native cap 125% | §4 decision; HUD must reflect the active cap |
+| Volume 0–200% | Web Audio `GainNode` (linear) | libvlc 0–125 (cubic, post-volume), tap gain + `tanh` above 125 | Shipped. 100% is unity. 0–125 are not the HTML5 curve. See §4 |
 | Mute | `video.muted` / gain 0 | volume 0 via command | None |
 | Playback rate | `playbackRate` | `libvlc_media_player_set_rate` | Add to the seam when rate control ships |
 | Fullscreen | DOM fullscreen on the stage shell | Same — surface is a DOM element (approach b); native fullscreen only under approach (a) | None under (b) |
@@ -238,7 +257,7 @@ Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
 | Video formats | h264 mp4, hevc mkv (the HW-decode win), av1 webm/mkv |
 | Network | http progressive file, rtsp stream, hls playlist; stream error handling (unreachable host) |
 | Subtitles | external .srt via add_slave, embedded subtitle track switch |
-| Volume | 0%, 50%, 125% (native cap), 200% request (cap or soft-clip per §4 decision), mute |
+| Volume | 0%, 50%, 100% (unity), 125% (libvlc cap, no extra tap gain), 200% (gain 200/125 then tanh), mute |
 | Seek accuracy | audio (sample-accurate-ish), video keyframe, seek while paused, seek near EOF |
 | Track switching | multi-audio mkv; switch while playing without restart |
 | Lifecycle | track change releases previous media; stop then load; app quit mid-playback; native→html5 toggle mid-session |
@@ -263,7 +282,7 @@ Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
 | Callback-thread panics — libvlc invokes callbacks on its own threads; unwinding across FFI is UB | High | Every callback body wrapped in `catch_unwind` + logged, never let a panic escape; all shared state behind `Mutex`/atomics, no re-entrancy into the Tauri runtime from callback threads (emit via channels instead). |
 | Frame-pump performance (§3b) | Medium | Latest-frame-wins, never queue; width capped at 960 px, RV32. The copy measured ~2.53 ms/frame release; the ~14 fps 1080p run was software decode. The old CPU gate does not pivot to a native window. Revisit embedding only if a real file is unwatchable; hardware decode and 4K are that reason. |
 | DPR / color-space mismatch between decoded frames and the webview canvas | Medium | Negotiate the pixel format explicitly via `set_video_format`; render the canvas backing store at device pixel ratio; test on both 1x and 2x displays. |
-| Two code paths forever — every player feature needs HTML5 + native implementations | Medium | The store (`src/stores/player.ts`) stays the single source of truth; the seam is the only place that branches. Features that cannot be provided natively degrade explicitly (§4 visualizer, §5 volume cap) rather than silently diverging. HTML5 remains the default so the native path cannot regress the shipped experience. |
+| Two code paths forever — every player feature needs HTML5 + native implementations | Medium | The store (`src/stores/player.ts`) stays the single source of truth; the seam is the only place that branches. Volume and the dock visualizer now share the PCM tap (§4). The equalizer still does not run on the native player. HTML5 remains the default so the native path cannot regress the shipped experience. |
 | LGPL bundling scope if plugins ship (Phase 4) | Low | Plugin set review before packaging; the LICENSES boundary is already documented. |
 
 ---
@@ -275,7 +294,7 @@ Phase 1 ships the second option; the PCM tap is a Phase 3 item only if wanted.
 | **0 — Scaffold** (done, verified) | Feature flag, `player.rs` with a real audio-only native half, nine commands, `player_probe` contract, TS seam. Verified against the dev machine's libvlc 3.0.24: `cargo check --features libvlc` compiles clean and a temporary runtime test played a real mp3 (playhead advanced, duration parsed, toggle/volume/stop all correct) | small | §7 Phase 0 criteria; default build unchanged |
 | **1 — Audio-only native** (done) | `nativePlayback` settings toggle (Settings → Playback, default off) + PlayerView native routing: `player_load` per audio track, 250 ms `player_position` poll drives the store clock, store-drift detection pushes user seeks into libvlc, end-of-track → next (repeat-one reloads in place), volume/mute mirrored at the native ~125% cap, teardown on mode flip/video switch/unmount, element carries no media in native mode (no double audio), fail-safe toggle-off if libvlc refuses a track. Visualizer stays HTML5-only | medium | §7 Phase 1 criteria; a user can play an mp3 natively with the toggle on and nothing changes with it off |
 | **2 — Video surface** (decided: canvas frame pump) | Approach (b) stays. Local video files route native when `nativePlayback` is on; libvlc video callbacks (RV32, width capped at 960 px, even dimensions) publish the latest frame through a process-global buffer; a `vlcframe://` custom URI scheme protocol serves self-describing frames `[seq u64 LE][width u32 LE][height u32 LE][rgba…]` (204 = no live frame); the frontend rAF loop fetches and paints a `<canvas>` with seq-skip. Transport, hover chrome, docks, and the subtitle UI stay as DOM overlays. A native window (`set_xwindow` / `set_hwnd` / `set_nsobject`) is a later mode, only if a real file is unwatchable in the app. | large | §3 decision. Lab numbers below: pump ~2.53 ms/frame release; 1080p sample decode-bound at ~14 fps |
-| **3 — Subtitles, network, events** (seam done; optional items not started) | `player_load` accepts network MRLs and the player routes them when the toggle is on; `player://event` (`ended` / `error`) drives next-episode, with the position poll kept as a fallback for files that have a length; audio and subtitle tracks can be listed and selected; one external subtitle file can be added from the subtitle dialog and is selected by libvlc. Not in this slice: equalizer (band map unspecified), >125% soft-clip, PCM-tap visualizer | medium | §7 Phase 3 criteria for RTSP/HLS, track switching, and the end event. Equalizer and the two optional audio items remain |
+| **3 — Subtitles, network, events** (seam done; volume and visualizer done) | `player_load` accepts network MRLs and the player routes them when the toggle is on; `player://event` (`ended` / `error`) drives next-episode, with the position poll kept as a fallback for files that have a length; audio and subtitle tracks can be listed and selected; one external subtitle file can be added from the subtitle dialog and is selected by libvlc. The audio callback also covers 0–200% volume and the dock visualizer (§4). Not in this slice: equalizer (band map unspecified) | medium | §7 Phase 3 criteria for RTSP/HLS, track switching, and the end event. Equalizer remains |
 | **4 — Packaging** | Windows DLL+plugins bundling, macOS framework, Linux bundling-or-doc decision, plugin license review, clean-machine acceptance on all three OSes | medium–large | §7 Phase 4 criteria |
 
 Phases 2 and 3 were independent enough to interleave. The video surface is the canvas frame pump; network streams that need a picture use it, and audio streams need no surface.
@@ -285,7 +304,7 @@ Phases 2 and 3 were independent enough to interleave. The video surface is the c
 - **libvlc 3.0 API discovery**: `libvlc_media_player_set_video_callbacks` does not exist in 3.0.24 — that name is VLC 4 (verified against `/usr/include/vlc/libvlc_media_player.h` and `nm -D /usr/lib/libvlc.so`). The 3.0-era installer `libvlc_video_set_callbacks(mp, lock, unlock, display, opaque)` is used instead, declared locally because vlc-rs 0.1.0 does not export it and its `libvlc_video_lock_cb` alias mis-types the `planes` parameter (`*mut c_void` vs the header's `void **`).
 - **Temp-test measurements** (test added, run, then removed — same pattern as Phase 0): source `/home/davisville/Videos/Swife Demo.mp4` (1080p → capped 960×544), 2,088,960 bytes/frame; display-callback swizzle+publish cost **2.53 ms/frame release** (pump ceiling ≈ 395 fps) vs **13.09 ms debug**; the rework from a byte-loop to `as_chunks::<4>` + a pre-sized published buffer was a **4.4×** improvement (57.6 ms → 13.09 ms debug).
 - **Wall fps is decode-bound, not pump-bound** on the dev box: avcodec logged "more than 5 seconds of late video -> dropping frame (computer too slow ?)" — software decode of the 1080p file cannot sustain real time, so displayed fps tracked the decoder (27.5 fps debug / 13.8 release runs), NOT the pump. The copy is cheap (~2.53 ms/frame release). That is why the old gate (smooth 1080p30 at <25% of one core, or pivot to embedding) is closed: the slow run was software decode, and embedding would drop the DOM overlays this shell exists to keep. Hardware decode and 4K remain the reason a native window could be revisited later.
-- **Known prototype gaps** that Phase 3 did not close: hover preview dead in native mode (it sources from the emptied element), dock visualizer on synthetic fallback bars, volume still ≈125% native-side. Network streams now route native when the toggle is on (see below). Subtitles in native mode are libvlc SPU blended into the frame, not the dock's profile styles.
+- **Known prototype gaps** that Phase 3 did not close, and that the audio tap also does not close: hover preview is dead in native mode (it sources from the emptied element). The dock visualizer and the >125% volume cap were closed later by the PCM tap (§4). Network streams route native when the toggle is on (see below). Subtitles in native mode are libvlc SPU blended into the frame, not the dock's profile styles.
 
 ### Phase 3 outcome
 
@@ -293,8 +312,8 @@ Phases 2 and 3 were independent enough to interleave. The video surface is the c
 - **End and error events.** libvlc's `MediaPlayerEndReached` and `MediaPlayerEncounteredError` callbacks only enqueue a `{ kind, generation }` notice. A process thread emits `player://event`. The callback never calls libvlc or Tauri. `stop()` and the start of `load()` suppress events so libvlc's stop-triggered end does not advance the queue. The webview ignores a notice whose generation is not the one `player_load` just returned. Repeat-one reloads in place; any other end calls `next()`. An error notice turns the native toggle off for the session by writing the setting back to false and shows a one-line stage notice. The 250 ms poll still seeks and clocks the store, and still advances when `length > 0` and time is within 150 ms of the end, in case the event is missed. Live streams (`length == 0`) advance only from the event.
 - **Tracks and external subtitles.** `player_audio_tracks` / `player_spu_tracks` copy libvlc's track-description list (capped at 64) and the current id. The audio dock and the subtitle dock show those lists only while the native toggle is on and the list is non-empty; the HTML5 mock options and the subtitle profile fields stay in place otherwise. Choosing an entry calls `player_set_audio_track` or `player_set_spu`. With the toggle on, the subtitle dialog's file picker is the native open dialog and `player_add_subtitle` turns the path into a `file://` URI (`libvlc_media_slave_type_subtitle`, select = true). libvlc documents that callback output blends sub-pictures on the CPU, so the selected subtitle is painted into the `vlcframe://` picture. Folder and playlist association in that dialog still store no filesystem paths.
 - **Phase 2 decision (2026-11-17).** Native video stays on the canvas frame pump: 960 px wide, even dimensions, RV32, latest frame wins, DOM overlays stay. The old gate (smooth 1080p30 at <25% of one core, or pivot to embedding) is closed. A native window (`set_xwindow` / `set_hwnd` / `set_nsobject`) is a later mode, only if a real file is unwatchable in the app. It is not the next slice. See §3.
+- **Volume and the visualizer.** Shipped on the audio callback described in §4. PCM is post-volume. libvlc is held at 125 (its amem software gain is cubic, so 100% is unity and 50% is quieter than HTML5). Above 125 the tap applies `percent / 125` and `tanh`. The format on the wire from libvlc is `S16N`, because 3.0.24 amem rejects `FL32`; the ring stores float. `vlcaudio://` chunks play through `GainNode` → `AnalyserNode` → destination. The dock panel uses that analyser while chunks are arriving and keeps the synthetic bars when the tap is silent. The `<video>` element stays empty in native mode. The canvas frame pump was not changed.
 - **Left unfinished on purpose.**
-  - The >125% soft-clip and the PCM-tap visualizer are the optional Phase 3 items. Phase 1's 125% cap and the synthetic visualizer bars stay.
   - The equalizer UI (preamp plus 60/170/310/600/1k/3k/6k/12k/14k/16k) does not match libvlc's own band frequencies. No mapping was specified, so nothing is applied on the native player.
   - Subtitle profile fonts and colours are still not painted. Native subtitles use libvlc's own SPU look.
   - Phase 4 packaging is untouched. It needs a bundling decision plus Windows and macOS libvlc binaries that are not on this machine.

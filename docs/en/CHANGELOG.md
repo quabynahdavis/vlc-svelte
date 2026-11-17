@@ -4,6 +4,12 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-17
 
+### Added — native volume above 125% and a real PCM visualizer
+
+- Native playback takes audio from one libvlc callback. The samples are post-volume `S16N` (libvlc 3.0.24's memory output rejects `FL32` and cubes software gain, so 100% stays unity). libvlc is held at 125. Above that, the tap applies `percent / 125` and a `tanh` soft clip. 0% and mute are silent.
+- `vlcaudio://` serves short float chunks. The webview plays them through GainNode → AnalyserNode → destination, the same analyser the dock visualizer already reads. Synthetic bars remain when that tap is silent or native mode is off. The `<video>` element stays empty in native mode. The canvas frame pump is unchanged.
+- Recorded in [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md) §4. This closes the two optional audio items the Phase 3 note below had left open.
+
 ### Decided — native video stays on the canvas frame pump
 
 - Phase 2 keeps the shipped canvas frame pump: 960 px wide, even dimensions, RV32, latest frame wins, and DOM overlays (transport, hover chrome, docks, subtitle UI) stay. The old gate — smooth 1080p30 at <25% of one core, or pivot to a native window — is closed. The copy measured about 2.53 ms/frame in release; the 1080p sample was software-decode bound at about 14 fps. A native window (`set_xwindow` / `set_hwnd` / `set_nsobject`) is a later mode, only if a real file is unwatchable in the app. Hardware decode and 4K are the reason to revisit it. Recorded in [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md).
