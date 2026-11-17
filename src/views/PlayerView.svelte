@@ -36,6 +36,7 @@
     nativePlay,
     nativePosition,
     nativeSeek,
+    nativeSetEqualizer,
     nativeSetVolume,
     nativeSpuTracks,
     nativeStop,
@@ -122,6 +123,8 @@
   let nativeEndedFiredFor = '';
   /** Set once the backend probe resolves; gates the native reactive paths. */
   let nativeMounted = false;
+  /** Last equalizer curve pushed to libvlc, so unrelated settings writes do not re-send it. */
+  let nativeEqSignature = '';
 
   $: videoSrc = $currentTrack?.src ?? src;
   $: hasMedia = Boolean(videoSrc);
@@ -181,6 +184,8 @@
   $: if (nativeRoutingActive && nativeTarget) void syncNativeTrack(nativeTarget.location, $player.isPlaying);
   // Store -> libvlc: mirror volume and mute.
   $: if (nativeRoutingActive) void syncNativeVolume($player.volume, $player.muted);
+  // Store -> libvlc: preamp + the ten ISO bands, or a bypass when the toggle is off.
+  $: if (nativeRoutingActive) void syncNativeEqualizer($settings.equalizer, $settings.eqGains);
 
   // Leaving native mode (toggle off, network track): release libvlc so
   // it never plays on top of the webview element, and stop the poll.
@@ -398,6 +403,8 @@
     // per load (the volume watcher only fires on volume/mute changes).
     const state = get(player);
     await syncNativeVolume(state.volume, state.muted);
+    const audio = get(settings);
+    await syncNativeEqualizer(audio.equalizer, audio.eqGains, true);
 
     startNativePoll();
   }
@@ -414,6 +421,27 @@
     if (!nativeLoadedId) return;
 
     await nativeSetVolume(muted ? 0 : Math.round(clamp(volume, 0, 200)));
+  }
+
+  function equalizerSignature(enabled: boolean, gains: number[]): string {
+    const preamp = gains[0] ?? 0;
+    const bands = [];
+    for (let index = 1; index <= 10; index += 1) bands.push(gains[index] ?? 0);
+    return `${enabled ? 1 : 0}|${preamp}|${bands.join(',')}`;
+  }
+
+  /**
+   * Mirror the equalizer toggle and faders into libvlc. Off is a bypass.
+   * HTML5 ignores this; the sliders still persist either way.
+   */
+  async function syncNativeEqualizer(enabled: boolean, gains: number[], force = false): Promise<void> {
+    const signature = equalizerSignature(enabled, gains);
+    if (!force && signature === nativeEqSignature) return;
+    nativeEqSignature = signature;
+    const preamp = gains[0] ?? 0;
+    const bands = [];
+    for (let index = 1; index <= 10; index += 1) bands.push(gains[index] ?? 0);
+    await nativeSetEqualizer(enabled, preamp, bands);
   }
 
   /**

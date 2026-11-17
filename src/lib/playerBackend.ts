@@ -104,6 +104,18 @@ export async function nativeSetVolume(percent: number): Promise<void | null> {
 	return invokeCommand<null>('player_set_volume', { percent });
 }
 
+/**
+ * Apply the ten ISO band gains plus preamp, or bypass the equalizer.
+ * `bands` length must be 10 (31.25 Hz through 16 kHz).
+ */
+export async function nativeSetEqualizer(
+	enabled: boolean,
+	preamp: number,
+	bands: number[],
+): Promise<void | null> {
+	return invokeCommand<null>('player_set_equalizer', { enabled, preamp, bands });
+}
+
 /** Current `(time, length)` of the loaded media, in seconds. */
 export async function nativePosition(): Promise<[number, number] | null> {
 	return invokeCommand<[number, number]>('player_position');

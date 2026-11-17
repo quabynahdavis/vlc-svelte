@@ -21,6 +21,7 @@
 //! - `player_stop`       (tears the native player down)
 //! - `player_seek`       (absolute position, seconds)
 //! - `player_set_volume` (0–200 percent, clamped by a pure helper)
+//! - `player_set_equalizer` (preamp + 10 ISO band gains, or off)
 //! - `player_position`   -> `(time, length)` seconds; vlc-rs reports ms
 //!
 //! Frame surface (Phase 2):
@@ -114,6 +115,19 @@ pub fn shape_native_sample(sample: f32, gain: f32) -> f32 {
         return sample;
     }
     (sample * gain).tanh()
+}
+
+/// libvlc 3.0.24 `libvlc_audio_equalizer_get_band_count`.
+pub const NATIVE_EQ_BANDS: usize = 10;
+
+/// Clamp one equalizer fader to libvlc's −20..+20 dB range.
+/// Non-finite values become 0 dB, which adds nothing on that band.
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+pub fn clamp_eq_db(value: f64) -> f32 {
+    if !value.is_finite() {
+        return 0.0;
+    }
+    value.clamp(-20.0, 20.0) as f32
 }
 
 /// Where a `player_load` / subtitle argument should be opened.
@@ -1240,6 +1254,11 @@ mod native {
             return Err("libvlc failed to start playback".to_string());
         }
 
+        // Apply before publishing so the first samples already carry the
+        // curve, then once more after the slot is visible in case a command
+        // arrived while this load still held no player.
+        let _ = apply_equalizer(&media_player, current_eq());
+
         *PLAYER
             .lock()
             .map_err(|_| "player mutex poisoned".to_string())? = Some(NativePlayer {
@@ -1248,6 +1267,13 @@ mod native {
             media,
             generation_slot,
         });
+        if let Some(player) = PLAYER
+            .lock()
+            .map_err(|_| "player mutex poisoned".to_string())?
+            .as_ref()
+        {
+            let _ = apply_equalizer(&player.media_player, current_eq());
+        }
         Ok(generation)
     }
 
@@ -1383,6 +1409,99 @@ mod native {
             Err("libvlc rejected the subtitle".to_string())
         }
     }
+
+    /// Last equalizer the UI asked for. `enabled: false` is a real bypass
+    /// (`set_equalizer(NULL)`), which is unity. A preamp of +12 dB with every
+    /// band at 0 is also unity: this libvlc build multiplies the input by
+    /// `EQZ_IN_FACTOR` (0.25) and the +12 dB preamp undoes it. Band 0 dB
+    /// contributes nothing. Measured on callback PCM with libvlc 3.0.24.
+    #[derive(Clone, Copy)]
+    struct EqRequest {
+        enabled: bool,
+        preamp: f32,
+        bands: [f32; super::NATIVE_EQ_BANDS],
+    }
+
+    static EQ_REQUEST: Mutex<EqRequest> = Mutex::new(EqRequest {
+        enabled: false,
+        preamp: 12.0,
+        bands: [0.0; super::NATIVE_EQ_BANDS],
+    });
+
+    fn current_eq() -> EqRequest {
+        *EQ_REQUEST.lock().unwrap_or_else(|err| err.into_inner())
+    }
+
+    fn store_eq(request: EqRequest) {
+        *EQ_REQUEST.lock().unwrap_or_else(|err| err.into_inner()) = request;
+    }
+
+    fn apply_equalizer(player: &MediaPlayer, request: EqRequest) -> Result<(), String> {
+        unsafe {
+            if !request.enabled {
+                let rc = ffi::libvlc_media_player_set_equalizer(player.ptr, std::ptr::null_mut());
+                return if rc == 0 {
+                    Ok(())
+                } else {
+                    Err("libvlc rejected the equalizer".to_string())
+                };
+            }
+            let count = ffi::libvlc_audio_equalizer_get_band_count();
+            if count != super::NATIVE_EQ_BANDS as u32 {
+                return Err(format!(
+                    "libvlc equalizer has {count} bands, expected {}",
+                    super::NATIVE_EQ_BANDS
+                ));
+            }
+            let eq = ffi::libvlc_audio_equalizer_new();
+            if eq.is_null() {
+                return Err("libvlc equalizer init failed".to_string());
+            }
+            let preamp = ffi::libvlc_audio_equalizer_set_preamp(eq, request.preamp);
+            let mut bands_ok = true;
+            for (index, gain) in request.bands.iter().enumerate() {
+                if ffi::libvlc_audio_equalizer_set_amp_at_index(eq, *gain, index as u32) != 0 {
+                    bands_ok = false;
+                }
+            }
+            let set = ffi::libvlc_media_player_set_equalizer(player.ptr, eq);
+            // The player does not keep the handle.
+            ffi::libvlc_audio_equalizer_release(eq);
+            if preamp == 0 && bands_ok && set == 0 {
+                Ok(())
+            } else {
+                Err("libvlc rejected the equalizer".to_string())
+            }
+        }
+    }
+
+    pub fn set_equalizer(enabled: bool, preamp: f64, bands: &[f64]) -> Result<(), String> {
+        if bands.len() != super::NATIVE_EQ_BANDS {
+            return Err(format!(
+                "equalizer expects {} bands",
+                super::NATIVE_EQ_BANDS
+            ));
+        }
+        let mut stored = [0.0f32; super::NATIVE_EQ_BANDS];
+        for (index, gain) in bands.iter().enumerate() {
+            stored[index] = super::clamp_eq_db(*gain);
+        }
+        let request = EqRequest {
+            enabled,
+            preamp: super::clamp_eq_db(preamp),
+            bands: stored,
+        };
+        // Publish the curve before touching the player so `load` cannot
+        // miss an update that arrived while the previous player was down.
+        store_eq(request);
+        let guard = PLAYER
+            .lock()
+            .map_err(|_| "player mutex poisoned".to_string())?;
+        let Some(player) = guard.as_ref() else {
+            return Ok(());
+        };
+        apply_equalizer(&player.media_player, request)
+    }
 }
 
 /// Stub half: identical signatures, so the command surface (and the
@@ -1445,6 +1564,16 @@ mod native {
         Err(unavailable())
     }
 
+    pub fn set_equalizer(_enabled: bool, _preamp: f64, bands: &[f64]) -> Result<(), String> {
+        if bands.len() != super::NATIVE_EQ_BANDS {
+            return Err(format!(
+                "equalizer expects {} bands",
+                super::NATIVE_EQ_BANDS
+            ));
+        }
+        Err(unavailable())
+    }
+
     pub fn position() -> Result<(f64, f64), String> {
         Err(unavailable())
     }
@@ -1495,6 +1624,17 @@ pub fn player_seek(seconds: f64) -> Result<(), String> {
 #[tauri::command]
 pub fn player_set_volume(percent: i32) -> Result<(), String> {
     native::set_volume(percent)
+}
+
+/// Apply or bypass the libvlc equalizer.
+///
+/// `bands` is the ten ISO centres (31.25 Hz … 16 kHz). `preamp` is separate.
+/// `enabled` false calls `libvlc_media_player_set_equalizer(NULL)`, which
+/// leaves callback PCM untouched. With the filter on, band 0 dB adds nothing
+/// and a preamp of +12 dB is unity on libvlc 3.0.24.
+#[tauri::command]
+pub fn player_set_equalizer(enabled: bool, preamp: f64, bands: Vec<f64>) -> Result<(), String> {
+    native::set_equalizer(enabled, preamp, &bands)
 }
 
 /// Current `(time, length)` in seconds. Async so the mutex/lock roundtrip
@@ -1575,6 +1715,18 @@ mod tests {
         assert_eq!(native_pcm_gain(50, true), 0.0);
         let boost = native_pcm_gain(200, false);
         assert!((boost - (200.0 / 125.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn equalizer_db_clamps_to_libvlc_range() {
+        assert_eq!(clamp_eq_db(0.0), 0.0);
+        assert_eq!(clamp_eq_db(12.0), 12.0);
+        assert_eq!(clamp_eq_db(-20.0), -20.0);
+        assert_eq!(clamp_eq_db(20.0), 20.0);
+        assert_eq!(clamp_eq_db(40.0), 20.0);
+        assert_eq!(clamp_eq_db(-40.0), -20.0);
+        assert_eq!(clamp_eq_db(f64::NAN), 0.0);
+        assert_eq!(NATIVE_EQ_BANDS, 10);
     }
 
     #[test]

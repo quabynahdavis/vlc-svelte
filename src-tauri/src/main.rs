@@ -119,6 +119,7 @@ fn main() {
             player::player_stop,
             player::player_seek,
             player::player_set_volume,
+            player::player_set_equalizer,
             player::player_position,
             player::player_audio_tracks,
             player::player_set_audio_track,
