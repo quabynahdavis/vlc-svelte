@@ -4,6 +4,11 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-17
 
+### Changed — libvlc is the default playback engine
+
+- Video and music play through libvlc when the desktop build includes it. The webview `<video>` player is optional (Settings → Playback → Webview player, `html5Playback`, default off). A build without libvlc stays on that player and does not offer a native switch. A saved `nativePlayback: false` from the previous default is not kept as a choice to stay on the webview player.
+- Recorded in [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md). The plans index and [OVERVIEW.md](OVERVIEW.md) match.
+
 ### Changed — Playlists page drills in like Music and Videos
 
 - The Playlists page no longer keeps a playlist sidebar beside the tracks. The root lists the user's playlists on one surface (toolbar, grid/list/compact, pinned section). Opening a playlist replaces that list with its tracks or an empty playlist; back or the breadcrumb returns to the list.

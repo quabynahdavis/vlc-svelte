@@ -1,18 +1,20 @@
 //! Feature-flagged native media backend (libvlc) behind a stable IPC seam.
 //!
-//! Playback in the shell is currently HTML5: TransportBar/PlayerView drive
-//! webview `<audio>` / `<video>` elements. Phase 1 wired libvlc into the
-//! AUDIO path; Phase 2 (this module's frame pump) adds the video-surface
-//! PROTOTYPE: libvlc's video callbacks copy frames into a process-global
+//! libvlc is the default engine. The `libvlc` Cargo feature is on by
+//! default, so `cargo build` and `tauri dev` link it. The webview `<video>`
+//! player is the fallback: `cargo check --no-default-features` builds that
+//! binary with no libvlc linked, and `player_probe` returns `"html5"`.
+//! The frontend also uses the webview player when the user opts in.
+//!
+//! Video frames: libvlc's video callbacks copy frames into a process-global
 //! buffer, a `vlcframe://` custom URI scheme serves them to the webview, and
 //! the frontend paints them onto a `<canvas>`. This is deliberately NOT
-//! native window embedding (no `libvlc_media_player_set_xwindow`); it exists
-//! to be measured before any rendering decision is finalised.
+//! native window embedding (no `libvlc_media_player_set_xwindow`).
 //!
 //! Every command below exists in both builds so the frontend contract never
-//! changes, but the native half only compiles with `--features libvlc`,
-//! which requires system libvlc 3.x dev packages. The default build stays
-//! on HTML5 and the commands answer with a descriptive error instead.
+//! changes. The native half compiles with the `libvlc` feature, which
+//! requires system libvlc 3.x dev packages. Without that feature the
+//! commands answer with a descriptive error instead.
 //!
 //! Command surface (all registered in `main.rs`):
 //! - `player_probe`      -> `"html5"` | `"native"` — which half was compiled
@@ -39,12 +41,12 @@
 #[derive(serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Backend {
-    // Only constructed in the HTML5 (default) build; kept in both so the
-    // serialized "html5" value is part of the stable IPC contract.
+    // Only constructed when the `libvlc` feature is off (`--no-default-features`).
+    // Kept in both builds so the serialized "html5" value is part of the IPC contract.
     #[cfg_attr(feature = "libvlc", allow(dead_code))]
     Html5,
-    // Only constructed in the feature-enabled build; kept in both so the
-    // serialized "native" value is part of the stable IPC contract.
+    // Constructed in the default build, which enables `libvlc`. Kept in both
+    // builds so the serialized "native" value is part of the IPC contract.
     #[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
     Native,
 }
@@ -1874,7 +1876,7 @@ mod native {
 
     pub fn load(_app: &tauri::AppHandle, path: &str) -> Result<u64, String> {
         // Reject a bad location even when libvlc is not linked, so the
-        // classification helpers stay part of the default build.
+        // classification helpers stay compiled when libvlc is not linked.
         super::classify_media_target(path)?;
         Err(unavailable())
     }
@@ -2165,8 +2167,8 @@ mod tests {
         assert!(shaped > 0.9 && shaped < 1.0, "{shaped}");
     }
 
-    // Default-build guard: with the native half absent the shell must report
-    // HTML5 so the frontend keeps its current playback path.
+    // HTML5-only build (`--no-default-features`): the shell must report
+    // HTML5 so the frontend keeps the webview player.
     #[cfg(not(feature = "libvlc"))]
     #[test]
     fn probe_reports_html5_when_feature_is_off() {

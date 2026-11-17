@@ -12,8 +12,9 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 walkdir = "2"
 dirs = "5"
 lofty = "0.25"
-# Native media backend (off by default; requires system libvlc 3.x dev
-# packages). Renamed from `vlc-rs` because crates.io's `vlc` 0.1.0 is a
+# Native media backend. Default feature, so `cargo build` / `tauri dev`
+# link system libvlc 3.x. `cargo check --no-default-features` stays
+# HTML5-only. Renamed from `vlc-rs` because crates.io's `vlc` 0.1.0 is a
 # binary crate, not a library; vlc-rs exposes its lib target as `vlc`.
 vlc = { package = "vlc-rs", version = "0.1.0", optional = true }
 # FFI types must match vlc-rs's own (its ffi aliases are built from
@@ -21,6 +22,7 @@ vlc = { package = "vlc-rs", version = "0.1.0", optional = true }
 libc = { version = "0.2", optional = true }
 
 [features]
+default = ["libvlc"]
 libvlc = ["dep:vlc", "dep:libc"]
 
 [build-dependencies]

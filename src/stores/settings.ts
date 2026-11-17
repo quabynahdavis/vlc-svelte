@@ -122,8 +122,12 @@ export interface SettingsState {
   defaultPlaybackSpeed: string;
   loopMode: string;
   resumePlayback: boolean;
-  /** Opt-in: route local audio tracks through the libvlc backend when the desktop shell ships it. */
-  nativePlayback: boolean;
+  /**
+   * Opt in to the webview `<video>` player. Off (the default) uses libvlc
+   * when this build includes it. A build without libvlc stays on the webview
+   * player either way.
+   */
+  html5Playback: boolean;
 
   // Video
   outputModule: string;
@@ -341,8 +345,8 @@ export const defaultSettings: SettingsState = {
   defaultPlaybackSpeed: '1.0x',
   loopMode: 'off',
   resumePlayback: true,
-  // HTML5 stays the default backend; native requires the libvlc desktop build.
-  nativePlayback: false,
+  // libvlc is the default engine. The webview player is an explicit opt-in.
+  html5Playback: false,
 
   // Video
   outputModule: 'Automatic',

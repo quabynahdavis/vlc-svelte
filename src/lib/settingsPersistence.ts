@@ -115,6 +115,20 @@ function sanitizeValue(key: string, fallback: unknown, value: unknown): unknown 
 }
 
 /**
+ * Webview player is opt-in. The stored boolean wins once this key exists.
+ *
+ * Older saves used `nativePlayback` (default `false`), and that `false` was
+ * written even when the user never picked a player. It is not migrated to
+ * `html5Playback: true`. `nativePlayback: true` was an explicit libvlc choice
+ * and stays on libvlc (`html5Playback: false`), so the rename does not invert
+ * it. A missing engine key also uses libvlc.
+ */
+function resolveHtml5Playback(input: UnknownRecord): boolean {
+  if (typeof input.html5Playback === 'boolean') return input.html5Playback;
+  return false;
+}
+
+/**
  * Validate an arbitrary value against the defaults and return a complete,
  * fresh `SettingsState`. Missing fields keep their defaults; unknown keys are
  * ignored.
@@ -137,6 +151,7 @@ export function validateSettings(input: unknown, defaults: SettingsState): Setti
     settings.equalizerPreset = defaults.equalizerPreset;
     settings.eqLayout = EQ_LAYOUT_ID;
   }
+  settings.html5Playback = resolveHtml5Playback(input);
   return settings;
 }
 

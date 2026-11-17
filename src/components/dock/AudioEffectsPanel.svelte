@@ -18,7 +18,7 @@
   import TogglePill from './TogglePill.svelte';
 
   $: hasMedia = $currentTrack !== null;
-  $: nativeAudioOptions = $settings.nativePlayback ? $nativeAudioTrackState.tracks : [];
+  $: nativeAudioOptions = $settings.html5Playback ? [] : $nativeAudioTrackState.tracks;
   $: useNativeAudioTracks = nativeAudioOptions.length > 0;
 
   let nativeAudioSelection = '';

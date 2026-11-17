@@ -139,13 +139,14 @@
   $: mediaTitle = $currentTrack?.title?.trim() || 'Kanea';
 
   /**
-   * What libvlc should open for the current track, when the toggle is on.
-   * Local audio/video ids win; otherwise an allowlisted stream URL on `src`
-   * or `id`. `visual` turns the frame pump on (local video, HLS/DASH
-   * playlists, and RTSP-family URLs).
+   * What libvlc should open for the current track. libvlc is the default
+   * when this build reports `native` and the user has not opted into the
+   * webview player. Local audio/video ids win; otherwise an allowlisted
+   * stream URL on `src` or `id`. `visual` turns the frame pump on (local
+   * video, HLS/DASH playlists, and RTSP-family URLs).
    */
   $: nativeTarget = resolveNativeTarget(
-    nativeMounted && backendKind === 'native' && $settings.nativePlayback === true
+    nativeMounted && backendKind === 'native' && !$settings.html5Playback
       ? $currentTrack
       : null,
   );
@@ -378,10 +379,10 @@
     if (epoch !== nativeLoadEpoch) return;
     if (generation === null) {
       // The shell is native-capable but refused this item (or the command
-      // failed): flip the toggle off so HTML5 resumes via the mediaKey flip.
+      // failed): opt into the webview player so HTML5 resumes via the mediaKey flip.
       nativeNotice = 'Native playback could not open this item. Switched back to the webview player.';
       console.warn('Native backend refused the item; staying on HTML5.', trackId);
-      settings.update((s) => ({ ...s, nativePlayback: false }));
+      settings.update((s) => ({ ...s, html5Playback: true }));
       return;
     }
 
@@ -566,7 +567,7 @@
     if (payload.kind === 'error') {
       nativeNotice = 'Native playback failed. Switched back to the webview player.';
       console.warn('Native backend reported an error; staying on HTML5.');
-      settings.update((s) => ({ ...s, nativePlayback: false }));
+      settings.update((s) => ({ ...s, html5Playback: true }));
       return;
     }
     if (payload.kind === 'ended') {
@@ -593,7 +594,7 @@
       const generation = await nativeLoad(path);
       if (generation === null) {
         nativeNotice = 'Native playback could not restart this item. Switched back to the webview player.';
-        settings.update((s) => ({ ...s, nativePlayback: false }));
+        settings.update((s) => ({ ...s, html5Playback: true }));
         return;
       }
       nativeGeneration = generation;

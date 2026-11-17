@@ -31,7 +31,7 @@
   import SubtitleTimeline from './SubtitleTimeline.svelte';
   import TogglePill from './TogglePill.svelte';
 
-  $: nativeSpuOptions = $settings.nativePlayback ? $nativeSpuTrackState.tracks : [];
+  $: nativeSpuOptions = $settings.html5Playback ? [] : $nativeSpuTrackState.tracks;
 
   let nativeSpuSelection = '';
   let seenNativeSpuKey = '';
