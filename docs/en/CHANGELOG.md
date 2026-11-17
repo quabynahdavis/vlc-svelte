@@ -2,6 +2,13 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-17
+
+### Changed — Transport waveform for music and other audio
+
+- `TransportBar.svelte` draws the existing 0..1 waveform peaks on the seek bar for a music-library track or any other local audio file (audio extension, or an audio/music kind or `audio/*` mime). Played bars use the accent and unplayed bars stay muted. Click and drag still seek. Video files keep the thick seek bar and hover thumbnails.
+- Described in [architecture/02-frontend.md](architecture/02-frontend.md), [design/02-redesign-vision.md](design/02-redesign-vision.md) and [plans/01-player-enhancements.md](plans/01-player-enhancements.md).
+
 ## 2026-11-14
 
 ### Added — libvlc native-backend scaffold and integration plan

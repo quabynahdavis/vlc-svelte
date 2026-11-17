@@ -66,8 +66,9 @@ No changes needed for 200% volume — audio routing doesn't affect subtitle trac
 ## Waveform Progress Bar (Reference)
 
 **Current behavior** (`TransportBar.svelte`):
-- Activates **only for audio tracks** (detected by extension: mp3, flac, m4a, ogg, opus, wav)
-- Data source: `waveform_peaks` Rust command → `waveform.rs` → ffmpeg/audiowaveform extraction
-- Renders: Canvas vertical bars (played = accent, unplayed = muted)
-- Interaction: Click/drag to seek
-- Fallback: Standard linear seekbar for video or when peaks unavailable
+- Activates for music-library tracks and other local audio (audio extension on the id or src, or an audio/music kind or `audio/*` mime)
+- Stays on the thick seek bar, with hover thumbnails, for video files even when they contain an audio stream
+- Data source: existing 0..1 peaks from `waveform_get` / `waveform_generate` (`waveform.rs`, ffmpeg), session-cached
+- Renders: canvas vertical bars (played = accent, unplayed = muted) in dark and light themes
+- Interaction: click and drag on the same seek slider
+- Fallback: thick seek bar when peaks are unavailable
