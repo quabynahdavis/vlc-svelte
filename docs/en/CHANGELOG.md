@@ -4,6 +4,13 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-17
 
+### Added — native equalizer bands and libvlc subtitle styling
+
+- The equalizer faders are a preamp plus libvlc 3.0.24's ten bands: 31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, and 16000 Hz. Flat, Rock, and Classical load that library's presets. Jazz and Podcast are local curves for those bands. None and Flat leave the frequency bands at 0 dB. Older 60 Hz-layout saves are reset.
+- With native playback on, those gains go through `libvlc_media_player_set_equalizer`. A probe on this machine showed the filter does change callback PCM. Preamp +12 dB with every band at 0 dB is unity, because the filter scales its input by 0.25. The toggle off bypasses the filter. HTML5 still only stores the faders.
+- The active subtitle profile is passed to libvlc's freetype renderer (font, text colour, outline colour, relative or exact size, outline thickness, background opacity, vertical margin, and SPU delay). A font family fontconfig does not know is omitted, and playback keeps libvlc's default face. There is still no cue parser and no DOM subtitle layer. HTML5 is unchanged.
+- Recorded in [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md) §4.
+
 ### Added — native volume above 125% and a real PCM visualizer
 
 - Native playback takes audio from one libvlc callback. The samples are post-volume `S16N` (libvlc 3.0.24's memory output rejects `FL32` and cubes software gain, so 100% stays unity). libvlc is held at 125. Above that, the tap applies `percent / 125` and a `tanh` soft clip. 0% and mute are silent.
