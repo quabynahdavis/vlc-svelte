@@ -19,6 +19,7 @@
     ensureAudioAnalyser,
     resetNativePcmSchedule,
     resumeAudioAnalyser,
+    setNativePcmAudible,
     setNativePcmPlaying,
     startNativePcmPlayback,
     stopNativePcmPlayback,
@@ -402,13 +403,17 @@
   }
 
   /**
-   * Mirror the store volume into libvlc. libvlc caps around 125%; the store
-   * and the HUD still show 0–200 — Phase 1 accepts that gap.
+   * Mirror the store volume into libvlc. The command keeps 0–125 on libvlc
+   * (the callback PCM is already post-volume) and the tap adds a soft-clipped
+   * gain above 125. Mute and 0% also zero the Web Audio gain so queued
+   * chunks go silent immediately.
    */
   async function syncNativeVolume(volume: number, muted: boolean): Promise<void> {
+    const audible = !muted && volume > 0;
+    setNativePcmAudible(audible);
     if (!nativeLoadedId) return;
 
-    await nativeSetVolume(muted ? 0 : Math.min(125, Math.round(volume)));
+    await nativeSetVolume(muted ? 0 : Math.round(clamp(volume, 0, 200)));
   }
 
   /**

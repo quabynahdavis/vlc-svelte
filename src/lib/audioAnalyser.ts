@@ -225,7 +225,15 @@ function stopMuteGuard(): void {
  * (GainNode → AnalyserNode → destination) instead of the media element.
  * HTML5 keeps `createMediaElementSource`. The two sources can share the
  * analyser; native mode leaves the element without a src.
+ *
+ * The gain node is only a mute/0% switch. Levels from 1–200% are already
+ * in the samples (libvlc up to 125, tanh soft clip above that).
  */
+export function setNativePcmAudible(audible: boolean): void {
+  nativeAudible = audible;
+  if (nativeGain) nativeGain.gain.value = audible ? 1 : 0;
+}
+
 function ensureNativeGain(): GainNode | null {
   if (!ensureGraph() || !context || !analyser) return null;
   if (!nativeGain) {

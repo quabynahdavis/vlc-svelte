@@ -68,6 +68,54 @@ pub fn clamp_volume_percent(v: i32) -> i32 {
     v.clamp(0, 200)
 }
 
+/// Percent passed to `libvlc_audio_set_volume`.
+///
+/// The audio callback receives post-volume PCM. libvlc 3.0.24's amem output
+/// applies that in software (`SoftVolumeSet` cubes the linear gain, so 100%
+/// is still unity) and this helper never asks it for more than 125. Mute is
+/// silence.
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+pub fn libvlc_volume_percent(percent: i32, muted: bool) -> i32 {
+    if muted {
+        return 0;
+    }
+    clamp_volume_percent(percent).min(125)
+}
+
+/// Extra linear gain on top of libvlc's post-volume samples.
+///
+/// 0 and mute are silence. 1–125 stay at 1 (libvlc already applied them, and
+/// 100% must stay unity). Above 125 the factor is `percent / 125`.
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+pub fn native_pcm_gain(percent: i32, muted: bool) -> f32 {
+    if muted {
+        return 0.0;
+    }
+    let percent = clamp_volume_percent(percent);
+    if percent == 0 {
+        return 0.0;
+    }
+    if percent <= 125 {
+        return 1.0;
+    }
+    percent as f32 / 125.0
+}
+
+/// Shape one sample before it is played.
+///
+/// Unity gain returns the sample unchanged. Any other positive gain is
+/// `tanh`, which approaches ±1 and does not hard-clamp.
+#[cfg_attr(not(feature = "libvlc"), allow(dead_code))]
+pub fn shape_native_sample(sample: f32, gain: f32) -> f32 {
+    if !sample.is_finite() || gain <= 0.0 {
+        return 0.0;
+    }
+    if gain == 1.0 {
+        return sample;
+    }
+    (sample * gain).tanh()
+}
+
 /// Where a `player_load` / subtitle argument should be opened.
 ///
 /// Owned so a `file://` URL can be percent-decoded into a filesystem path
@@ -907,6 +955,10 @@ mod native {
         seq: 0,
     });
 
+    /// UI volume, 0–200. The play callback does not read this. 100 matches
+    /// libvlc's default until the frontend pushes the store value.
+    static PCM_VOLUME: AtomicU32 = AtomicU32::new(100);
+
     fn pcm_lock() -> std::sync::MutexGuard<'static, PcmState> {
         PCM.lock().unwrap_or_else(|err| err.into_inner())
     }
@@ -992,10 +1044,11 @@ mod native {
         }
         let frames = frames_available.min(PCM_CHUNK_FRAMES);
         let count = frames * PCM_CHANNELS;
+        let gain = super::native_pcm_gain(PCM_VOLUME.load(Ordering::Acquire) as i32, false);
         let mut samples = Vec::with_capacity(count);
         for _ in 0..count {
             let index = (pcm.read as usize) & (PCM_CAP - 1);
-            samples.push(pcm.samples[index]);
+            samples.push(super::shape_native_sample(pcm.samples[index], gain));
             pcm.read = pcm.read.wrapping_add(1);
         }
         pcm.seq = pcm.seq.wrapping_add(1);
@@ -1243,7 +1296,11 @@ mod native {
 
     pub fn set_volume(percent: i32) -> Result<(), String> {
         let clamped = super::clamp_volume_percent(percent);
-        let result = with_player(|p| p.media_player.set_volume(clamped))?;
+        // Remember the UI value even if libvlc has no output yet. The tap
+        // reads it when publishing. libvlc itself stays at or below 125.
+        PCM_VOLUME.store(clamped as u32, Ordering::Release);
+        let libvlc_percent = super::libvlc_volume_percent(clamped, false);
+        let result = with_player(|p| p.media_player.set_volume(libvlc_percent))?;
         result.map_err(|_| "libvlc rejected the volume value".to_string())
     }
 
@@ -1431,8 +1488,10 @@ pub fn player_seek(seconds: f64) -> Result<(), String> {
     native::seek(seconds)
 }
 
-/// Set the playback volume, clamped to 0–200 percent by
-/// `clamp_volume_percent`.
+/// Set the playback volume, clamped to 0–200 percent.
+///
+/// libvlc is held at 125. Above that, the PCM tap applies `percent / 125`
+/// and a tanh soft clip. 0 is silence. 100 stays unity.
 #[tauri::command]
 pub fn player_set_volume(percent: i32) -> Result<(), String> {
     native::set_volume(percent)
@@ -1496,6 +1555,35 @@ mod tests {
         assert_eq!(clamp_volume_percent(250), 200);
         assert_eq!(clamp_volume_percent(-999), 0);
         assert_eq!(clamp_volume_percent(999), 200);
+    }
+
+    #[test]
+    fn libvlc_volume_stops_at_125_and_mute_is_zero() {
+        assert_eq!(libvlc_volume_percent(0, false), 0);
+        assert_eq!(libvlc_volume_percent(100, false), 100);
+        assert_eq!(libvlc_volume_percent(125, false), 125);
+        assert_eq!(libvlc_volume_percent(200, false), 125);
+        assert_eq!(libvlc_volume_percent(180, true), 0);
+        assert_eq!(libvlc_volume_percent(250, false), 125);
+    }
+
+    #[test]
+    fn native_pcm_gain_is_unity_through_125() {
+        assert_eq!(native_pcm_gain(0, false), 0.0);
+        assert_eq!(native_pcm_gain(100, false), 1.0);
+        assert_eq!(native_pcm_gain(125, false), 1.0);
+        assert_eq!(native_pcm_gain(50, true), 0.0);
+        let boost = native_pcm_gain(200, false);
+        assert!((boost - (200.0 / 125.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn soft_clip_keeps_unity_and_does_not_hard_clamp() {
+        assert_eq!(shape_native_sample(0.5, 1.0), 0.5);
+        assert_eq!(shape_native_sample(-0.25, 1.0), -0.25);
+        assert_eq!(shape_native_sample(0.8, 0.0), 0.0);
+        let shaped = shape_native_sample(1.0, 200.0 / 125.0);
+        assert!(shaped > 0.9 && shaped < 1.0, "{shaped}");
     }
 
     // Default-build guard: with the native half absent the shell must report
