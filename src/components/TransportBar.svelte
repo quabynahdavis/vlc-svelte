@@ -133,8 +133,9 @@
     wavePeaksKey === waveformPath &&
     wavePeaks !== null &&
     wavePeaks.length > 0;
-  // Redraw whenever the playhead moves (timeupdate, scrubbing) or peaks load.
-  $: if (waveCanvas && waveActive) drawWaveCanvas(elapsed, duration);
+  // Redraw when the playhead moves or a new peak array arrives. `wavePeaks`
+  // has to be an argument: Svelte does not track reads inside the callee.
+  $: if (waveCanvas && waveActive && wavePeaks) drawWaveCanvas(wavePeaks, elapsed, duration);
 
   /**
    * Resolve peaks for the current audio file: session cache → persisted
@@ -193,8 +194,6 @@
     const height = Math.max(1, Math.round(bounds.height * dpr));
 
     if (canvas.width !== width || canvas.height !== height) {
-      // TODO(waveform-diag): remove once confirmed
-      console.debug('[waveform] resize', { from: canvas.width, to: width, dpr, bounds: Math.round(bounds.width), peaks: wavePeaks?.length ?? 0 });
       canvas.width = width;
       canvas.height = height;
     }
@@ -267,11 +266,28 @@
     return { accent, muted };
   }
 
+  /** Rounded bar that still paints where `roundRect` is missing. */
+  function fillWaveBar(
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+  ): void {
+    context.beginPath();
+    if (typeof context.roundRect === 'function') {
+      context.roundRect(x, y, width, height, radius);
+    } else {
+      context.rect(x, y, width, height);
+    }
+    context.fill();
+  }
+
   /** Thin centered bars; the played head is the accent, the rest muted. */
-  function drawWaveCanvas(currentTime = 0, totalDuration = 0): void {
+  function drawWaveCanvas(peaks: number[], currentTime = 0, totalDuration = 0): void {
     const canvas = waveCanvas;
-    const peaks = wavePeaks;
-    if (!canvas || !peaks || peaks.length === 0) return;
+    if (!canvas || peaks.length === 0) return;
 
     const context = canvas.getContext('2d');
     if (!context) return;
@@ -314,21 +330,17 @@
       const r = Math.min(radius, barHeight / 2);
 
       context.fillStyle = index < playedBars ? accent : muted;
-      context.beginPath();
-      context.roundRect(x, y, WAVEFORM_BAR_WIDTH, barHeight, r);
-      context.fill();
+      fillWaveBar(context, x, y, WAVEFORM_BAR_WIDTH, barHeight, r);
     }
   }
 
   /** Svelte action: attach the resize observer for the waveform strip. */
   function waveformCanvasAction(node: HTMLCanvasElement): { destroy(): void } {
     const observer = new ResizeObserver(() => {
-      resizeWaveCanvas(node);
-      drawWaveCanvas(elapsed, duration);
+      if (wavePeaks && wavePeaks.length > 0) drawWaveCanvas(wavePeaks, elapsed, duration);
     });
     observer.observe(node.parentElement ?? node);
-    resizeWaveCanvas(node);
-    drawWaveCanvas(elapsed, duration);
+    if (wavePeaks && wavePeaks.length > 0) drawWaveCanvas(wavePeaks, elapsed, duration);
 
     return {
       destroy() {
@@ -965,15 +977,19 @@
     on:keydown={handleSeekKeydown}
   >
     {#if waveActive}
-      <!-- Audio tracks: SoundCloud-style peak strip. Click/drag/keyboard
-           seeking and the hover timestamp card are the bar's own handlers
-           (seekTrack below), reused unchanged. -->
-      <canvas
-        bind:this={waveCanvas}
-        use:waveformCanvasAction
-        class="pointer-events-none absolute inset-x-0 top-1/2 h-2.5 -translate-y-1/2 text-vlc-orange transition-[height] duration-150 group-hover:h-3.5 group-focus-visible:h-3.5"
+      <!-- Audio tracks: peak strip in the seek track. The canvas does not
+           take pointer events, so click, drag and keyboard seeking stay on
+           this slider. -->
+      <div
+        class="pointer-events-none absolute inset-x-0 top-1/2 h-2.5 -translate-y-1/2 transition-[height] duration-150 group-hover:h-3.5 group-focus-visible:h-3.5"
         aria-hidden="true"
-      ></canvas>
+      >
+        <canvas
+          bind:this={waveCanvas}
+          use:waveformCanvasAction
+          class="block h-full w-full text-vlc-orange"
+        ></canvas>
+      </div>
     {:else}
       <div
         class="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-vlc-border transition-[height] duration-150 group-hover:h-2 group-focus-visible:h-2"
