@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-**Status:** the application shell, six browse views, player, right dock, settings modal, welcome screen, layout editor and local persistence are implemented. Library, playlist and network browse data are still mock data; the music library store (`src/stores/musicLibrary.ts`) scans the configured music roots, enriches files with Rust audio metadata, persists under `vlc.musicLibrary.v1` and is rendered by the MusicView browse page; library file/folder/stream imports and blob-backed playlist tracks are session-only; Rust-side file access, SQLite persistence, audio metadata/cover art and waveform peaks are implemented (see [03-tauri-backend.md](03-tauri-backend.md)); native playback is not. **Waveform seekbar for audio** and **real AnalyserNode dock visualizer** are implemented. **MusicView now has clickable breadcrumb navigation per mode and an add-folder header button.** Last updated 2026-11-12.
+**Status:** the application shell, six browse views, player, right dock, settings modal, welcome screen, layout editor and local persistence are implemented. Library and network browse data are still mock data; playlists are user-created and persist under `vlc.playlists.v1`; the music library store (`src/stores/musicLibrary.ts`) scans the configured music roots, enriches files with Rust audio metadata, persists under `vlc.musicLibrary.v1` and is rendered by the MusicView browse page; library file/folder/stream imports and `blob:` playlist sources are session-only; Rust-side file access, SQLite persistence, audio metadata/cover art and waveform peaks are implemented (see [03-tauri-backend.md](03-tauri-backend.md)); native playback is not. **Waveform seekbar for audio** and **real AnalyserNode dock visualizer** are implemented. **MusicView now has clickable breadcrumb navigation per mode and an add-folder header button.** Last updated 2026-11-17.
 
 The frontend builds and type-checks: `bun run check` reports 0 errors and 0 warnings, and `bunx vite build` writes `src-tauri/gen/dist/`.
 
@@ -78,9 +78,9 @@ There is no URL router. `activeNav`, `showSettings`, the property dock and `hide
 
 ### Playlists view (`src/views/PlaylistsView.svelte`)
 
-- A 200 px playlist sidebar with back, sort menu (manual, name, date, item count), create button, search and pin/unpin. Pinned and unpinned lists render as separate sections.
-- The detail pane lists tracks in grid/list/compact; selecting a track queues the playlist with `DEMO_MEDIA_SRC` and navigates to the player.
-- `CreatePlaylistDialog` creates a session playlist, optionally with picked files; `AddToPlaylistDialog` appends an existing track and can create a named playlist inline. Blob-backed playlists are not persisted.
+- With no playlists, the page is a single empty state and a create action. Once the user has playlists, a 200 px sidebar lists them with back, sort menu (manual, name, date, item count), create, search and pin/unpin. Pinned rows use the accent pin and sit in a **Pinned** section.
+- Opening a playlist lists its saved tracks in grid/list/compact, or an empty playlist when it has none. Choosing a track queues that playlist from the track's own `src` and navigates to the player. The grip handle can also drag a track onto the queue.
+- `CreatePlaylistDialog` creates a playlist, optionally with picked files; `AddToPlaylistDialog` appends an existing track and can create a named playlist inline. Names, pins and tracks with a durable `src` persist. `blob:` sources stay in memory for the session and are omitted from `vlc.playlists.v1`.
 
 ### Recent view (`src/views/RecentView.svelte`)
 
@@ -229,7 +229,7 @@ src/
 │   ├── constants.ts          # Nav ids, labels and rail items
 │   ├── dragTrack.ts          # Shared application/x-vlc-track drag payload
 │   ├── gestures.ts           # Double-click delay, wheel volume, fullscreen helper
-│   ├── mock.ts               # MediaItem, music, playlist, recent and network mock data
+│   ├── mock.ts               # MediaItem, music, recent and network mock data
 │   ├── settingsPersistence.ts# vlc.settings.v1 load/save/validate
 │   ├── t.ts                  # Translation lookup
 │   ├── theme.ts              # Theme resolution and accent palette
@@ -246,7 +246,7 @@ src/
 │   ├── onboarding.ts         # First-run completion (vlc.onboarding.v1)
 │   ├── player.ts             # Queue, playback, volume, repeat/shuffle
 │   ├── playlistTarget.ts     # Add-to-playlist dialog state
-│   ├── playlists.ts          # Playlist selection, sort, pins, add/create
+│   ├── playlists.ts          # User playlists (vlc.playlists.v1) and pins
 │   ├── recent.ts             # Recent tab, search and filter
 │   ├── settings.ts           # SettingsState, defaults, helpers, accents
 │   ├── settingsProfiles.ts   # Named settings profiles
@@ -272,7 +272,7 @@ src/
 - **`stores/library.ts`** — `breadcrumb`, `libraryItems`, `searchQuery`, `filteredItems`, `librarySortKey`, `librarySortDirection`, `libraryWatchFilter`, `libraryImportLog` and derived `sortedItems`. `isItemWatched` treats any progress above zero as watched. `addImportedItems` appends entries with the next episode numbers; `updateLibraryItemDuration` applies a probed duration. Demo data comes from `lib/mock.ts`. `scanSingleRoot(rootPath, includeHidden)` holds one configured root's scan body and the exported `rescanLibraryRoot(rootPath)` rescans a single root on demand (no-op in the browser, ignores `scanOnStartup`). The settings subscriber that triggers rescans now passes `scopedLibraryFolders(newSettings)` to the asset scope instead of only the video roots, so music roots are granted exactly like video roots.
 - **`stores/music.ts`** — `musicBreadcrumb`, `selectedArtistId`, `selectedAlbumId`, `musicSearch`, `musicSort` and `musicSortDirection`. A legacy `musicViewMode` store remains here, but the view uses `stores/viewModes.ts`.
 - **`stores/musicLibrary.ts`** — the real music library data store. `musicTracks` is the flat enriched track list; `musicArtists`, `musicGenres` and the parametrized derived factories `albumsForArtist(artistName)` / `tracksForAlbum(artistName, albumName)` provide the grouping levels (`Unknown Artist` / `Unknown Genre` buckets sort last). Scanning mirrors `stores/library.ts`: the bootstrap awaits `settingsHydrated`, a reactive settings watcher rescans whenever the joined `musicLibraryFolders` list changes, each finished scan replaces only its own root's slice, removed roots are pruned and `scanOnStartup` is respected. Enrichment filters scan results through `lib/audio.ts` (`AUDIO_EXTENSIONS`, `isAudioFile`) and calls `readAudioMetadata` per file in a 6-way pool with the fallback chain (title = tag ?? filename stem, artist/albumArtist = tag ?? `Unknown Artist`, album = tag ?? containing-folder basename, year/track/disc/genre = tags ?? null, duration from the Rust reader). `ensureMusicCover(track)` lazily resolves embedded artwork into `musicCovers` (`cover_get` first, `cover_extract` as fallback, magic-byte-sniffed JPEG/PNG object URLs in a 4-way pool; `clearMusicCoverCache()` revokes them all). `toPlayerTrack(track)` queues tracks with their real asset source and `recordMusicListen(track, positionSeconds?)` writes a `type: 'music'` history entry keyed by the absolute path. Persisted under `vlc.musicLibrary.v1` with paths only; `src` is re-derived after hydration and a `changedSinceBoot` guard keeps late snapshots from overwriting newer scan results. Consumed by the rewired `MusicView` (see the Music view section); `rescanMusicRoot(rootPath)` powers the folder context menu's Rescan action for music roots.
-- **`stores/playlists.ts`** — `playlistsData`, `playlistsSelectedId`, `playlistsSearch`, `playlistsSort`, `playlistsSortDirection` and `pinnedPlaylistIds`. `addTrackToPlaylist` and `createPlaylistWithTrack` power the add-to-playlist dialog; blob-backed tracks are session-only, while pins persist.
+- **`stores/playlists.ts`** — `playlistsData`, `playlistsSelectedId`, `playlistsSearch`, `playlistsSort`, `playlistsSortDirection` and `pinnedPlaylistIds`. The collection starts empty. `addTrackToPlaylist`, `createPlaylistWithTrack`, `createPlaylistFromTracks` and `deletePlaylist` mutate it. Each track stores `id`, `title`, `artist`, `duration` and `src`. Playlists persist under `vlc.playlists.v1`; pins stay on `vlc.playlists.pins.v1`. `blob:` sources are kept for the session and left out of the saved blob.
 - **`stores/recent.ts`** — `recentActiveTab`, `recentSearch` and `recentFilterType`.
 - **`stores/network.ts`** — `networkSelectedCategory`, `networkPath`, `networkSearch`, `networkViewSubPath` and `savedStreams` with add/update/remove helpers, persisted under `vlc.network.streams.v1`.
 - **`stores/navigation.ts`** — `activeNav` and `navigate(id)`.
@@ -310,11 +310,12 @@ src/
 | `vlc.bookmarks.v1` | `src/stores/bookmarks.ts` | Per-media bookmarks and chapter markers. |
 | `vlc.musicLibrary.v1` | `src/stores/musicLibrary.ts` | Enriched music tracks keyed by absolute file path. `src` is never persisted — it is re-derived via `toFileSrc` after hydration — and a `changedSinceBoot` guard makes scan mutations win over a late SQLite snapshot. |
 | `vlc.network.streams.v1` | `src/stores/network.ts` | Saved stream names and URLs. |
-| `vlc.playlists.pins.v1` | `src/stores/playlists.ts` | Pinned playlist ids only; playlist contents stay in memory. |
+| `vlc.playlists.v1` | `src/stores/playlists.ts` | User playlists: id, name, lastModified and tracks (`id`, `title`, `artist`, `duration`, `src`). A missing key is an empty list. `blob:` sources are not written. |
+| `vlc.playlists.pins.v1` | `src/stores/playlists.ts` | Pinned playlist ids. Deleting a playlist removes its pin. |
 | `vlc.av.prefs.v1` | `src/stores/avPrefs.ts` | Selected audio track and output device. |
 | `vlc.settings.profiles.v1` | `src/stores/settingsProfiles.ts` | Named settings snapshots. |
 
-Settings can also be exported to `vlc-settings.json` and re-imported through `ExportImportPanel`. Playback state, queue contents, navigation state, imported `blob:` media and playlist contents are **not** persisted. Imported media and blob-backed playlists therefore disappear on reload; pins, saved streams, subtitle profiles, bookmarks, layout, onboarding and the enriched music library survive.
+Settings can also be exported to `vlc-settings.json` and re-imported through `ExportImportPanel`. Playback state, queue contents, navigation state and imported `blob:` media are **not** persisted. User playlists persist under `vlc.playlists.v1`, except tracks whose `src` is a `blob:` URL. Pins, saved streams, subtitle profiles, bookmarks, layout, onboarding and the enriched music library survive.
 
 ## Styling conventions
 
@@ -345,14 +346,14 @@ Contributing conventions:
 
 | Gap | Detail |
 | --- | --- |
-| Mock data | Library, playlists and network browse data come from `lib/mock.ts`. The Music page renders the real `stores/musicLibrary.ts` store instead. Recent rows render the persisted history store instead of mock data. |
+| Mock data | Library and network browse data come from `lib/mock.ts`. Playlists render the persisted `stores/playlists.ts` collection. The Music page renders the real `stores/musicLibrary.ts` store. Recent rows render the persisted history store instead of mock data. |
 | Demo playback | Mock items use `/demo/sample.mp4`; imported local files use session object URLs and network streams use their remote URL. There is no native file picker for the demo path; the native folder dialog is used by "Add folder…" and audio metadata comes from the Rust `read_audio_metadata` command. |
 | Session-only imports | Imported files and streams are held in memory only. Object URLs and the added items disappear on reload. |
 | No startup media | The player queue is empty, so the app opens on the empty state. |
 | Queue is not persisted | Queue and playback position reset on reload. |
 | Native integration | Rust commands are registered and used for persistence, scanning, thumbnails, audio metadata/cover art and the asset scope; native playback itself is not — the browser `<video>` element stays the playback engine. |
 | No router | `activeNav` and other shell state are lost on reload. |
-| Inert actions | The rail's Add Item entry, create playlist, add-to-playlist, recent rows and network selections do not perform media actions. Library add-file/folder/stream actions do work. |
+| Inert actions | The rail's Add Item entry, recent rows and network selections do not perform media actions. Create playlist, add-to-playlist and library add-file/folder/stream actions do work. |
 | Details panel unreachable | `showRightPanel` is never set to true. |
 | Legacy view | `SettingsView.svelte` is unused and still light-themed. |
 | Partial i18n | `t()` covers only part of the UI; most view strings are hardcoded English. |
