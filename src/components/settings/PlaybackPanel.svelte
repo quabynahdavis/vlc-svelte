@@ -1,10 +1,25 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { playerBackend, type PlayerBackend } from '../../lib/playerBackend';
   import { settings } from '../../stores/settings';
   import Section from './Section.svelte';
   import SettingRow from './SettingRow.svelte';
   import Select from './Select.svelte';
   import Toggle from './Toggle.svelte';
   import Segmented from './Segmented.svelte';
+
+  let backendKind: PlayerBackend | 'pending' = 'pending';
+
+  onMount(() => {
+    void playerBackend().then((kind) => {
+      backendKind = kind;
+    });
+  });
+
+  $: webviewHint =
+    backendKind === 'html5'
+      ? 'This build has no libvlc. Playback stays on the webview player.'
+      : 'Optional. Plays with the webview video element. Off uses libvlc for video and music.';
 
   const hardwareDecodingOptions = [
     { value: 'Automatic', label: 'Automatic' },
@@ -57,8 +72,14 @@
       </div>
     </SettingRow>
 
-    <SettingRow label="Native playback" info hint="Play local files and network streams through libvlc (experimental). Video uses the frame pump. Requires a desktop build with the native backend; otherwise the app stays on the webview player.">
-      <Toggle bind:value={$settings.nativePlayback} label="Native playback" />
+    <SettingRow label="Webview player" info hint={webviewHint}>
+      {#if backendKind === 'native'}
+        <Toggle bind:value={$settings.html5Playback} label="Webview player" />
+      {:else if backendKind === 'html5'}
+        <Toggle value={true} disabled label="Webview player" />
+      {:else}
+        <Toggle value={$settings.html5Playback} disabled label="Webview player" />
+      {/if}
     </SettingRow>
 
     <SettingRow label="Allow speed playback">

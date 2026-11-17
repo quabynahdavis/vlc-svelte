@@ -1,14 +1,13 @@
 /**
- * Typed seam between the frontend and the feature-flagged native (libvlc)
- * media backend in `src-tauri/src/player.rs`.
+ * Typed seam between the frontend and the libvlc backend in
+ * `src-tauri/src/player.rs`.
  *
- * The shell still plays everything through HTML5 (`<audio>` / `<video>` in
- * the webview). Every `native*` call here resolves to `null` until the Rust
- * shell is rebuilt with `--features libvlc`; the commands exist in both
- * builds, but the stub half answers with an error, which `invokeCommand`
- * swallows into `null`. Callers MUST treat the native backend as OPTIONAL:
- * query `playerBackend()` once, keep HTML5 as the default path, and only
- * branch to `native*` when the shell reports `'native'`.
+ * libvlc is the default engine when `playerBackend()` reports `'native'`
+ * (the usual desktop build). The webview `<video>` player is the fallback:
+ * browser preview, a probe failure, or a binary built without the `libvlc`
+ * feature all report `'html5'`. The stub commands then answer with an error,
+ * which `invokeCommand` swallows into `null`. Call `native*` only after the
+ * probe reports `'native'` and the user has not opted into the webview player.
  */
 import { hasTauri, invokeCommand } from './tauriFs';
 

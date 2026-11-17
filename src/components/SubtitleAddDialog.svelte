@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
   import { X, Check, FolderOpen, FileText, ListMusic } from 'lucide-svelte';
-  import { nativeAddSubtitle, nativeSpuTracks, playerBackend } from '../lib/playerBackend';
+  import { nativeAddSubtitle, nativeSpuTracks, playerBackend, type PlayerBackend } from '../lib/playerBackend';
   import { hasTauri } from '../lib/tauriFs';
   import { subtitleAdd, closeSubtitleAdd } from '../stores/subtitleAdd';
   import { nativeSpuTrackState } from '../stores/nativeTracks';
@@ -16,11 +16,20 @@
   let folderInputEl: HTMLInputElement | null = null;
   let playlistSelectEl: HTMLSelectElement | null = null;
 
+  let compiledBackend: PlayerBackend = 'html5';
   let wasOpen = false;
+
+  onMount(() => {
+    void playerBackend().then((kind) => {
+      compiledBackend = kind;
+    });
+  });
+
   let opener: HTMLElement | null = null;
   let resultMessage = '';
   let resultTimer: number | null = null;
 
+  $: useLibvlcPicker = compiledBackend === 'native' && !$settings.html5Playback && hasTauri();
   $: open = $subtitleAdd.open;
   $: mode = $subtitleAdd.mode;
   $: track = $subtitleAdd.track ?? $currentTrack;
@@ -182,7 +191,9 @@
   }
 
   async function chooseSubtitle(): Promise<void> {
-    if (!get(settings).nativePlayback || !hasTauri()) return;
+    const kind = await playerBackend();
+    compiledBackend = kind;
+    if (kind !== 'native' || get(settings).html5Playback || !hasTauri()) return;
     const dialog = await import('@tauri-apps/plugin-dialog');
     const picked = await dialog.open({
       multiple: false,
@@ -338,7 +349,7 @@
         {#if mode === 'file'}
           <div class="space-y-3">
             <p class="text-[12px] text-vlc-secondary">Pick a subtitle file for the current track.</p>
-            {#if $settings.nativePlayback && hasTauri()}
+            {#if useLibvlcPicker}
               <button
                 type="button"
                 class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-vlc-borderStrong bg-vlc-card px-3 py-6 text-center text-[12px] text-vlc-secondary hover:border-vlc-orange/50 hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
