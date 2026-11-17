@@ -63,12 +63,79 @@ export function isAudioFile(path: string): boolean {
 
 /**
  * True when `path` points at a LOCAL file with a recognized video extension.
- * The `/`-prefix check keeps network URLs (http/https/streams) out of the
- * native-video prototype — it only routes local files whose id is an
- * absolute path, matching how the library stores video track ids.
+ * The `/`-prefix check keeps network URLs out of the local-video route.
+ * Streams are classified separately by {@link streamLocationOf}.
  */
 export function isVideoFile(path: string): boolean {
   if (!path.startsWith('/')) return false;
   const extension = audioExtensionOf(path);
   return extension !== null && VIDEO_EXTENSIONS.has(extension);
+}
+
+/** Schemes the native backend will open. Mirrors `classify_media_target` in Rust. */
+const STREAM_PROTOCOLS: ReadonlySet<string> = new Set([
+  'http:',
+  'https:',
+  'rtsp:',
+  'rtsps:',
+  'rtmp:',
+  'rtmps:',
+  'mms:',
+  'mmsh:',
+  'rtp:',
+  'udp:',
+]);
+
+/** Protocols that are video-shaped even when the path has no extension. */
+const VISUAL_STREAM_PROTOCOLS: ReadonlySet<string> = new Set([
+  'rtsp:',
+  'rtsps:',
+  'rtmp:',
+  'rtmps:',
+  'mms:',
+  'mmsh:',
+  'rtp:',
+]);
+
+const VISUAL_STREAM_EXTENSIONS: ReadonlySet<string> = new Set([
+  ...VIDEO_EXTENSIONS,
+  'm3u8',
+  'm3u',
+  'mpd',
+]);
+
+/**
+ * Canonical href when `value` is an allowlisted stream URL, otherwise null.
+ * `file:` and anything else stay null so local playback keeps using paths.
+ */
+export function streamLocationOf(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (!STREAM_PROTOCOLS.has(parsed.protocol)) return null;
+  if (!parsed.hostname) return null;
+  return parsed.href;
+}
+
+/**
+ * True when a stream should use the video frame pump. HTTP progressive audio
+ * (no video/playlist extension) stays audio-only so a radio URL does not
+ * cover the stage with an empty canvas.
+ */
+export function isVisualStream(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (VISUAL_STREAM_PROTOCOLS.has(parsed.protocol)) return true;
+  const extension = audioExtensionOf(parsed.pathname);
+  return extension !== null && VISUAL_STREAM_EXTENSIONS.has(extension);
 }
