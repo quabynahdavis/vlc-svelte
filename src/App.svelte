@@ -52,6 +52,12 @@
   } from './stores/musicLibrary';
   import { completeOnboarding, onboarding } from './stores/onboarding';
   import { openPlaylistTarget } from './stores/playlistTarget';
+  import { playlistsData, type PlaylistTrack } from './stores/playlists';
+  import {
+    findPlaylistTrack,
+    mediaItemForPlaylistTrack,
+    playlistTrackIsVideo,
+  } from './lib/playlistMedia';
   import { removeLibraryFolder, removeMusicLibraryFolder, settings } from './stores/settings';
   import { bookmarks, removeBookmark } from './stores/bookmarks';
   import { clearHistory, history, removeHistory } from './stores/history';
@@ -197,11 +203,25 @@
     };
   }
 
+  /** Saved playlist track for the context menu, when the id is not a library row. */
+  function contextPlaylistTrack(): PlaylistTrack | null {
+    const id = get(contextItemId);
+    if (!id) return null;
+    return findPlaylistTrack(get(playlistsData), id);
+  }
+
   /** Resolve the library media item the context menu was opened on. */
   function contextMediaItem(): MediaItem | null {
     const id = get(contextItemId);
     if (!id) return null;
-    return get(libraryItems).find((item) => item.id === id) ?? null;
+    const libraryItem = get(libraryItems).find((item) => item.id === id) ?? null;
+    if (libraryItem) return libraryItem;
+
+    const playlistTrack = contextPlaylistTrack();
+    if (!playlistTrack) return null;
+    const inMusic = get(musicTracks).some((track) => track.id === id);
+    if (!playlistTrackIsVideo(playlistTrack, false, inMusic)) return null;
+    return mediaItemForPlaylistTrack(playlistTrack, null, get(watchEntries));
   }
 
   /** True when the id (a file path) belongs to the music library. */
@@ -220,7 +240,17 @@
     const musicTrack = contextMusicTrack();
     if (musicTrack) return toPlayerTrack(musicTrack);
     const item = contextMediaItem();
-    return item ? trackFromMediaItem(item) : null;
+    if (item) return trackFromMediaItem(item);
+
+    const playlistTrack = contextPlaylistTrack();
+    if (!playlistTrack?.src) return null;
+    return {
+      id: playlistTrack.id,
+      title: playlistTrack.title,
+      artist: playlistTrack.artist || undefined,
+      duration: playlistTrack.duration,
+      src: playlistTrack.src,
+    };
   }
 
   /** Configured music root containing `path` (the root itself or a subfolder). */

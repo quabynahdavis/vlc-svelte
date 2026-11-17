@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import {
     ArrowDown,
     ArrowLeft,
@@ -13,11 +13,17 @@
     Trash2,
   } from 'lucide-svelte';
   import { isTrackDrag, readTrackDrag, startTrackDrag } from '../lib/dragTrack';
+  import type { MediaItem } from '../lib/mock';
+  import {
+    mediaItemForPlaylistTrack,
+    playlistTrackIsVideo,
+  } from '../lib/playlistMedia';
   import {
     addTrackToPlaylist,
     deletePlaylist,
     movePlaylistTrack,
     type Playlist,
+    type PlaylistTrack,
     pinnedPlaylistIds,
     playlistsData,
     playlistsSearch,
@@ -29,8 +35,15 @@
   } from '../stores/playlists';
   import { playlistsViewMode } from '../stores/viewModes';
   import { navigate } from '../stores/navigation';
-  import { setQueue, type Track } from '../stores/player';
+  import { currentTrack, setQueue, type Track } from '../stores/player';
+  import { libraryItems } from '../stores/library';
+  import { musicTracks } from '../stores/musicLibrary';
+  import { watchEntries } from '../stores/watch';
+  import { openMediaContextMenu } from '../stores/ui';
   import CreatePlaylistDialog from '../components/CreatePlaylistDialog.svelte';
+  import LibraryDetails from '../components/LibraryDetails.svelte';
+  import MediaCard from '../components/MediaCard.svelte';
+  import MediaListRow from '../components/MediaListRow.svelte';
   import FuzzySearch from '../components/FuzzySearch.svelte';
   import SortMenu from '../components/SortMenu.svelte';
   import ViewModeToggle from '../components/ViewModeToggle.svelte';
@@ -142,14 +155,26 @@
     return count === 1 ? '1 track' : `${count} tracks`;
   }
 
+  let detailsItemId: string | null = null;
+
   function openPlaylist(id: string) {
+    detailsItemId = null;
     clearSearch();
     playlistsSelectedId.set(id);
   }
 
   function closePlaylist() {
+    detailsItemId = null;
     clearSearch();
     playlistsSelectedId.set(null);
+  }
+
+  function goBack() {
+    if (detailsItemId) {
+      void closeDetails();
+      return;
+    }
+    closePlaylist();
   }
 
   /** Queue the open playlist from the clicked track, using each track's own source. */
@@ -196,6 +221,7 @@
   }
 
   function handleCreate(playlist: Playlist) {
+    detailsItemId = null;
     playlistsData.update((items) => [playlist, ...items]);
     playlistsSelectedId.set(playlist.id);
     clearSearch();
@@ -221,6 +247,58 @@
       })
     : [];
   $: itemCount = activePlaylist ? visibleTracks.length : sortedPlaylists.length;
+
+  /** Video rows reuse the library card. Audio rows keep the playlist layout. */
+  function mediaItemForTrack(track: PlaylistTrack): MediaItem | null {
+    const libraryItem = $libraryItems.find((item) => item.id === track.id) ?? null;
+    const inMusic = $musicTracks.some((item) => item.id === track.id);
+    if (!playlistTrackIsVideo(track, libraryItem !== null, inMusic)) return null;
+    return mediaItemForPlaylistTrack(track, libraryItem, $watchEntries);
+  }
+
+  $: detailsItem = (() => {
+    if (!detailsItemId || !activePlaylist) return null;
+    const track = activePlaylist.tracks.find((entry) => entry.id === detailsItemId);
+    if (!track) return null;
+    const libraryItem = $libraryItems.find((item) => item.id === track.id) ?? null;
+    const inMusic = $musicTracks.some((item) => item.id === track.id);
+    if (!playlistTrackIsVideo(track, libraryItem !== null, inMusic)) return null;
+    return mediaItemForPlaylistTrack(track, libraryItem, $watchEntries);
+  })();
+  $: detailsBreadcrumb = detailsItem?.relativePath
+    ? detailsItem.relativePath.split('/').filter(Boolean)
+    : ['Playlists', activePlaylist?.name ?? 'Playlist'];
+
+  function openDetails(item: MediaItem): void {
+    detailsItemId = item.id;
+  }
+
+  async function closeDetails(): Promise<void> {
+    const id = detailsItemId;
+    detailsItemId = null;
+    await tick();
+    if (id) document.querySelector<HTMLElement>(`[data-media-info="${id}"]`)?.focus();
+  }
+
+  function handleDetailsKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || !detailsItemId) return;
+    if (document.querySelector('dialog[open]')) return;
+    event.preventDefault();
+    void closeDetails();
+  }
+
+  onMount(() => {
+    function handleShowMediaInfo(event: Event): void {
+      const itemId = (event as CustomEvent<string>).detail;
+      if (!itemId || !activePlaylist) return;
+      const track = activePlaylist.tracks.find((entry) => entry.id === itemId);
+      if (!track || !mediaItemForTrack(track)) return;
+      detailsItemId = itemId;
+    }
+
+    window.addEventListener('vlc-show-media-info', handleShowMediaInfo);
+    return () => window.removeEventListener('vlc-show-media-info', handleShowMediaInfo);
+  });
 
   function trackSourceIndex(trackId: string, src: string): number {
     if (!activePlaylist) return -1;
@@ -500,7 +578,7 @@
   }
 </script>
 
-<svelte:window on:dragend={handleWindowDragEnd} />
+<svelte:window on:dragend={handleWindowDragEnd} on:keydown={handleDetailsKeydown} />
 
 <div class="flex h-full min-h-0 flex-col bg-vlc-app">
   <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-4 sm:px-6">
@@ -512,7 +590,7 @@
       title="Back"
       aria-label="Go back"
       disabled={!activePlaylist}
-      on:click={closePlaylist}
+      on:click={goBack}
     >
       <ArrowLeft size={18} strokeWidth={1.75} aria-hidden="true" />
     </button>
@@ -632,7 +710,17 @@
         </div>
       {/if}
 
-        {#if activePlaylist.tracks.length === 0}
+      {#if detailsItem}
+        <LibraryDetails
+          item={detailsItem}
+          breadcrumb={detailsBreadcrumb}
+          onBack={closeDetails}
+          onPlay={(item) => {
+            const index = activePlaylist.tracks.findIndex((entry) => entry.id === item.id);
+            if (index >= 0) playPlaylistTrack(index);
+          }}
+        />
+      {:else if activePlaylist.tracks.length === 0}
           <div class="flex min-h-[240px] flex-col items-center justify-center gap-2 p-8 text-center">
             <ListMusic size={30} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
             <p class="text-sm font-medium text-vlc-secondary">This playlist is empty</p>
@@ -658,14 +746,23 @@
           >
             {#each visibleTracks as track (track.id)}
               {@const i = trackSourceIndex(track.id, track.src)}
+              {@const videoItem = mediaItemForTrack(track)}
               <div
                 class="group relative rounded-control {reorderDrag?.fromIndex === i ? 'opacity-50' : ''}"
                 role="group"
                 aria-label={track.title}
+                on:contextmenu={(event) => openMediaContextMenu(event, track.id)}
                 on:dragover={(event) => handleTrackDragOver(event, i)}
                 on:dragleave={handleTrackDragLeave}
                 on:drop={(event) => handleTrackDrop(event, i)}
               >
+                {#if videoItem}
+                  <MediaCard
+                    item={videoItem}
+                    onSelect={() => playPlaylistTrack(i)}
+                    on:info={(event) => openDetails(event.detail)}
+                  />
+                {:else}
                 <button
                   type="button"
                   class="block w-full rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app"
@@ -677,7 +774,7 @@
                   >
                     <ListMusic size={30} strokeWidth={1.5} aria-hidden="true" />
                     <span
-                      class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] text-vlc-secondary"
+                      class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] tabular-nums text-vlc-secondary"
                     >
                       {formatDuration(track.duration)}
                     </span>
@@ -687,6 +784,7 @@
                   </div>
                   <div class="truncate text-[11px] text-vlc-muted">{track.artist}</div>
                 </button>
+                {/if}
 
                 <div class="mt-1 flex items-center gap-0.5">
                   <button
@@ -745,20 +843,86 @@
           </div>
         {:else if $playlistsViewMode === 'list'}
           <div class="border-t border-vlc-border">
-            <div
-              class="grid grid-cols-[24px_1fr_80px] items-center gap-3 px-6 py-2 text-[11px] uppercase text-vlc-muted"
-            >
-              <span></span>
-              <div class="grid grid-cols-[32px_1fr_120px_100px] items-center gap-3">
-                <span>#</span>
-                <span>Title</span>
-                <span class="text-right">Artist</span>
-                <span class="text-right">Duration</span>
+            {#if visibleTracks.some((track) => !mediaItemForTrack(track))}
+              <div
+                class="grid grid-cols-[24px_1fr_80px] items-center gap-3 px-6 py-2 text-[11px] uppercase text-vlc-muted"
+              >
+                <span></span>
+                <div class="grid grid-cols-[32px_1fr_120px_100px] items-center gap-3">
+                  <span>#</span>
+                  <span>Title</span>
+                  <span class="text-right">Artist</span>
+                  <span class="text-right">Duration</span>
+                </div>
+                <span></span>
               </div>
-              <span></span>
-            </div>
+            {/if}
             {#each visibleTracks as track (track.id)}
               {@const i = trackSourceIndex(track.id, track.src)}
+              {@const videoItem = mediaItemForTrack(track)}
+              {#if videoItem}
+                <div
+                  class="flex items-stretch {reorderDrag?.fromIndex === i ? 'opacity-50' : ''}"
+                  role="group"
+                  aria-label={track.title}
+                  on:contextmenu={(event) => openMediaContextMenu(event, track.id)}
+                  on:dragover={(event) => handleTrackDragOver(event, i)}
+                  on:dragleave={handleTrackDragLeave}
+                  on:drop={(event) => handleTrackDrop(event, i)}
+                >
+                  <div class="flex w-8 shrink-0 flex-col items-center justify-center gap-0.5">
+                    <button
+                      type="button"
+                      draggable="true"
+                      data-track-control
+                      data-track-handle
+                      data-track-id={track.id}
+                      class="flex h-6 w-6 cursor-grab items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 active:cursor-grabbing"
+                      title={`Drag ${track.title} to reorder`}
+                      aria-label={`Drag ${track.title} to reorder`}
+                      on:dragstart={(event) => beginTrackReorder(event, i)}
+                      on:dragend={endTrackReorder}
+                    >
+                      <GripVertical size={14} strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      data-track-control
+                      data-track-id={track.id}
+                      data-move-delta={-1}
+                      class="flex h-6 w-6 items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 disabled:cursor-not-allowed disabled:opacity-30"
+                      title={`Move ${track.title} up`}
+                      aria-label={`Move ${track.title} up`}
+                      disabled={i === 0}
+                      on:click={() => moveTrackBy(i, -1)}
+                    >
+                      <ArrowUp size={14} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      data-track-control
+                      data-track-id={track.id}
+                      data-move-delta={1}
+                      class="flex h-6 w-6 items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 disabled:cursor-not-allowed disabled:opacity-30"
+                      title={`Move ${track.title} down`}
+                      aria-label={`Move ${track.title} down`}
+                      disabled={i === activePlaylist.tracks.length - 1}
+                      on:click={() => moveTrackBy(i, 1)}
+                    >
+                      <ArrowDown size={14} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <MediaListRow
+                      item={videoItem}
+                      mode="list"
+                      selected={$currentTrack?.id === videoItem.id}
+                      onSelect={() => playPlaylistTrack(i)}
+                      on:info={(event) => openDetails(event.detail)}
+                    />
+                  </div>
+                </div>
+              {:else}
               <div
                 class="relative grid grid-cols-[24px_1fr_80px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-6 py-2 text-[13px] text-vlc-secondary hover:bg-vlc-raised {reorderDrag?.fromIndex ===
                 i
@@ -766,6 +930,7 @@
                   : ''}"
                 role="group"
                 aria-label={track.title}
+                on:contextmenu={(event) => openMediaContextMenu(event, track.id)}
                 on:dragover={(event) => handleTrackDragOver(event, i)}
                 on:dragleave={handleTrackDragLeave}
                 on:drop={(event) => handleTrackDrop(event, i)}
@@ -838,12 +1003,77 @@
                   ></span>
                 {/if}
               </div>
+              {/if}
             {/each}
           </div>
         {:else}
           <div class="border-t border-vlc-border px-4 py-2 sm:px-6">
             {#each visibleTracks as track (track.id)}
               {@const i = trackSourceIndex(track.id, track.src)}
+              {@const videoItem = mediaItemForTrack(track)}
+              {#if videoItem}
+                <div
+                  class="flex items-center {reorderDrag?.fromIndex === i ? 'opacity-50' : ''}"
+                  role="group"
+                  aria-label={track.title}
+                  on:contextmenu={(event) => openMediaContextMenu(event, track.id)}
+                  on:dragover={(event) => handleTrackDragOver(event, i)}
+                  on:dragleave={handleTrackDragLeave}
+                  on:drop={(event) => handleTrackDrop(event, i)}
+                >
+                  <div class="flex w-[4.5rem] shrink-0 items-center justify-center">
+                    <button
+                      type="button"
+                      draggable="true"
+                      data-track-control
+                      data-track-handle
+                      data-track-id={track.id}
+                      class="flex h-6 w-6 cursor-grab items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 active:cursor-grabbing"
+                      title={`Drag ${track.title} to reorder`}
+                      aria-label={`Drag ${track.title} to reorder`}
+                      on:dragstart={(event) => beginTrackReorder(event, i)}
+                      on:dragend={endTrackReorder}
+                    >
+                      <GripVertical size={13} strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      data-track-control
+                      data-track-id={track.id}
+                      data-move-delta={-1}
+                      class="flex h-6 w-6 items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 disabled:cursor-not-allowed disabled:opacity-30"
+                      title={`Move ${track.title} up`}
+                      aria-label={`Move ${track.title} up`}
+                      disabled={i === 0}
+                      on:click={() => moveTrackBy(i, -1)}
+                    >
+                      <ArrowUp size={13} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      data-track-control
+                      data-track-id={track.id}
+                      data-move-delta={1}
+                      class="flex h-6 w-6 items-center justify-center rounded-input text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 disabled:cursor-not-allowed disabled:opacity-30"
+                      title={`Move ${track.title} down`}
+                      aria-label={`Move ${track.title} down`}
+                      disabled={i === activePlaylist.tracks.length - 1}
+                      on:click={() => moveTrackBy(i, 1)}
+                    >
+                      <ArrowDown size={13} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <MediaListRow
+                      item={videoItem}
+                      mode="compact"
+                      selected={$currentTrack?.id === videoItem.id}
+                      onSelect={() => playPlaylistTrack(i)}
+                      on:info={(event) => openDetails(event.detail)}
+                    />
+                  </div>
+                </div>
+              {:else}
               <div
                 class="group relative flex h-8 w-full items-center gap-2 rounded-input border-b border-vlc-border/40 px-2 text-xs transition-colors last:border-b-0 hover:bg-vlc-raised {reorderDrag?.fromIndex ===
                 i
@@ -851,6 +1081,7 @@
                   : ''}"
                 role="group"
                 aria-label={track.title}
+                on:contextmenu={(event) => openMediaContextMenu(event, track.id)}
                 on:dragover={(event) => handleTrackDragOver(event, i)}
                 on:dragleave={handleTrackDragLeave}
                 on:drop={(event) => handleTrackDrop(event, i)}
@@ -926,6 +1157,7 @@
                   ></span>
                 {/if}
               </div>
+              {/if}
             {/each}
           </div>
         {/if}

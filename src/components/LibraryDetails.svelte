@@ -10,7 +10,7 @@
   } from 'lucide-svelte';
   import { formatDuration } from '../lib/formatDuration';
   import type { MediaItem } from '../lib/mock';
-  import { isItemWatched, libraryImportLog, toggleItemWatched } from '../stores/library';
+  import { isItemWatched, libraryImportLog, libraryItems, toggleItemWatched } from '../stores/library';
   import { addToQueue, type Track } from '../stores/player';
   import { openPlaylistTarget } from '../stores/playlistTarget';
   import { ensureItemThumbnail, mediaThumbnails } from '../lib/thumbnails';
@@ -26,6 +26,8 @@
   $: progress = Math.min(Math.max(item.progress, 0), 1);
   $: progressPercent = `${progress * 100}%`;
   $: watched = isItemWatched(item);
+  /** Mark watched only updates a library row. Playlist-only videos have nothing to flip. */
+  $: canToggleWatched = $libraryItems.some((entry) => entry.id === item.id);
   $: progressLabel = watched ? `${Math.round(progress * 100)}% watched` : 'Not started';
   $: durationLabel = formatDuration(item.durationSeconds);
   $: pathLabel = breadcrumb.join(' / ');
@@ -247,15 +249,17 @@
             Add to playlist
           </button>
 
-          <button type="button" class={secondaryActionClass} on:click={toggleWatched}>
-            {#if watched}
-              <EyeOff size={13} strokeWidth={1.9} aria-hidden="true" />
-              Mark unwatched
-            {:else}
-              <Check size={13} strokeWidth={2.2} aria-hidden="true" />
-              Mark watched
-            {/if}
-          </button>
+          {#if canToggleWatched}
+            <button type="button" class={secondaryActionClass} on:click={toggleWatched}>
+              {#if watched}
+                <EyeOff size={13} strokeWidth={1.9} aria-hidden="true" />
+                Mark unwatched
+              {:else}
+                <Check size={13} strokeWidth={2.2} aria-hidden="true" />
+                Mark watched
+              {/if}
+            </button>
+          {/if}
         </div>
 
         {#if !hasSource}

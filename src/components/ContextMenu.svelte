@@ -40,6 +40,9 @@
   import { settings } from '../stores/settings';
   import { watchLater } from '../stores/watchLater';
   import { musicTracks } from '../stores/musicLibrary';
+  import { libraryItems } from '../stores/library';
+  import { playlistsData } from '../stores/playlists';
+  import { findPlaylistTrack, playlistTrackIsVideo } from '../lib/playlistMedia';
   import { history, type HistoryEntry } from '../stores/history';
 
   export let x = 0;
@@ -260,6 +263,26 @@
     return $watchLater.some((entry) => entry.mediaKey === id && entry.type === 'video');
   })();
 
+  /**
+   * Playlist-only rows are not library videos. Watch Later and Show Info stay
+   * hidden when they would no-op (audio, or an id with no playable video).
+   */
+  $: contextPlaylistTrack = findPlaylistTrack($playlistsData, $contextItemId);
+  $: contextLibraryItem =
+    $libraryItems.find((item) => item.id === $contextItemId) ?? null;
+  $: contextPlaylistIsVideo = contextPlaylistTrack
+    ? playlistTrackIsVideo(
+        contextPlaylistTrack,
+        contextLibraryItem !== null,
+        contextMediaIsMusic,
+      )
+    : false;
+  $: contextPlaylistAudioOnly =
+    contextPlaylistTrack !== null &&
+    !contextPlaylistIsVideo &&
+    contextLibraryItem === null &&
+    !contextMediaIsMusic;
+
   // Substitute menu based on UI context – global, folder, media, or a
   // player-view library entry. Every action is handled in App.svelte.
   $: activeMenuItems = (() => {
@@ -297,7 +320,8 @@
         { id: 'media-add-to-playlist', label: 'Add to Playlist', icon: ListPlus, tone: 'neutral' },
       ];
       // Watch Later is a video-only collection; music tracks use playlists.
-      if (!contextMediaIsMusic) {
+      // Playlist audio has no watch entry to toggle, so the row stays hidden.
+      if (!contextMediaIsMusic && !contextPlaylistAudioOnly) {
         items.push({
           id: 'media-toggle-watch-later',
           label: contextMediaInWatchLater ? 'Remove from Watch Later' : 'Add to Watch Later',
@@ -305,8 +329,12 @@
           tone: 'neutral',
         });
       }
-      items.push({ type: 'divider' });
-      items.push({ id: 'media-show-info', label: 'Show Info', icon: Info, tone: 'neutral' });
+      // Show Info opens the library details view. Playlist audio has no item
+      // for that view, so the entry is omitted instead of dispatching a no-op.
+      if (!contextPlaylistAudioOnly) {
+        items.push({ type: 'divider' });
+        items.push({ id: 'media-show-info', label: 'Show Info', icon: Info, tone: 'neutral' });
+      }
       return items;
     }
 
