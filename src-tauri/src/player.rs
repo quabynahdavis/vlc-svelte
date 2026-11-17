@@ -29,6 +29,10 @@
 //!   `[seq: u64 LE][width: u32 LE][height: u32 LE][rgba bytes...]`.
 //!   No live frame -> `204 No Content` with an empty body (chosen over 404:
 //!   204 carries no error semantics for the polling loop and needs no body).
+//!
+//! Audio tap: `libvlc_audio_set_callbacks` replaces the normal output, so the
+//! play callback copies S16N PCM into a short ring and `vlcaudio://` serves
+//! small chunks to the webview. The webview is what makes the samples audible.
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -265,6 +269,33 @@ pub fn vlc_frame_snapshot() -> Option<(u32, u32, u64, Vec<u8>)> {
 /// Stub half: no native player can exist, so no frame can either.
 #[cfg(not(feature = "libvlc"))]
 pub fn vlc_frame_snapshot() -> Option<(u32, u32, u64, Vec<u8>)> {
+    None
+}
+
+/// One chunk of interleaved float PCM pulled off the native ring.
+///
+/// Body layout for `vlcaudio://localhost/pcm` (little-endian):
+/// `[seq: u64][generation: u32][rate: u32][channels: u32][frames: u32][f32...]`.
+/// `generation` changes on flush, seek, stop, and track change so the webview
+/// can drop audio it already scheduled. `frames` is per channel.
+pub struct NativePcmChunk {
+    pub seq: u64,
+    pub generation: u32,
+    pub rate: u32,
+    pub channels: u32,
+    pub frames: u32,
+    pub samples: Vec<f32>,
+}
+
+/// Latest unread PCM, up to ~20 ms. `None` when native audio is idle or the
+/// ring has nothing new — the protocol answers `204` in that case.
+#[cfg(feature = "libvlc")]
+pub fn vlc_pcm_snapshot() -> Option<NativePcmChunk> {
+    native::pcm_snapshot()
+}
+
+#[cfg(not(feature = "libvlc"))]
+pub fn vlc_pcm_snapshot() -> Option<NativePcmChunk> {
     None
 }
 
@@ -839,6 +870,269 @@ mod native {
         ))
     }
 
+    // ── Audio tap ─────────────────────────────────────────────────────────
+    //
+    // `libvlc_audio_set_callbacks` replaces the default output. The play
+    // callback only copies into the ring below. A `vlcaudio://` poll (not
+    // this callback) hands small chunks to the webview, which is what plays
+    // them. libvlc 3.0.24's amem plugin accepts only "S16N" (its setup path
+    // rejects FL32 and then produces no audio), so the callback converts
+    // native-endian s16 to f32 while copying. No libvlc or Tauri calls, and
+    // no allocation, on that thread.
+
+    /// 48 kHz stereo, negotiated in the setup callback.
+    const PCM_RATE: u32 = 48_000;
+    const PCM_CHANNELS: usize = 2;
+    /// 16384 interleaved floats ≈ 171 ms at 48 kHz stereo. Power of two.
+    const PCM_CAP: usize = 16_384;
+    /// ~20 ms at 48 kHz. One protocol response.
+    const PCM_CHUNK_FRAMES: usize = 960;
+
+    struct PcmState {
+        /// Pre-sized on the command thread. The play callback never grows it.
+        samples: Vec<f32>,
+        write: u32,
+        read: u32,
+        live: bool,
+        generation: u32,
+        seq: u64,
+    }
+
+    static PCM: Mutex<PcmState> = Mutex::new(PcmState {
+        samples: Vec::new(),
+        write: 0,
+        read: 0,
+        live: false,
+        generation: 0,
+        seq: 0,
+    });
+
+    fn pcm_lock() -> std::sync::MutexGuard<'static, PcmState> {
+        PCM.lock().unwrap_or_else(|err| err.into_inner())
+    }
+
+    /// Allocate the ring on the command thread and open the gate. Safe to
+    /// call again: a second call drops whatever the previous media left.
+    fn prepare_pcm() {
+        let mut pcm = pcm_lock();
+        if pcm.samples.len() != PCM_CAP {
+            pcm.samples = vec![0.0; PCM_CAP];
+        }
+        pcm.read = 0;
+        pcm.write = 0;
+        pcm.live = true;
+        pcm.generation = pcm.generation.wrapping_add(1);
+    }
+
+    fn mark_pcm_live() {
+        let mut pcm = pcm_lock();
+        if pcm.samples.len() != PCM_CAP {
+            return;
+        }
+        pcm.read = pcm.write;
+        pcm.live = true;
+        pcm.generation = pcm.generation.wrapping_add(1);
+    }
+
+    fn flush_pcm() {
+        let mut pcm = pcm_lock();
+        pcm.read = pcm.write;
+        pcm.generation = pcm.generation.wrapping_add(1);
+    }
+
+    fn reset_pcm() {
+        let mut pcm = pcm_lock();
+        pcm.live = false;
+        pcm.read = pcm.write;
+        pcm.generation = pcm.generation.wrapping_add(1);
+    }
+
+    /// Copy native-endian S16N bytes into the ring as f32 in [-1, 1). If the
+    /// webview has fallen behind, the oldest unread samples are dropped so
+    /// the ring stays inside `PCM_CAP`.
+    fn push_s16_bytes(bytes: &[u8]) {
+        let mut pcm = pcm_lock();
+        if !pcm.live || pcm.samples.len() != PCM_CAP {
+            return;
+        }
+        let total = bytes.len() / 2;
+        if total == 0 {
+            return;
+        }
+        let (bytes, total) = if total > PCM_CAP {
+            let skip = (total - PCM_CAP) * 2;
+            (&bytes[skip..], PCM_CAP)
+        } else {
+            (bytes, total)
+        };
+        let occupied = pcm.write.wrapping_sub(pcm.read) as usize;
+        let overflow = occupied.saturating_add(total).saturating_sub(PCM_CAP);
+        if overflow > 0 {
+            pcm.read = pcm.read.wrapping_add(overflow as u32);
+        }
+        let mut offset = 0;
+        while offset + 1 < bytes.len() {
+            let sample = i16::from_ne_bytes([bytes[offset], bytes[offset + 1]]);
+            let index = (pcm.write as usize) & (PCM_CAP - 1);
+            pcm.samples[index] = f32::from(sample) * (1.0 / 32768.0);
+            pcm.write = pcm.write.wrapping_add(1);
+            offset += 2;
+        }
+    }
+
+    pub fn pcm_snapshot() -> Option<super::NativePcmChunk> {
+        let mut pcm = pcm_lock();
+        if !pcm.live || pcm.samples.len() != PCM_CAP {
+            return None;
+        }
+        let occupied = pcm.write.wrapping_sub(pcm.read) as usize;
+        let frames_available = occupied / PCM_CHANNELS;
+        if frames_available == 0 {
+            return None;
+        }
+        let frames = frames_available.min(PCM_CHUNK_FRAMES);
+        let count = frames * PCM_CHANNELS;
+        let mut samples = Vec::with_capacity(count);
+        for _ in 0..count {
+            let index = (pcm.read as usize) & (PCM_CAP - 1);
+            samples.push(pcm.samples[index]);
+            pcm.read = pcm.read.wrapping_add(1);
+        }
+        pcm.seq = pcm.seq.wrapping_add(1);
+        Some(super::NativePcmChunk {
+            seq: pcm.seq,
+            generation: pcm.generation,
+            rate: PCM_RATE,
+            channels: PCM_CHANNELS as u32,
+            frames: frames as u32,
+            samples,
+        })
+    }
+
+    type AudioSetupCb = Option<
+        unsafe extern "C" fn(
+            *mut *mut c_void,
+            *mut libc::c_char,
+            *mut libc::c_uint,
+            *mut libc::c_uint,
+        ) -> libc::c_int,
+    >;
+    type AudioCleanupCb = Option<unsafe extern "C" fn(*mut c_void)>;
+
+    extern "C" {
+        // Local declaration: vlc-rs 0.1's `libvlc_audio_setup_cb` alias drops
+        // the `int` return, so a correctly-typed setup callback will not coerce.
+        fn libvlc_audio_set_format_callbacks(
+            mp: *mut ffi::libvlc_media_player_t,
+            setup: AudioSetupCb,
+            cleanup: AudioCleanupCb,
+        );
+    }
+
+    fn install_audio_callbacks(media_player: &MediaPlayer) {
+        prepare_pcm();
+        unsafe {
+            ffi::libvlc_audio_set_callbacks(
+                media_player.ptr,
+                Some(audio_play),
+                Some(audio_pause),
+                Some(audio_resume),
+                Some(audio_flush),
+                Some(audio_drain),
+                std::ptr::null_mut(),
+            );
+            libvlc_audio_set_format_callbacks(
+                media_player.ptr,
+                Some(audio_setup),
+                Some(audio_cleanup),
+            );
+        }
+    }
+
+    /// Ask amem for stereo 48 kHz S16N. Returning non-zero skips audio.
+    extern "C" fn audio_setup(
+        opaque: *mut *mut c_void,
+        format: *mut libc::c_char,
+        rate: *mut libc::c_uint,
+        channels: *mut libc::c_uint,
+    ) -> libc::c_int {
+        std::panic::catch_unwind(|| {
+            if !opaque.is_null() {
+                unsafe { *opaque = std::ptr::null_mut() };
+            }
+            if format.is_null() || rate.is_null() || channels.is_null() {
+                return -1;
+            }
+            // Exactly four bytes. amem's `char format[5]` keeps the NUL.
+            unsafe {
+                std::ptr::copy_nonoverlapping(b"S16N".as_ptr(), format as *mut u8, 4);
+                *rate = PCM_RATE;
+                *channels = PCM_CHANNELS as libc::c_uint;
+            }
+            mark_pcm_live();
+            0
+        })
+        .unwrap_or(-1)
+    }
+
+    extern "C" fn audio_cleanup(opaque: *mut c_void) {
+        let _ = std::panic::catch_unwind(|| {
+            let _ = opaque;
+            reset_pcm();
+        });
+    }
+
+    extern "C" fn audio_play(
+        data: *mut c_void,
+        samples: *const c_void,
+        count: libc::c_uint,
+        pts: i64,
+    ) {
+        let _ = std::panic::catch_unwind(|| {
+            let _ = (data, pts);
+            if samples.is_null() || count == 0 {
+                return;
+            }
+            let frames = count as usize;
+            let Some(sample_count) = frames.checked_mul(PCM_CHANNELS) else {
+                return;
+            };
+            let Some(nbytes) = sample_count.checked_mul(2) else {
+                return;
+            };
+            if nbytes == 0 {
+                return;
+            }
+            // SAFETY: libvlc passes `count` frames of the format negotiated
+            // in `audio_setup` (S16N, stereo) and keeps them alive for this
+            // call. The byte view does not require i16 alignment.
+            let bytes = unsafe { std::slice::from_raw_parts(samples as *const u8, nbytes) };
+            push_s16_bytes(bytes);
+        });
+    }
+
+    extern "C" fn audio_pause(data: *mut c_void, pts: i64) {
+        let _ = std::panic::catch_unwind(|| {
+            let _ = (data, pts);
+            flush_pcm();
+        });
+    }
+
+    extern "C" fn audio_resume(data: *mut c_void, pts: i64) {
+        let _ = (data, pts);
+    }
+
+    extern "C" fn audio_flush(data: *mut c_void, pts: i64) {
+        let _ = std::panic::catch_unwind(|| {
+            let _ = (data, pts);
+            flush_pcm();
+        });
+    }
+
+    extern "C" fn audio_drain(data: *mut c_void) {
+        let _ = data;
+    }
+
     /// Run `f` against the loaded player, or fail if nothing was loaded.
     fn with_player<T>(f: impl FnOnce(&NativePlayer) -> T) -> Result<T, String> {
         let guard = PLAYER
@@ -854,10 +1148,11 @@ mod native {
         // EndReached from stop(), and that must not advance the queue.
         EVENTS_SUPPRESSED.store(true, Ordering::Release);
         shutdown_locked_player()?;
-        // Frame reset after the old player is gone, so a late display
-        // callback cannot republish the previous picture. No PLAYER lock is
+        // Frame and PCM resets after the old player is gone, so a late
+        // callback cannot republish the previous media. No PLAYER lock is
         // held here.
         reset_frames();
+        reset_pcm();
         ensure_event_pump(app);
 
         // A fresh libvlc instance per load. Instance pooling stays deferred
@@ -875,7 +1170,10 @@ mod native {
         media_player.set_media(&media);
         // Video callbacks go on every load (audio included — the format
         // callback simply never fires without a video track), before play.
+        // Audio callbacks replace the default output; the webview plays the
+        // PCM they publish. Both are installed before play.
         install_video_callbacks(&media_player);
+        install_audio_callbacks(&media_player);
 
         let generation = next_generation();
         let generation_slot = Box::new(generation);
@@ -930,10 +1228,11 @@ mod native {
     pub fn stop() -> Result<(), String> {
         EVENTS_SUPPRESSED.store(true, Ordering::Release);
         shutdown_locked_player()?;
-        // Reset the frame surface AFTER releasing the PLAYER mutex: stop()
-        // takes PLAYER -> (libvlc) and the display callback takes the
-        // published mutex, so those locks must never nest.
+        // Reset the frame surface and the PCM ring AFTER releasing the
+        // PLAYER mutex: stop() takes PLAYER -> (libvlc) and the callbacks
+        // take their own locks, so those locks must never nest.
         reset_frames();
+        reset_pcm();
         Ok(())
     }
 

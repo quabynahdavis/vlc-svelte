@@ -17,7 +17,11 @@
   import { handleHorizontalWheel, scrollRailBy } from '../lib/horizontalScroll';
   import {
     ensureAudioAnalyser,
+    resetNativePcmSchedule,
     resumeAudioAnalyser,
+    setNativePcmPlaying,
+    startNativePcmPlayback,
+    stopNativePcmPlayback,
   } from '../lib/audioAnalyser';
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
   import { settings } from '../stores/settings';
@@ -188,6 +192,11 @@
   // Store -> canvas pump: fetch-and-paint while a local video is native.
   $: if (nativeVideoActive) startNativeFramePump();
   $: if (!nativeVideoActive) stopNativeFramePump();
+  // Store -> native PCM: the audio callback replaces libvlc's output, so the
+  // webview plays `vlcaudio://` chunks. The emptied <video> stays silent.
+  $: if (nativeRoutingActive) startNativePcmPlayback();
+  $: if (!nativeRoutingActive) stopNativePcmPlayback();
+  $: if (nativeRoutingActive) setNativePcmPlaying($player.isPlaying);
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -332,6 +341,7 @@
     }
 
     const epoch = ++nativeLoadEpoch;
+    resetNativePcmSchedule();
     if (nativeLoadedId) {
       await nativeStop();
     }
@@ -467,6 +477,7 @@
     if (nativeVideoActive) markWatched(mediaKey, 'video');
 
     if (state.repeat === 'one') {
+      resetNativePcmSchedule();
       const path = nativeLoadedId;
       nativeAcceptingEvents = false;
       const generation = await nativeLoad(path);
@@ -508,6 +519,7 @@
     // the last value we polled.
     if (Math.abs(state.currentTime - nativeLastPolledTime) > 0.6) {
       nativeLastPolledTime = state.currentTime;
+      resetNativePcmSchedule();
       await nativeSeek(state.currentTime);
       return;
     }
@@ -716,7 +728,7 @@
    * element; failures are swallowed by the module so playback is unaffected.
    */
   function hookAudioAnalyser(): void {
-    if (!videoEl) return;
+    if (!videoEl || nativeRoutingActive) return;
     ensureAudioAnalyser(videoEl);
     void resumeAudioAnalyser();
   }
@@ -1222,8 +1234,9 @@
       nativePollTimer = null;
     }
 
-    // Stop the frame fetch loop before libvlc goes away.
+    // Stop the frame and PCM loops before libvlc goes away.
     stopNativeFramePump();
+    stopNativePcmPlayback();
 
     // Release libvlc so playback never outlives the view.
     void releaseNativePlayer();

@@ -18,6 +18,10 @@
  * where element sources never carry data), the analyser is marked unusable
  * and the visualizer panel falls back to its synthetic animation. The graph
  * stays connected so audio keeps flowing either way.
+ *
+ * Native playback does not use the media element. libvlc's audio callbacks
+ * replace the normal output, and `startNativePcmPlayback` plays the
+ * `vlcaudio://` chunks through GainNode → AnalyserNode → destination.
  */
 
 const MUTE_GUARD_MS = 2000;
@@ -29,12 +33,63 @@ let analyser: AnalyserNode | null = null;
 let source: MediaElementAudioSourceNode | null = null;
 /** Element the current source node belongs to (sources are one per element). */
 let sourceEl: HTMLMediaElement | null = null;
+/** `analyser → destination` is already connected. A second connect() throws. */
+let analyserToDestination = false;
 
 /** True once the mute guard has proven the analyser dead. */
 let analyserUnusable = false;
 let watchFrame = 0;
 let silentSince = 0;
 let lastPoll = 0;
+
+const NATIVE_PCM_URL = 'vlcaudio://localhost/pcm';
+/** Header: seq u64, generation u32, rate u32, channels u32, frames u32. */
+const NATIVE_PCM_HEADER_BYTES = 24;
+/** Keep this much scheduled audio. Longer than this, leave the ring alone. */
+const NATIVE_PCM_MAX_LEAD_SEC = 0.12;
+/** First buffer after an underrun starts this far ahead of `currentTime`. */
+const NATIVE_PCM_START_LEAD_SEC = 0.04;
+
+let nativeActive = false;
+let nativePlaying = false;
+let nativeAudible = true;
+let nativeGain: GainNode | null = null;
+let nativeRaf = 0;
+let nativeFetchInFlight = false;
+let nativeEpoch = 0;
+let nativeNextTime = 0;
+let nativeGeneration = -1;
+let nativeScheduled: AudioBufferSourceNode[] = [];
+
+function audioContextCtor(): typeof AudioContext | null {
+  return (
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext ??
+    null
+  );
+}
+
+/** Create the shared context and analyser once. Does not attach a source. */
+function ensureGraph(): boolean {
+  if (context && analyser) return true;
+
+  const Ctor = audioContextCtor();
+  if (!Ctor) return false;
+
+  const ctx = new Ctor();
+  const node = ctx.createAnalyser();
+  node.fftSize = 2048;
+  node.smoothingTimeConstant = 0.8;
+  context = ctx;
+  analyser = node;
+  return true;
+}
+
+function connectAnalyserToDestination(): void {
+  if (!context || !analyser || analyserToDestination) return;
+  analyser.connect(context.destination);
+  analyserToDestination = true;
+}
 
 /**
  * Attach (or reuse) the analysis graph for `el` and return its analyser.
@@ -46,24 +101,9 @@ export function ensureAudioAnalyser(el: HTMLMediaElement): AnalyserNode | null {
   if (!el) return null;
 
   try {
-    let ctx = context;
-    let node = analyser;
-
-    if (!ctx) {
-      const Ctor =
-        window.AudioContext ??
-        (window as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
-      if (!Ctor) return null;
-
-      ctx = new Ctor();
-      node = ctx.createAnalyser();
-      node.fftSize = 2048;
-      node.smoothingTimeConstant = 0.8;
-
-      context = ctx;
-      analyser = node;
-    }
+    if (!ensureGraph()) return null;
+    const ctx = context;
+    const node = analyser;
     if (!node || !ctx) return null;
 
     // At most one source per element: creating a second for the same element
@@ -83,7 +123,7 @@ export function ensureAudioAnalyser(el: HTMLMediaElement): AnalyserNode | null {
     }
 
     // The graph must end at destination or the element goes fully silent.
-    node.connect(ctx.destination);
+    connectAnalyserToDestination();
     startMuteGuard(el);
     return node;
   } catch (error) {
@@ -177,5 +217,204 @@ function stopMuteGuard(): void {
   if (watchFrame) {
     cancelAnimationFrame(watchFrame);
     watchFrame = 0;
+  }
+}
+
+/**
+ * Native playback plays libvlc's PCM through this graph
+ * (GainNode → AnalyserNode → destination) instead of the media element.
+ * HTML5 keeps `createMediaElementSource`. The two sources can share the
+ * analyser; native mode leaves the element without a src.
+ */
+function ensureNativeGain(): GainNode | null {
+  if (!ensureGraph() || !context || !analyser) return null;
+  if (!nativeGain) {
+    nativeGain = context.createGain();
+    nativeGain.connect(analyser);
+  }
+  nativeGain.gain.value = nativeAudible ? 1 : 0;
+  connectAnalyserToDestination();
+  return nativeGain;
+}
+
+function stopNativeSources(): void {
+  for (const node of nativeScheduled) {
+    try {
+      node.onended = null;
+      node.stop();
+    } catch {
+      // Already stopped or not yet started.
+    }
+    try {
+      node.disconnect();
+    } catch {
+      // Already disconnected.
+    }
+  }
+  nativeScheduled = [];
+  nativeNextTime = 0;
+}
+
+function dropEndedSource(node: AudioBufferSourceNode): void {
+  const index = nativeScheduled.indexOf(node);
+  if (index >= 0) nativeScheduled.splice(index, 1);
+}
+
+function scheduleNativePcm(samples: Float32Array, frames: number, rate: number): void {
+  const gain = ensureNativeGain();
+  const ctx = context;
+  if (!gain || !ctx || frames <= 0 || !nativePlaying) return;
+
+  const now = ctx.currentTime;
+  if (nativeNextTime < now + 0.005) {
+    nativeNextTime = now + NATIVE_PCM_START_LEAD_SEC;
+  }
+
+  const buffer = ctx.createBuffer(2, frames, rate);
+  const left = buffer.getChannelData(0);
+  const right = buffer.getChannelData(1);
+  for (let index = 0; index < frames; index += 1) {
+    left[index] = samples[index * 2] ?? 0;
+    right[index] = samples[index * 2 + 1] ?? 0;
+  }
+
+  const node = ctx.createBufferSource();
+  node.buffer = buffer;
+  node.connect(gain);
+  node.onended = () => dropEndedSource(node);
+  node.start(nativeNextTime);
+  nativeNextTime += frames / rate;
+  nativeScheduled.push(node);
+}
+
+function parseNativePcm(buffer: ArrayBuffer): {
+  generation: number;
+  rate: number;
+  frames: number;
+  samples: Float32Array;
+} | null {
+  if (buffer.byteLength < NATIVE_PCM_HEADER_BYTES) return null;
+  const view = new DataView(buffer);
+  const generation = view.getUint32(8, true);
+  const rate = view.getUint32(12, true);
+  const channels = view.getUint32(16, true);
+  const frames = view.getUint32(20, true);
+  if (channels !== 2 || rate < 8000 || rate > 192000 || frames === 0) return null;
+  const sampleCount = frames * channels;
+  const bytes = sampleCount * 4;
+  if (buffer.byteLength < NATIVE_PCM_HEADER_BYTES + bytes) return null;
+  const samples = new Float32Array(sampleCount);
+  samples.set(new Float32Array(buffer, NATIVE_PCM_HEADER_BYTES, sampleCount));
+  return { generation, rate, frames, samples };
+}
+
+async function pullNativePcm(epoch: number): Promise<void> {
+  const response = await fetch(NATIVE_PCM_URL);
+  if (epoch !== nativeEpoch || !nativeActive || !nativePlaying) return;
+  if (!response.ok || response.status === 204) return;
+
+  const body = await response.arrayBuffer();
+  if (epoch !== nativeEpoch || !nativeActive || !nativePlaying) return;
+  const chunk = parseNativePcm(body);
+  if (!chunk) return;
+
+  if (nativeGeneration !== chunk.generation) {
+    stopNativeSources();
+    nativeGeneration = chunk.generation;
+  }
+  scheduleNativePcm(chunk.samples, chunk.frames, chunk.rate);
+  const ctx = context;
+  if (ctx && ctx.state === 'suspended') {
+    void ctx.resume().catch(() => {
+      // Autoplay can still be suspended; the next play gesture resumes it.
+    });
+  }
+}
+
+function nativePcmTick(): void {
+  nativeRaf = requestAnimationFrame(nativePcmTick);
+  if (!nativeActive || !nativePlaying || nativeFetchInFlight) return;
+
+  const ctx = context;
+  if (ctx && nativeNextTime > ctx.currentTime + NATIVE_PCM_MAX_LEAD_SEC) return;
+
+  nativeFetchInFlight = true;
+  const epoch = nativeEpoch;
+  void pullNativePcm(epoch)
+    .catch(() => {
+      // Browser preview, or the scheme is gone during teardown.
+    })
+    .finally(() => {
+      if (epoch === nativeEpoch) nativeFetchInFlight = false;
+    });
+}
+
+/**
+ * Start polling `vlcaudio://` and playing the chunks. Idempotent.
+ * No-op outside a native playback session; call `stopNativePcmPlayback`
+ * when leaving native mode.
+ */
+export function startNativePcmPlayback(): void {
+  if (nativeActive) return;
+  nativeActive = true;
+  nativeEpoch += 1;
+  nativeGeneration = -1;
+  nativeNextTime = 0;
+  ensureNativeGain();
+  if (context && context.state === 'suspended') {
+    void context.resume().catch(() => {
+      // Resumed again from the player once a gesture has landed.
+    });
+  }
+  if (!nativeRaf) nativeRaf = requestAnimationFrame(nativePcmTick);
+}
+
+/** Drop scheduled native buffers. The next chunk starts a fresh timeline. */
+export function resetNativePcmSchedule(): void {
+  nativeEpoch += 1;
+  nativeFetchInFlight = false;
+  nativeGeneration = -1;
+  stopNativeSources();
+}
+
+/**
+ * Pause or resume the native graph. Pausing stops buffers already queued
+ * in the webview so mute/pause are not waiting on the ring to drain.
+ */
+export function setNativePcmPlaying(playing: boolean): void {
+  if (playing) {
+    // Play is a user gesture often enough to unstick autoplay suspension.
+    // Resume even when the flag is already true (the context may be new).
+    void resumeAudioAnalyser();
+  }
+  if (nativePlaying === playing) return;
+  nativePlaying = playing;
+  if (!playing) {
+    nativeEpoch += 1;
+    nativeFetchInFlight = false;
+    stopNativeSources();
+  }
+}
+
+/** Tear the native PCM graph down. HTML5's media-element source stays. */
+export function stopNativePcmPlayback(): void {
+  if (!nativeActive && nativeScheduled.length === 0 && !nativeRaf) return;
+  nativeActive = false;
+  nativePlaying = false;
+  nativeEpoch += 1;
+  nativeFetchInFlight = false;
+  nativeGeneration = -1;
+  if (nativeRaf) {
+    cancelAnimationFrame(nativeRaf);
+    nativeRaf = 0;
+  }
+  stopNativeSources();
+  if (nativeGain) {
+    try {
+      nativeGain.disconnect();
+    } catch {
+      // Already disconnected.
+    }
+    nativeGain = null;
   }
 }

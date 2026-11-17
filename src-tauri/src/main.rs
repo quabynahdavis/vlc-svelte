@@ -56,6 +56,26 @@ fn main() {
                 None => frame_response(tauri::http::StatusCode::NO_CONTENT, Vec::new()),
             }
         })
+        // Native audio tap. The play callback only fills a ring; this poll
+        // is what the webview plays. Same 204-when-idle contract as frames.
+        // Body: [seq u64][generation u32][rate u32][channels u32][frames u32][f32 LE...].
+        .register_uri_scheme_protocol("vlcaudio", |_ctx, _request| {
+            match player::vlc_pcm_snapshot() {
+                Some(chunk) => {
+                    let mut body = Vec::with_capacity(24 + chunk.samples.len() * 4);
+                    body.extend_from_slice(&chunk.seq.to_le_bytes());
+                    body.extend_from_slice(&chunk.generation.to_le_bytes());
+                    body.extend_from_slice(&chunk.rate.to_le_bytes());
+                    body.extend_from_slice(&chunk.channels.to_le_bytes());
+                    body.extend_from_slice(&chunk.frames.to_le_bytes());
+                    for sample in chunk.samples {
+                        body.extend_from_slice(&sample.to_le_bytes());
+                    }
+                    frame_response(tauri::http::StatusCode::OK, body)
+                }
+                None => frame_response(tauri::http::StatusCode::NO_CONTENT, Vec::new()),
+            }
+        })
         .setup(|app| {
             #[cfg(debug_assertions)]
             {
