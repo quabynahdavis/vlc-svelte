@@ -52,6 +52,8 @@ docs/
     │   ├── 02-design-reference.md
     │   └── 03-internationalization.md
     └── plans/
+        ├── OVERVIEW.md
+        ├── CHANGELOG.md
         ├── 01-player-enhancements.md
         └── 02-libvlc-integration.md
 ```
@@ -68,7 +70,7 @@ docs/
 
 - Detailed documentation is **English-only** today. The Asante Twi README is a translated entry point; it links back to the English documentation and does not mirror the topic files. Full translation rules live in [guides/03-internationalization.md](guides/03-internationalization.md).
 - `/docs/en/` is currently the only language root; it holds the required `OVERVIEW.md` / `CHANGELOG.md` pair.
-- Domain folders (`architecture/`, `design/`, `guides/`) contain numbered topic documents only; they do not duplicate domain-level overview or changelog files.
+- `plans/` keeps `OVERVIEW.md` and `CHANGELOG.md` next to its numbered topic documents. `architecture/`, `design/`, and `guides/` still contain numbered topic documents only.
 - Topic files use sequential prefixes (`01-`, `02-`, ...).
 - Paths, commands and code identifiers stay in English.
 - Dark design values come from the PNG exports; the light palette is a project extension. The canonical token list lives in [design/01-design-system.md](design/01-design-system.md). Do not invent alternate hex values in component docs.
