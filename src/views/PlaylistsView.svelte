@@ -4,8 +4,7 @@
     ArrowDown,
     ArrowLeft,
     ArrowUp,
-    ArrowUpDown,
-    Check,
+    ChevronRight,
     GripVertical,
     ListMusic,
     Pin,
@@ -33,6 +32,7 @@
   import { setQueue, type Track } from '../stores/player';
   import CreatePlaylistDialog from '../components/CreatePlaylistDialog.svelte';
   import FuzzySearch from '../components/FuzzySearch.svelte';
+  import SortMenu from '../components/SortMenu.svelte';
   import ViewModeToggle from '../components/ViewModeToggle.svelte';
 
   interface SortOption {
@@ -54,6 +54,8 @@
   ];
 
   const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+  const focusRing =
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app';
 
   $: selected = $playlistsSelectedId;
 
@@ -72,7 +74,10 @@
     searchKey += 1;
   }
 
-  $: filtered = $playlistsData.filter((item) => item.name.toLowerCase().includes(query));
+  // Inside a playlist the query filters tracks, so the root list stays intact underneath.
+  $: filtered = $playlistsData.filter((item) =>
+    $playlistsSelectedId ? true : item.name.toLowerCase().includes(query),
+  );
 
   /** `manual` keeps source order; everything else is stable and direction-aware. */
   function sortPlaylists(
@@ -116,84 +121,14 @@
     return sections;
   }
 
-  $: activeSortLabel =
-    sortOptions.find((option) => option.key === $playlistsSort)?.label ?? 'Manual';
-  $: directionLabel =
-    $playlistsSort === 'manual'
-      ? 'Manual order'
-      : $playlistsSortDirection === 'asc'
-        ? 'Ascending'
-        : 'Descending';
-
-  let sortOpen = false;
-  let sortRoot: HTMLDivElement;
-  let sortMenu: HTMLDivElement;
-
-  async function toggleSortMenu() {
-    sortOpen = !sortOpen;
-    if (!sortOpen) return;
-
-    await tick();
-    sortMenu?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
-  }
-
-  function closeSortMenu(refocus = false) {
-    sortOpen = false;
-    if (!refocus) return;
-
-    requestAnimationFrame(() => {
-      sortRoot?.querySelector<HTMLElement>('[data-sort-trigger]')?.focus();
-    });
-  }
-
-  function selectSortKey(key: PlaylistsSortKey) {
+  function selectSortKey(key: string) {
+    if (key !== 'manual' && key !== 'name' && key !== 'date' && key !== 'count') return;
     playlistsSort.set(key);
-    closeSortMenu(true);
   }
 
   function toggleSortDirection() {
     if ($playlistsSort === 'manual') return;
     playlistsSortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
-    closeSortMenu(true);
-  }
-
-  function handleWindowPointer(event: MouseEvent) {
-    if (!sortOpen) return;
-    const target = event.target;
-    if (target instanceof Node && sortRoot?.contains(target)) return;
-    sortOpen = false;
-  }
-
-  function handleWindowKeydown(event: KeyboardEvent) {
-    if (!sortOpen || event.key !== 'Escape') return;
-    event.preventDefault();
-    closeSortMenu(true);
-  }
-
-  function handleSortMenuKeydown(event: KeyboardEvent) {
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-
-    const items = Array.from(
-      sortMenu?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])') ?? [],
-    );
-    if (items.length === 0) return;
-
-    event.preventDefault();
-    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
-    let nextIndex = 0;
-
-    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
-    else if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
-    else if (event.key === 'End') nextIndex = items.length - 1;
-
-    items[nextIndex]?.focus();
-  }
-
-  function handleSortFocusOut(event: FocusEvent) {
-    if (!sortOpen) return;
-    const next = event.relatedTarget;
-    if (next instanceof Node && sortRoot?.contains(next)) return;
-    sortOpen = false;
   }
 
   function formatDuration(s: number) {
@@ -203,11 +138,17 @@
     return `${m}m`;
   }
 
+  function playlistTrackLabel(count: number): string {
+    return count === 1 ? '1 track' : `${count} tracks`;
+  }
+
   function openPlaylist(id: string) {
+    clearSearch();
     playlistsSelectedId.set(id);
   }
 
   function closePlaylist() {
+    clearSearch();
     playlistsSelectedId.set(null);
   }
 
@@ -238,7 +179,6 @@
   let createTrigger: HTMLElement | null = null;
 
   function openCreateDialog(event: MouseEvent) {
-    sortOpen = false;
     createTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     createOpen = true;
   }
@@ -266,10 +206,26 @@
     const id = $playlistsSelectedId;
     if (!id) return;
     deletePlaylist(id);
-    playlistsSelectedId.set(null);
+    closePlaylist();
   }
 
   $: activePlaylist = $playlistsData.find((playlist) => playlist.id === selected) ?? null;
+  /** Search filters the surface on screen: playlist names at the root, track title or artist inside one. */
+  $: visibleTracks = activePlaylist
+    ? activePlaylist.tracks.filter((track) => {
+        if (!query) return true;
+        return (
+          track.title.toLowerCase().includes(query) ||
+          track.artist.toLowerCase().includes(query)
+        );
+      })
+    : [];
+  $: itemCount = activePlaylist ? visibleTracks.length : sortedPlaylists.length;
+
+  function trackSourceIndex(trackId: string, src: string): number {
+    if (!activePlaylist) return -1;
+    return activePlaylist.tracks.findIndex((entry) => entry.id === trackId && entry.src === src);
+  }
 
   /* ---------------------------------------------------------------------------
    * Reordering tracks inside the open playlist (Task A)
@@ -505,7 +461,7 @@
   }
 
   function handleDetailDragOver(event: DragEvent) {
-    if (hasPlaylistTrackDrag(event) || !isTrackDrag(event)) {
+    if (!activePlaylist || hasPlaylistTrackDrag(event) || !isTrackDrag(event)) {
       detailDragActive = false;
       return;
     }
@@ -544,376 +500,137 @@
   }
 </script>
 
-<svelte:window
-  on:click={handleWindowPointer}
-  on:keydown={handleWindowKeydown}
-  on:dragend={handleWindowDragEnd}
-/>
+<svelte:window on:dragend={handleWindowDragEnd} />
 
-<div class="flex h-full bg-vlc-app">
-  {#if $playlistsData.length === 0}
-    <div
-      class="flex h-full min-h-[320px] w-full flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+<div class="flex h-full min-h-0 flex-col bg-vlc-app">
+  <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-4 sm:px-6">
+    <button
+      type="button"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control transition-colors {activePlaylist
+        ? 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'
+        : 'text-vlc-dim opacity-50'} {focusRing}"
+      title="Back"
+      aria-label="Go back"
+      disabled={!activePlaylist}
+      on:click={closePlaylist}
     >
-      <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
-      <p class="text-sm font-medium text-vlc-secondary">No playlists yet</p>
-      <p class="max-w-xs text-xs text-vlc-muted">
-        Create a playlist, then add tracks from your library.
-      </p>
-      <button
-        type="button"
-        class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-        on:click={openCreateDialog}
-      >
-        Create playlist
-      </button>
-    </div>
-  {:else}
-  <aside class="w-[200px] shrink-0 border-r border-vlc-border bg-vlc-panel flex flex-col">
-    <header class="flex h-11 items-center gap-2 border-b border-vlc-border px-3">
-      <button
-        class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-raised"
-        on:click={closePlaylist}
-        aria-label="Back"
-      >
-        <ArrowLeft size={16} strokeWidth={1.75} aria-hidden="true" />
-      </button>
-      <h2 class="min-w-0 flex-1 truncate text-[13px] font-medium text-vlc-text">Playlists</h2>
+      <ArrowLeft size={18} strokeWidth={1.75} aria-hidden="true" />
+    </button>
 
-      <div class="relative" bind:this={sortRoot} on:focusout={handleSortFocusOut}>
+    <nav
+      class="flex min-w-0 items-center gap-1.5 text-[13px] leading-none"
+      aria-label="Breadcrumb"
+    >
+      {#if activePlaylist}
         <button
           type="button"
-          data-sort-trigger
-          class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-          title={`Sort playlists: ${activeSortLabel} (${directionLabel.toLowerCase()})`}
-          aria-label={`Sort playlists, currently ${activeSortLabel}, ${directionLabel.toLowerCase()}`}
-          aria-haspopup="menu"
-          aria-expanded={sortOpen}
-          aria-controls={sortOpen ? 'playlists-sort-menu' : undefined}
-          on:click={toggleSortMenu}
+          class="min-w-0 truncate whitespace-nowrap text-vlc-secondary transition-colors hover:text-vlc-text {focusRing}"
+          on:click={closePlaylist}
         >
-          <ArrowUpDown size={15} strokeWidth={1.75} aria-hidden="true" />
+          Playlists
         </button>
+        <ChevronRight
+          size={14}
+          strokeWidth={1.75}
+          class="shrink-0 text-vlc-muted"
+          aria-hidden="true"
+        />
+        <span class="min-w-0 truncate whitespace-nowrap text-vlc-text" aria-current="page">
+          {activePlaylist.name}
+        </span>
+      {:else}
+        <span class="min-w-0 truncate whitespace-nowrap text-vlc-text" aria-current="page">
+          Playlists
+        </span>
+      {/if}
+    </nav>
 
-        {#if sortOpen}
-          <div
-            id="playlists-sort-menu"
-            bind:this={sortMenu}
-            role="menu"
-            tabindex="-1"
-            aria-label="Sort playlists by"
-            class="absolute left-0 top-full z-30 mt-1 w-44 rounded-control border border-vlc-borderStrong bg-vlc-panel p-1 shadow-2xl"
-            on:keydown={handleSortMenuKeydown}
-          >
-            <p class="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-vlc-muted">
-              Sort by
-            </p>
-
-            {#each sortOptions as option (option.key)}
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={$playlistsSort === option.key}
-                tabindex="-1"
-                class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {$playlistsSort === option.key
-                  ? 'bg-vlc-raised text-vlc-text'
-                  : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
-                on:click={() => selectSortKey(option.key)}
-              >
-                <Check
-                  size={13}
-                  strokeWidth={2}
-                  class={$playlistsSort === option.key ? 'text-vlc-orangeText' : 'text-transparent'}
-                  aria-hidden="true"
-                />
-                <span class="flex-1">{option.label}</span>
-              </button>
-            {/each}
-
-            <div class="my-1 h-px bg-vlc-border" role="separator"></div>
-
-            <button
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={$playlistsSortDirection === 'desc'}
-              tabindex="-1"
-              disabled={$playlistsSort === 'manual'}
-              class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-              title={$playlistsSort === 'manual'
-                ? 'Choose a sort option to change direction'
-                : 'Toggle sort direction'}
-              on:click={toggleSortDirection}
-            >
-              <Check
-                size={13}
-                strokeWidth={2}
-                class={$playlistsSortDirection === 'desc'
-                  ? 'text-vlc-orangeText'
-                  : 'text-transparent'}
-                aria-hidden="true"
-              />
-              <span class="flex-1">Descending</span>
-              {#if $playlistsSortDirection === 'desc'}
-                <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
-              {:else}
-                <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
-              {/if}
-            </button>
-          </div>
-        {/if}
+    <div class="ml-auto flex min-w-0 items-center gap-2">
+      <span class="hidden whitespace-nowrap text-xs text-vlc-muted sm:inline" aria-live="polite">
+        {itemCount}
+        {itemCount === 1 ? 'item' : 'items'}
+      </span>
+      <div class="w-36 shrink sm:w-44 md:w-56">
+        {#key searchKey}
+          <FuzzySearch placeholder="Search…" on:search={handleSearch} />
+        {/key}
       </div>
-
+      {#if !activePlaylist}
+        <SortMenu
+          options={sortOptions}
+          value={$playlistsSort}
+          direction={$playlistsSort === 'manual' ? null : $playlistsSortDirection}
+          onValueChange={selectSortKey}
+          onToggleDirection={toggleSortDirection}
+          label="Sort playlists"
+        />
+      {/if}
+      <ViewModeToggle
+        value={$playlistsViewMode}
+        onChange={(mode) => playlistsViewMode.set(mode)}
+        label="Playlist view mode"
+      />
+      {#if activePlaylist}
+        {@const opened = activePlaylist}
+        <button
+          type="button"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing} {pinnedIds.includes(opened.id)
+            ? 'text-vlc-orangeText'
+            : 'text-vlc-secondary'}"
+          title={pinnedIds.includes(opened.id) ? `Unpin ${opened.name}` : `Pin ${opened.name}`}
+          aria-label={pinnedIds.includes(opened.id) ? `Unpin ${opened.name}` : `Pin ${opened.name}`}
+          aria-pressed={pinnedIds.includes(opened.id)}
+          data-pin-id={opened.id}
+          on:click={() => togglePin(opened.id)}
+        >
+          {#if pinnedIds.includes(opened.id)}
+            <PinOff size={16} strokeWidth={1.75} aria-hidden="true" />
+          {:else}
+            <Pin size={16} strokeWidth={1.75} aria-hidden="true" />
+          {/if}
+        </button>
+        <button
+          type="button"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
+          title={`Delete ${opened.name}`}
+          aria-label={`Delete ${opened.name}`}
+          on:click={deleteOpenPlaylist}
+        >
+          <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      {/if}
       <button
         type="button"
-        class="flex h-7 w-7 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-        title="Create Playlist"
+        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
+        title="Create playlist"
         aria-label="Create playlist"
         aria-haspopup="dialog"
         aria-expanded={createOpen}
         on:click={openCreateDialog}
       >
-        <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+        <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
-    </header>
-
-    <div class="flex-1 overflow-y-auto px-2 py-2">
-      {#if sortedPlaylists.length === 0}
-        <p class="px-2 py-6 text-center text-[11px] leading-4 text-vlc-muted">
-          No playlists match “{query}”.
-        </p>
-      {:else if $playlistsViewMode === 'grid'}
-        {#each sections as section (section.id)}
-          <p
-            class="px-1 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-vlc-muted first:pt-0"
-          >
-            {section.label}
-          </p>
-          <div class="grid grid-cols-2 gap-1.5">
-            {#each section.items as pl (pl.id)}
-              {@const isPinned = pinnedIds.includes(pl.id)}
-              <div
-                class="group relative min-w-0 rounded-control transition-shadow {dropTargetId ===
-                pl.id
-                  ? 'ring-2 ring-vlc-orange ring-offset-2 ring-offset-vlc-panel'
-                  : ''}"
-                role="group"
-                on:dragover={(event) => handlePlaylistDragOver(event, pl.id)}
-                on:dragleave={(event) => handlePlaylistDragLeave(event, pl.id)}
-                on:drop={(event) => handlePlaylistDrop(event, pl.id)}
-              >
-                <button
-                  type="button"
-                  class="flex w-full min-w-0 flex-col items-center gap-1 rounded-control border px-1.5 py-2 text-center text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 {selected ===
-                  pl.id
-                    ? 'border-vlc-borderStrong bg-vlc-raised text-vlc-text'
-                    : 'border-transparent text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
-                  title={pl.name}
-                  aria-current={selected === pl.id ? 'true' : undefined}
-                  on:click={() => openPlaylist(pl.id)}
-                >
-                  <span
-                    class="flex h-8 w-8 items-center justify-center rounded-md bg-vlc-card text-vlc-muted"
-                    aria-hidden="true"
-                  >
-                    <ListMusic size={16} strokeWidth={1.75} />
-                  </span>
-                  <span class="w-full truncate">{pl.name}</span>
-                </button>
-                <button
-                  type="button"
-                  class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-input bg-vlc-panel/90 transition-opacity hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 {isPinned
-                    ? 'text-vlc-orangeText opacity-100'
-                    : 'text-vlc-muted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'}"
-                  title={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
-                  aria-label={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
-                  data-pin-id={pl.id}
-                  aria-pressed={isPinned}
-                  on:click={() => togglePin(pl.id)}
-                >
-                  {#if isPinned}
-                    <PinOff size={12} strokeWidth={1.75} aria-hidden="true" />
-                  {:else}
-                    <Pin size={12} strokeWidth={1.75} aria-hidden="true" />
-                  {/if}
-                </button>
-              </div>
-            {/each}
-          </div>
-        {/each}
-      {:else if $playlistsViewMode === 'list'}
-        {#each sections as section (section.id)}
-          <p
-            class="px-1 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-vlc-muted first:pt-0"
-          >
-            {section.label}
-          </p>
-          <div class="space-y-0.5">
-            {#each section.items as pl (pl.id)}
-              {@const isPinned = pinnedIds.includes(pl.id)}
-              <div
-                class="group flex h-9 items-center rounded-control transition-colors {selected ===
-                pl.id
-                  ? 'bg-vlc-raised text-vlc-text'
-                  : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'} {dropTargetId ===
-                pl.id
-                  ? 'ring-2 ring-inset ring-vlc-orange'
-                  : ''}"
-                role="group"
-                on:dragover={(event) => handlePlaylistDragOver(event, pl.id)}
-                on:dragleave={(event) => handlePlaylistDragLeave(event, pl.id)}
-                on:drop={(event) => handlePlaylistDrop(event, pl.id)}
-              >
-                <button
-                  type="button"
-                  class="flex h-full min-w-0 flex-1 items-center gap-3 rounded-control px-3 text-left text-[13px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
-                  aria-current={selected === pl.id ? 'true' : undefined}
-                  on:click={() => openPlaylist(pl.id)}
-                >
-                  <ListMusic size={15} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
-                  <span class="truncate">{pl.name}</span>
-                </button>
-                <button
-                  type="button"
-                  class="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-input transition-opacity hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 {isPinned
-                    ? 'text-vlc-orangeText opacity-100'
-                    : 'text-vlc-muted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'}"
-                  title={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
-                  aria-label={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
-                  data-pin-id={pl.id}
-                  aria-pressed={isPinned}
-                  on:click={() => togglePin(pl.id)}
-                >
-                  {#if isPinned}
-                    <PinOff size={13} strokeWidth={1.75} aria-hidden="true" />
-                  {:else}
-                    <Pin size={13} strokeWidth={1.75} aria-hidden="true" />
-                  {/if}
-                </button>
-              </div>
-            {/each}
-          </div>
-        {/each}
-      {:else}
-        {#each sections as section (section.id)}
-          <p
-            class="px-1 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-vlc-muted first:pt-0"
-          >
-            {section.label}
-          </p>
-          <div class="space-y-px">
-            {#each section.items as pl (pl.id)}
-              {@const isPinned = pinnedIds.includes(pl.id)}
-              <div
-                class="group flex h-7 items-center rounded-input transition-colors {selected ===
-                pl.id
-                  ? 'bg-vlc-raised text-vlc-text'
-                  : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'} {dropTargetId ===
-                pl.id
-                  ? 'ring-2 ring-inset ring-vlc-orange'
-                  : ''}"
-                role="group"
-                on:dragover={(event) => handlePlaylistDragOver(event, pl.id)}
-                on:dragleave={(event) => handlePlaylistDragLeave(event, pl.id)}
-                on:drop={(event) => handlePlaylistDrop(event, pl.id)}
-              >
-                <button
-                  type="button"
-                  class="flex h-full min-w-0 flex-1 items-center gap-2 rounded-input px-2 text-left text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70"
-                  title={pl.name}
-                  aria-current={selected === pl.id ? 'true' : undefined}
-                  on:click={() => openPlaylist(pl.id)}
-                >
-                  <ListMusic size={13} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
-                  <span class="truncate">{pl.name}</span>
-                </button>
-                <button
-                  type="button"
-                  class="mr-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-input transition-opacity hover:bg-vlc-card hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/70 {isPinned
-                    ? 'text-vlc-orangeText opacity-100'
-                    : 'text-vlc-muted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'}"
-                  title={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
-                  aria-label={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
-                  data-pin-id={pl.id}
-                  aria-pressed={isPinned}
-                  on:click={() => togglePin(pl.id)}
-                >
-                  {#if isPinned}
-                    <PinOff size={12} strokeWidth={1.75} aria-hidden="true" />
-                  {:else}
-                    <Pin size={12} strokeWidth={1.75} aria-hidden="true" />
-                  {/if}
-                </button>
-              </div>
-            {/each}
-          </div>
-        {/each}
-      {/if}
     </div>
-  </aside>
+  </header>
 
-  <div class="flex min-w-0 flex-1 flex-col">
-    {#if !activePlaylist}
-      <div class="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
-        <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
-        <p class="text-[13px] text-vlc-secondary">Select a playlist or create a new one</p>
-      </div>
-    {:else}
-      <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-6">
-        <button
-          class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary hover:bg-vlc-raised"
-          on:click={closePlaylist}
-          aria-label="Close playlist"
+  <div
+    class="min-h-0 flex-1 overflow-y-auto"
+    role="region"
+    aria-label={activePlaylist ? `${activePlaylist.name} tracks` : 'Playlists'}
+    on:dragover={handleDetailDragOver}
+    on:dragleave={handleDetailDragLeave}
+    on:drop={handleDetailDrop}
+  >
+    {#if activePlaylist}
+      {#if detailDragActive}
+        <div
+          class="pointer-events-none sticky top-0 z-10 mx-4 mt-2 flex items-center justify-center gap-1.5 rounded-control border border-dashed border-vlc-orange/60 bg-vlc-panel/95 px-2 py-2 text-[11px] text-vlc-orangeText shadow-sm sm:mx-6"
+          role="status"
         >
-          <ArrowLeft size={18} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-        <nav class="flex min-w-0 items-center gap-2 text-[13px]">
-          <span class="text-vlc-secondary">Playlists</span>
-          <span class="text-vlc-muted">/</span>
-          <span class="truncate text-vlc-text">{activePlaylist.name}</span>
-          {#if pinnedIds.includes(activePlaylist.id)}
-            <Pin size={13} strokeWidth={1.75} class="shrink-0 text-vlc-orangeText" aria-hidden="true" />
-          {/if}
-        </nav>
-        <div class="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-            title={`Delete ${activePlaylist.name}`}
-            aria-label={`Delete ${activePlaylist.name}`}
-            on:click={deleteOpenPlaylist}
-          >
-            <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
-          </button>
-          <div class="w-56">
-            {#key searchKey}
-              <FuzzySearch placeholder="Search…" on:search={handleSearch} />
-            {/key}
-          </div>
-          <ViewModeToggle
-            value={$playlistsViewMode}
-            onChange={(mode) => playlistsViewMode.set(mode)}
-            label="Playlist view mode"
-          />
+          <ListMusic size={13} strokeWidth={2} aria-hidden="true" />
+          Drop to add to {activePlaylist.name}
         </div>
-      </header>
-
-      <div
-        class="min-h-0 flex-1 overflow-y-auto"
-        role="region"
-        aria-label={`${activePlaylist.name} tracks`}
-        on:dragover={handleDetailDragOver}
-        on:dragleave={handleDetailDragLeave}
-        on:drop={handleDetailDrop}
-      >
-        {#if detailDragActive}
-          <div
-            class="pointer-events-none sticky top-0 z-10 mx-4 mt-2 flex items-center justify-center gap-1.5 rounded-control border border-dashed border-vlc-orange/60 bg-vlc-panel/95 px-2 py-2 text-[11px] text-vlc-orangeText shadow-sm sm:mx-6"
-            role="status"
-          >
-            <ListMusic size={13} strokeWidth={2} aria-hidden="true" />
-            Drop to add to {activePlaylist.name}
-          </div>
-        {/if}
+      {/if}
 
         {#if activePlaylist.tracks.length === 0}
           <div class="flex min-h-[240px] flex-col items-center justify-center gap-2 p-8 text-center">
@@ -923,11 +640,24 @@
               Drag a track here from your library, or use Add to playlist on a track.
             </p>
           </div>
+        {:else if visibleTracks.length === 0}
+          <div class="flex min-h-[240px] flex-col items-center justify-center gap-2 p-8 text-center">
+            <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
+            <p class="text-sm font-medium text-vlc-secondary">No tracks match “{query}”</p>
+            <button
+              type="button"
+              class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+              on:click={clearSearch}
+            >
+              Clear search
+            </button>
+          </div>
         {:else if $playlistsViewMode === 'grid'}
           <div
             class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
           >
-            {#each activePlaylist.tracks as track, i (track.id)}
+            {#each visibleTracks as track (track.id)}
+              {@const i = trackSourceIndex(track.id, track.src)}
               <div
                 class="group relative rounded-control {reorderDrag?.fromIndex === i ? 'opacity-50' : ''}"
                 role="group"
@@ -1027,7 +757,8 @@
               </div>
               <span></span>
             </div>
-            {#each activePlaylist.tracks as track, i (track.id)}
+            {#each visibleTracks as track (track.id)}
+              {@const i = trackSourceIndex(track.id, track.src)}
               <div
                 class="relative grid grid-cols-[24px_1fr_80px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-6 py-2 text-[13px] text-vlc-secondary hover:bg-vlc-raised {reorderDrag?.fromIndex ===
                 i
@@ -1111,7 +842,8 @@
           </div>
         {:else}
           <div class="border-t border-vlc-border px-4 py-2 sm:px-6">
-            {#each activePlaylist.tracks as track, i (track.id)}
+            {#each visibleTracks as track (track.id)}
+              {@const i = trackSourceIndex(track.id, track.src)}
               <div
                 class="group relative flex h-8 w-full items-center gap-2 rounded-input border-b border-vlc-border/40 px-2 text-xs transition-colors last:border-b-0 hover:bg-vlc-raised {reorderDrag?.fromIndex ===
                 i
@@ -1197,10 +929,223 @@
             {/each}
           </div>
         {/if}
+    {:else if $playlistsData.length === 0}
+      <div
+        class="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+      >
+        <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
+        <p class="text-sm font-medium text-vlc-secondary">No playlists yet</p>
+        <p class="max-w-xs text-xs text-vlc-muted">
+          Create a playlist, then add tracks from your library.
+        </p>
+        <button
+          type="button"
+          class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+          on:click={openCreateDialog}
+        >
+          Create playlist
+        </button>
+      </div>
+    {:else if sortedPlaylists.length === 0}
+      <div
+        class="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+      >
+        <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
+        <p class="text-sm font-medium text-vlc-secondary">No playlists match “{query}”</p>
+        <button
+          type="button"
+          class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+          on:click={clearSearch}
+        >
+          Clear search
+        </button>
+      </div>
+    {:else}
+      <div class="px-4 py-5 sm:px-6">
+        {#if $playlistsViewMode === 'list'}
+          <div
+            class="mb-2 flex items-center gap-3 border-b border-vlc-border px-3 pb-2 text-[11px] uppercase tracking-wide text-vlc-muted"
+            aria-hidden="true"
+          >
+            <span class="min-w-0 flex-1">Name</span>
+            <span class="w-24 shrink-0 text-right">Tracks</span>
+            <span class="w-20 shrink-0 text-right">Duration</span>
+            <span class="w-8 shrink-0"></span>
+          </div>
+        {/if}
+
+        {#each sections as section (section.id)}
+          {#if section.items.length > 0}
+            <section class="mb-8 last:mb-0" aria-label={section.label}>
+              {#if section.id === 'pinned' || sections.length > 1}
+                <p class="mb-3 text-[11px] font-medium uppercase tracking-wide text-vlc-muted">
+                  {section.label}
+                </p>
+              {/if}
+
+              {#if $playlistsViewMode === 'grid'}
+                <div
+                  class="grid grid-cols-2 gap-x-5 gap-y-7 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                >
+                  {#each section.items as pl (pl.id)}
+                    {@const isPinned = pinnedIds.includes(pl.id)}
+                    <div
+                      class="group relative min-w-0 rounded-control {dropTargetId === pl.id
+                        ? 'ring-2 ring-vlc-orange ring-offset-2 ring-offset-vlc-app'
+                        : ''}"
+                      role="group"
+                      on:dragover={(event) => handlePlaylistDragOver(event, pl.id)}
+                      on:dragleave={(event) => handlePlaylistDragLeave(event, pl.id)}
+                      on:drop={(event) => handlePlaylistDrop(event, pl.id)}
+                    >
+                      <button
+                        type="button"
+                        class="block w-full rounded-control text-left {focusRing}"
+                        title={`Open ${pl.name}`}
+                        aria-label={`Open ${pl.name}`}
+                        on:click={() => openPlaylist(pl.id)}
+                      >
+                        <div
+                          class="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border border-vlc-border bg-vlc-card text-vlc-muted transition group-hover:border-vlc-borderStrong group-hover:bg-vlc-raised"
+                        >
+                          <ListMusic size={30} strokeWidth={1.5} aria-hidden="true" />
+                        </div>
+                        <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">
+                          {pl.name}
+                        </div>
+                        <div class="truncate text-[11px] text-vlc-muted">
+                          {playlistTrackLabel(pl.trackCount)} • {formatDuration(pl.totalDurationSeconds)}
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-input bg-vlc-panel/90 transition-opacity hover:bg-vlc-raised hover:text-vlc-text {focusRing} {isPinned
+                          ? 'text-vlc-orangeText opacity-100'
+                          : 'text-vlc-muted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'}"
+                        title={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
+                        aria-label={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
+                        aria-pressed={isPinned}
+                        data-pin-id={pl.id}
+                        on:click={() => togglePin(pl.id)}
+                      >
+                        {#if isPinned}
+                          <PinOff size={14} strokeWidth={1.75} aria-hidden="true" />
+                        {:else}
+                          <Pin size={14} strokeWidth={1.75} aria-hidden="true" />
+                        {/if}
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              {:else if $playlistsViewMode === 'list'}
+                <div>
+                  {#each section.items as pl (pl.id)}
+                    {@const isPinned = pinnedIds.includes(pl.id)}
+                    <div
+                      class="group flex items-center rounded-control transition-colors hover:bg-vlc-raised {dropTargetId === pl.id
+                        ? 'ring-2 ring-inset ring-vlc-orange'
+                        : ''}"
+                      role="group"
+                      on:dragover={(event) => handlePlaylistDragOver(event, pl.id)}
+                      on:dragleave={(event) => handlePlaylistDragLeave(event, pl.id)}
+                      on:drop={(event) => handlePlaylistDrop(event, pl.id)}
+                    >
+                      <button
+                        type="button"
+                        class="flex min-w-0 flex-1 items-center gap-3 rounded-control px-3 py-2 text-left {focusRing}"
+                        title={`Open ${pl.name}`}
+                        aria-label={`Open ${pl.name}`}
+                        on:click={() => openPlaylist(pl.id)}
+                      >
+                        <span
+                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-vlc-border bg-vlc-card text-vlc-muted"
+                          aria-hidden="true"
+                        >
+                          <ListMusic size={16} strokeWidth={1.75} />
+                        </span>
+                        <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{pl.name}</span>
+                        <span class="w-24 shrink-0 text-right text-xs text-vlc-secondary">
+                          {playlistTrackLabel(pl.trackCount)}
+                        </span>
+                        <span class="w-20 shrink-0 text-right text-xs text-vlc-muted">
+                          {formatDuration(pl.totalDurationSeconds)}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        class="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-input transition-opacity hover:bg-vlc-card hover:text-vlc-text {focusRing} {isPinned
+                          ? 'text-vlc-orangeText opacity-100'
+                          : 'text-vlc-muted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'}"
+                        title={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
+                        aria-label={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
+                        aria-pressed={isPinned}
+                        data-pin-id={pl.id}
+                        on:click={() => togglePin(pl.id)}
+                      >
+                        {#if isPinned}
+                          <PinOff size={14} strokeWidth={1.75} aria-hidden="true" />
+                        {:else}
+                          <Pin size={14} strokeWidth={1.75} aria-hidden="true" />
+                        {/if}
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <div>
+                  {#each section.items as pl (pl.id)}
+                    {@const isPinned = pinnedIds.includes(pl.id)}
+                    <div
+                      class="group flex h-8 items-center rounded-input border-b border-vlc-border/40 transition-colors last:border-b-0 hover:bg-vlc-raised {dropTargetId === pl.id
+                        ? 'ring-2 ring-inset ring-vlc-orange'
+                        : ''}"
+                      role="group"
+                      on:dragover={(event) => handlePlaylistDragOver(event, pl.id)}
+                      on:dragleave={(event) => handlePlaylistDragLeave(event, pl.id)}
+                      on:drop={(event) => handlePlaylistDrop(event, pl.id)}
+                    >
+                      <button
+                        type="button"
+                        class="flex h-full min-w-0 flex-1 items-center gap-3 rounded-input px-2 text-left text-xs {focusRing}"
+                        title={`Open ${pl.name}`}
+                        aria-label={`Open ${pl.name}`}
+                        on:click={() => openPlaylist(pl.id)}
+                      >
+                        <span class="min-w-0 flex-1 truncate text-vlc-text">{pl.name}</span>
+                        <span class="w-20 shrink-0 text-right text-[11px] text-vlc-muted">
+                          {playlistTrackLabel(pl.trackCount)}
+                        </span>
+                        <span class="w-14 shrink-0 text-right text-[11px] text-vlc-muted">
+                          {formatDuration(pl.totalDurationSeconds)}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        class="mr-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-input transition-opacity hover:bg-vlc-card hover:text-vlc-text {focusRing} {isPinned
+                          ? 'text-vlc-orangeText opacity-100'
+                          : 'text-vlc-muted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'}"
+                        title={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
+                        aria-label={isPinned ? `Unpin ${pl.name}` : `Pin ${pl.name}`}
+                        aria-pressed={isPinned}
+                        data-pin-id={pl.id}
+                        on:click={() => togglePin(pl.id)}
+                      >
+                        {#if isPinned}
+                          <PinOff size={12} strokeWidth={1.75} aria-hidden="true" />
+                        {:else}
+                          <Pin size={12} strokeWidth={1.75} aria-hidden="true" />
+                        {/if}
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </section>
+          {/if}
+        {/each}
       </div>
     {/if}
   </div>
-  {/if}
 
   {#if feedback}
     <div
