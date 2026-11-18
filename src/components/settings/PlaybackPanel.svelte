@@ -16,10 +16,10 @@
     });
   });
 
-  $: webviewHint =
+  $: nativeHint =
     backendKind === 'html5'
       ? 'This build has no libvlc. Playback stays on the webview player.'
-      : 'Optional. Plays with the webview video element. Off uses libvlc for video and music.';
+      : 'Optional. Uses libvlc for video and music. Off keeps the webview player (the default).';
 
   const hardwareDecodingOptions = [
     { value: 'Automatic', label: 'Automatic' },
@@ -72,15 +72,22 @@
       </div>
     </SettingRow>
 
-    <SettingRow label="Webview player" info hint={webviewHint}>
-      {#if backendKind === 'native'}
-        <Toggle bind:value={$settings.html5Playback} label="Webview player" />
-      {:else if backendKind === 'html5'}
-        <Toggle value={true} disabled label="Webview player" />
-      {:else}
-        <Toggle value={$settings.html5Playback} disabled label="Webview player" />
-      {/if}
-    </SettingRow>
+    {#if backendKind === 'native'}
+      <SettingRow label="Native player" info hint={nativeHint}>
+        <Toggle
+          value={!$settings.html5Playback}
+          label="Native player"
+          onChange={(on) => {
+            $settings.html5Playback = !on;
+          }}
+        />
+      </SettingRow>
+    {:else if backendKind === 'pending'}
+      <SettingRow label="Native player" info hint="Checking whether this build includes libvlc.">
+        <Toggle value={false} disabled label="Native player" />
+      </SettingRow>
+    {/if}
+    <!-- When probe is html5, hide the native opt-in; playback stays on the webview. -->
 
     <SettingRow label="Allow speed playback">
       <Toggle bind:value={$settings.allowSpeedPlayback} label="Allow speed playback" />

@@ -4,10 +4,13 @@
   /** Optional accessible name; falls back to `label`. */
   export let ariaLabel = '';
   export let disabled = false;
+  /** Optional callback after the value flips (for inverted bindings). */
+  export let onChange: ((next: boolean) => void) | null = null;
 
   function toggle(): void {
     if (disabled) return;
     value = !value;
+    onChange?.(value);
   }
 </script>
 

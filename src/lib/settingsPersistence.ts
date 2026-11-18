@@ -115,17 +115,18 @@ function sanitizeValue(key: string, fallback: unknown, value: unknown): unknown 
 }
 
 /**
- * Webview player is opt-in. The stored boolean wins once this key exists.
+ * Webview player is the temporary default. The stored boolean wins once
+ * `html5Playback` exists.
  *
- * Older saves used `nativePlayback` (default `false`), and that `false` was
- * written even when the user never picked a player. It is not migrated to
- * `html5Playback: true`. `nativePlayback: true` was an explicit libvlc choice
- * and stays on libvlc (`html5Playback: false`), so the rename does not invert
- * it. A missing engine key also uses libvlc.
+ * Older saves used `nativePlayback`. Only `nativePlayback: true` was an
+ * explicit libvlc opt-in and stays on libvlc (`html5Playback: false`). A
+ * written `nativePlayback: false` from the old default, or a missing engine
+ * key, lands on the webview player (`true`).
  */
 function resolveHtml5Playback(input: UnknownRecord): boolean {
   if (typeof input.html5Playback === 'boolean') return input.html5Playback;
-  return false;
+  if (input.nativePlayback === true) return false;
+  return true;
 }
 
 /**

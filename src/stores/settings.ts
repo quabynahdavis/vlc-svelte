@@ -123,9 +123,9 @@ export interface SettingsState {
   loopMode: string;
   resumePlayback: boolean;
   /**
-   * Opt in to the webview `<video>` player. Off (the default) uses libvlc
-   * when this build includes it. A build without libvlc stays on the webview
-   * player either way.
+   * Prefer the webview `<video>` player (the temporary default). Off opts into
+   * libvlc when this build includes it. A build without libvlc stays on the
+   * webview player either way.
    */
   html5Playback: boolean;
 
@@ -345,8 +345,9 @@ export const defaultSettings: SettingsState = {
   defaultPlaybackSpeed: '1.0x',
   loopMode: 'off',
   resumePlayback: true,
-  // libvlc is the default engine. The webview player is an explicit opt-in.
-  html5Playback: false,
+  // Webview player is the temporary UI default until native canvas/PCM is confirmed.
+  // Opt into libvlc via Settings → Playback when the build includes it.
+  html5Playback: true,
 
   // Video
   outputModule: 'Automatic',
