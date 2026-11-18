@@ -4,6 +4,11 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 ## 2026-11-18
 
+### Changed — HTML5 is the temporary default playback engine
+
+- The webview `<video>` player is the temporary UI default (`html5Playback`, default on) until native canvas/PCM output is confirmed in the app. Settings → Playback → Native player opts into libvlc when the desktop build includes it. A build without libvlc stays on the webview player and hides the native toggle. A saved `html5Playback` boolean is kept; only an older `nativePlayback: true` keeps native; nothing engine-related stored lands on HTML5. Native errors still fall back to HTML5.
+- Recorded in [plans/02-libvlc-integration.md](plans/02-libvlc-integration.md). The plans index and [OVERVIEW.md](OVERVIEW.md) match.
+
 - Playlists can be renamed from the list and from an open playlist. An empty or duplicate name shows the create dialog's inline error, and a valid name is saved through `vlc.playlists.v1`. Recorded in [architecture/02-frontend.md](architecture/02-frontend.md), [design/02-redesign-vision.md](design/02-redesign-vision.md) and [guides/02-design-reference.md](guides/02-design-reference.md).
 
 ### Added — Network scanners for UPnP, SMB, podcasts and radio directories

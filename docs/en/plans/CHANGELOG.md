@@ -4,6 +4,7 @@ Dates use `YYYY-MM-DD`.
 
 ## 2026-11-18
 
+- HTML5 / webview `<video>` is the temporary UI default until native canvas/PCM output is confirmed (`html5Playback` default true). libvlc stays linked by the Cargo default feature and is a Settings → Native player opt-in. A missing engine key lands on HTML5; a saved `html5Playback` boolean is kept; only an older `nativePlayback: true` keeps native. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md). [OVERVIEW.md](OVERVIEW.md) matches.
 - libvlc opens only a real non-empty file. Asset URLs and `path:asset://…:native` watch keys are decoded to that path; empty files, directories, and raw asset URLs are not opened. The frame stays at the decoder size and the webview fetches it from `http://vlcframe.localhost/frame`. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 - Native local-video seek hover uses `thumb_generate` at the hovered time, cached by file path and timestamp; streams with no local path stay without a thumbnail. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 - The RV32 callback keeps the decoder's width and height. Resizing inside that callback makes swscale fail, so the canvas shows the full frame. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).

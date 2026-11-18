@@ -1,14 +1,14 @@
 # libvlc Integration Plan
 
-**Status**: Phase 3 seam landed (network MRLs, end/error events, audio and subtitle track switching, external subtitle load). The >125% soft-clip and the PCM visualizer are in: one libvlc audio callback feeds both. Phase 2 is decided: native video stays on the canvas frame pump (960 px wide, even dimensions, RV32, latest frame wins, DOM overlays stay). A native window is a later mode, only if a real file is unwatchable in the app. Equalizer mapping and packaging are not started. As of 2026-11-17, libvlc is the default playback engine and the webview `<video>` player is optional.
-**Target**: All platforms (Linux, macOS, Windows). libvlc is the default engine; the webview player is the optional fallback.
+**Status**: Phase 3 seam landed (network MRLs, end/error events, audio and subtitle track switching, external subtitle load). The >125% soft-clip and the PCM visualizer are in: one libvlc audio callback feeds both. Phase 2 is decided: native video stays on the canvas frame pump (960 px wide, even dimensions, RV32, latest frame wins, DOM overlays stay). A native window is a later mode, only if a real file is unwatchable in the app. Equalizer mapping and packaging are not started. As of 2026-11-18, the webview `<video>` / HTML5 player is the temporary UI default until native canvas/PCM output is confirmed in the app. libvlc remains linked by the Cargo default feature and is an explicit Settings opt-in.
+**Target**: All platforms (Linux, macOS, Windows). HTML5 is the temporary UI default; libvlc is the optional native engine when linked.
 **Backend**: `libvlc` 3.x via the `vlc` crate (vlc-rs) inside `src-tauri/src/player.rs`
 
 ---
 
 ## 0. Summary & Current State
 
-libvlc plays video and music by default when `player_probe` reports `'native'`. The webview `<video>` player is optional. `PlayerView.svelte` still owns that element for the fallback: its `src` is an `asset://` URL, and the Web Audio graph (`AudioContext` → `GainNode` → `AnalyserNode`) provides the 100–200% volume boost and the dock visualizer on that path. Transport UI lives in `TransportBar.svelte`; thumbnails, waveforms and cover art are Rust-side (ffmpeg + lofty + SQLite); queue and watch-state logic is store-driven. The webview player is used when the binary was built without libvlc, or when the user turns it on.
+The webview `<video>` player is the temporary default for video and music. libvlc stays in the binary when the Cargo `libvlc` feature is on, and Settings → Playback → **Native player** opts into it when `player_probe` reports `'native'`. `PlayerView.svelte` owns the HTML5 element: its `src` is an `asset://` URL, and the Web Audio graph (`AudioContext` → `GainNode` → `AnalyserNode`) provides the 100–200% volume boost and the dock visualizer on that path. Transport UI lives in `TransportBar.svelte`; thumbnails, waveforms and cover art are Rust-side (ffmpeg + lofty + SQLite); queue and watch-state logic is store-driven. A build without libvlc stays on the webview player and hides the native toggle.
 
 libvlc unlocks what the webview codec stack cannot:
 
@@ -274,7 +274,7 @@ Text-renderer options are arguments to `libvlc_new`. A media option does not rea
 
 ## 6. Frontend Integration Steps
 
-1. **Settings toggle** (shipped 2026-11-17): `html5Playback: boolean` (default `false`) in `src/stores/settings.ts`, Settings → Playback, labelled **Webview player**. Off means libvlc. A missing key uses libvlc. A saved `nativePlayback: false` from the old default is not treated as an opt-in to the webview player; `nativePlayback: true` stays on libvlc, so the rename does not invert that choice. Once `html5Playback` is stored, that boolean is the choice. When `player_probe` returns `'html5'`, the control is disabled, shown on, and playback stays on the webview player.
+1. **Settings toggle** (updated 2026-11-18): `html5Playback: boolean` (default `true`) in `src/stores/settings.ts`, Settings → Playback, labelled **Native player** (opt-in). On means libvlc (`html5Playback: false`). A missing engine key uses the webview player. A saved `html5Playback` boolean is kept as-is. An older save with only `nativePlayback: true` stays on libvlc; a written `nativePlayback: false` from the old default lands on HTML5. When `player_probe` returns `'html5'`, the native toggle is hidden and playback stays on the webview player.
 2. **Backend resolution**: `playerBackend()` in `src/lib/playerBackend.ts` returns `'native'` when Tauri is present and the probe reports native, and `'html5'` for browser preview, a failed probe, or the HTML5-only build. PlayerView uses libvlc only when that result is `'native'` and `html5Playback` is false. Flipping the control switches live via the media key.
 3. **PlayerView gating**: when the backend is `'native'`:
    - hide the `<video>` element and render the backend's surface container (`<canvas>` for approach (b), a native-surface placeholder div for (a));
@@ -324,7 +324,7 @@ Text-renderer options are arguments to `libvlc_new`. A media option does not rea
 | Callback-thread panics — libvlc invokes callbacks on its own threads; unwinding across FFI is UB | High | Every callback body wrapped in `catch_unwind` + logged, never let a panic escape; all shared state behind `Mutex`/atomics, no re-entrancy into the Tauri runtime from callback threads (emit via channels instead). |
 | Frame-pump performance (§3b) | Medium | Latest-frame-wins, never queue; width capped at 960 px, RV32. The copy measured ~2.53 ms/frame release; the ~14 fps 1080p run was software decode. The old CPU gate does not pivot to a native window. Revisit embedding only if a real file is unwatchable; hardware decode and 4K are that reason. |
 | DPR / color-space mismatch between decoded frames and the webview canvas | Medium | Negotiate the pixel format explicitly via `set_video_format`; render the canvas backing store at device pixel ratio; test on both 1x and 2x displays. |
-| Two code paths forever — every player feature needs HTML5 + native implementations | Medium | The store (`src/stores/player.ts`) stays the single source of truth; the seam is the only place that branches. Volume, the dock visualizer, the equalizer, and subtitle styling meet on the native path (§4). libvlc is the default engine. The webview player remains the fallback when libvlc is not linked or the user turns it on. |
+| Two code paths forever — every player feature needs HTML5 + native implementations | Medium | The store (`src/stores/player.ts`) stays the single source of truth; the seam is the only place that branches. Volume, the dock visualizer, the equalizer, and subtitle styling meet on the native path (§4). HTML5 is the temporary UI default. libvlc remains available when linked and the user opts in; native errors fall back to HTML5. |
 | LGPL bundling scope if plugins ship (Phase 4) | Low | Plugin set review before packaging; the LICENSES boundary is already documented. |
 
 ---
@@ -341,7 +341,7 @@ Text-renderer options are arguments to `libvlc_new`. A media option does not rea
 
 Phases 2 and 3 were independent enough to interleave. The video surface is the canvas frame pump; network streams that need a picture use it, and audio streams need no surface.
 
-As of 2026-11-17, libvlc is the default engine for video and music. The webview `<video>` player is optional (`html5Playback`, default false). Phase 1's `nativePlayback` control defaulted off; a stored `false` from that default is not kept as a choice to stay on the webview player.
+As of 2026-11-18, the webview `<video>` player is the temporary default for video and music (`html5Playback`, default true) until native canvas/PCM is confirmed in the app. libvlc stays as a Settings → **Native player** opt-in when linked. A stored `html5Playback: false` (or an older `nativePlayback: true`) keeps native; nothing engine-related stored lands on HTML5.
 
 ### Phase 2 prototype outcome (measured)
 
