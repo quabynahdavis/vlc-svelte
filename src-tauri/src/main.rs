@@ -5,6 +5,7 @@ mod audio_meta;
 mod db;
 mod duration;
 mod library;
+mod network;
 mod player;
 mod thumb;
 mod waveform;
@@ -127,6 +128,11 @@ fn main() {
             player::player_spu_tracks,
             player::player_set_spu,
             player::player_add_subtitle,
+            network::network_fetch_text,
+            network::network_discover_upnp,
+            network::network_browse_upnp,
+            network::network_discover_smb,
+            network::network_browse_smb,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
