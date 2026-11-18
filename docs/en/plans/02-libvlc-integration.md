@@ -142,7 +142,7 @@ Register `set_video_callbacks(lock/unlock/display/cleanup)` (vlc-rs exposes thes
 
 The shipped pump is:
 
-- **Native width and height**, **RV32**. The format callback must not resize: asking swscale for 960 px fails with "Failed to create video converter" and no frame is published. The canvas displays the full frame. Software decode (`--avcodec-hw=none`) stays on.
+- **Native width and height**, **RV32**. The format callback must not resize: asking swscale for 960 px fails with "Failed to create video converter" and no frame is published. The canvas displays the full frame. Software decode (`--avcodec-hw=none`) stays on. libvlc is only given a real non-empty file: asset URLs and `path:asset://…:native` watch keys are decoded to that path, and empty files, directories, and raw asset URLs are not opened. The webview paints that full-size frame from `http://vlcframe.localhost/frame`.
 - **Latest frame wins.** The pump drops frames; it does not queue them.
 - **DOM overlays stay**: transport, hover chrome, docks, and the subtitle UI. The frame is pixels in a `<canvas>`, so those Svelte surfaces remain.
 

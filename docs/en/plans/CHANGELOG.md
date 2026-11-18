@@ -4,6 +4,7 @@ Dates use `YYYY-MM-DD`.
 
 ## 2026-11-18
 
+- libvlc opens only a real non-empty file. Asset URLs and `path:asset://…:native` watch keys are decoded to that path; empty files, directories, and raw asset URLs are not opened. The frame stays at the decoder size and the webview fetches it from `http://vlcframe.localhost/frame`. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 - Native local-video seek hover uses `thumb_generate` at the hovered time, cached by file path and timestamp; streams with no local path stay without a thumbnail. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 - The RV32 callback keeps the decoder's width and height. Resizing inside that callback makes swscale fail, so the canvas shows the full frame. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 - Linux WebKitGTK fetches libvlc frames and PCM at `http://vlcframe.localhost/frame` and `http://vlcaudio.localhost/pcm`. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).

@@ -72,6 +72,51 @@ export function isVideoFile(path: string): boolean {
   return extension !== null && VIDEO_EXTENSIONS.has(extension);
 }
 
+/**
+ * Filesystem path inside a Tauri `convertFileSrc` URL
+ * (`asset://localhost/%2F…` or `http://asset.localhost/%2F…`).
+ * The path is the percent-encoded remainder after the host slash.
+ */
+export function pathFromAssetUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = /^(?:asset:\/\/[^/?#]+\/|https?:\/\/asset\.localhost(?::\d+)?\/)([^?#]*)/i.exec(
+    value.trim(),
+  );
+  if (!match) return null;
+  try {
+    const path = decodeURIComponent(match[1]);
+    if (path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path)) return path;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/** Absolute path stored in front of an embedded asset URL (`path:asset://…:native`). */
+function peelEmbeddedMediaPath(value: string): string | null {
+  const index = value.search(/:(?=asset:\/\/|https?:\/\/asset\.localhost\b)/i);
+  if (index <= 0) return null;
+  return value.slice(0, index);
+}
+
+/**
+ * Local file libvlc may open. A bare absolute path passes through.
+ * An asset URL is decoded. A watch key that glues the path, the asset URL,
+ * and `:native` / `:html5` together yields the path. Anything else is null
+ * so a thumbnail, blob, or asset URL is not handed to libvlc as a location.
+ */
+export function nativeFileLocation(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (isVideoFile(trimmed) || isAudioFile(trimmed)) return trimmed;
+  const peeled = peelEmbeddedMediaPath(trimmed);
+  if (peeled && (isVideoFile(peeled) || isAudioFile(peeled))) return peeled;
+  const fromAsset = pathFromAssetUrl(trimmed);
+  if (fromAsset && (isVideoFile(fromAsset) || isAudioFile(fromAsset))) return fromAsset;
+  return null;
+}
+
 /** True when `path` ends in a video extension, including URLs and asset srcs. */
 export function hasVideoExtension(path: string): boolean {
   const extension = audioExtensionOf(path);
@@ -224,6 +269,9 @@ export function streamLocationOf(value: string | null | undefined): string | nul
   }
   if (!STREAM_PROTOCOLS.has(parsed.protocol)) return null;
   if (!parsed.hostname) return null;
+  // Tauri's asset host is a file, not a network stream. Opening it as HTTP
+  // never reads the movie.
+  if (parsed.hostname === 'asset.localhost') return null;
   return parsed.href;
 }
 

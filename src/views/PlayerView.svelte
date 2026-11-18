@@ -27,7 +27,7 @@
   import { currentTrack, consumePendingSeek, next, player, requestSeek, setQueue, setVolume, toggle } from '../stores/player';
   import { settings } from '../stores/settings';
   import { subtitleProfiles } from '../stores/subtitleProfiles';
-  import { isAudioFile, isVideoFile, isVisualStream, streamLocationOf } from '../lib/audio';
+  import { isAudioFile, isVideoFile, isVisualStream, nativeFileLocation, streamLocationOf } from '../lib/audio';
   import { hasTauri } from '../lib/tauriFs';
   import {
     playerBackend,
@@ -222,8 +222,11 @@
     track: { id: string; src?: string } | null,
   ): { location: string; visual: boolean } | null {
     if (!track) return null;
-    if (isVideoFile(track.id)) return { location: track.id, visual: true };
-    if (isAudioFile(track.id)) return { location: track.id, visual: false };
+    // Library ids are absolute paths. Continue / history keys look like
+    // `/file.mp4:asset://localhost/…:native`, and `src` is often the asset
+    // URL. Both have to become the filesystem path before libvlc sees them.
+    const file = nativeFileLocation(track.id) ?? nativeFileLocation(track.src);
+    if (file) return { location: file, visual: isVideoFile(file) };
     const stream = streamLocationOf(track.src) ?? streamLocationOf(track.id);
     if (!stream) return null;
     return { location: stream, visual: isVisualStream(stream) };

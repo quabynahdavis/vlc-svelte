@@ -325,6 +325,12 @@ pub fn classify_media_target(input: &str) -> Result<MediaTarget, String> {
         return Err("media location contains a control character".to_string());
     }
 
+    // Watch keys are `path:asset://localhost/…:native`. The embedded asset
+    // URL must not be opened; the path in front of it is the file.
+    if let Some(path) = embedded_file_path(trimmed) {
+        return Ok(MediaTarget::Path(path));
+    }
+
     let Some((scheme, rest)) = split_scheme(trimmed) else {
         if looks_like_bare_scheme(trimmed) {
             return Err("unsupported media scheme".to_string());
@@ -416,6 +422,54 @@ fn network_location_has_host(rest: &str) -> bool {
     let host = host.strip_prefix('@').unwrap_or(host);
     let host = host.rsplit_once(':').map(|(name, _port)| name).unwrap_or(host);
     !host.is_empty()
+}
+
+/// `path:asset://…` or `path:http://asset.localhost/…` → `path`, when `path`
+/// is an absolute media file. Network MRLs have no such prefix.
+fn embedded_file_path(input: &str) -> Option<String> {
+    let marker = input.find("://")?;
+    let head = &input[..marker];
+    let scheme_at = head.rfind(':')?;
+    let prefix = &input[..scheme_at];
+    if !is_local_media_path(prefix) {
+        return None;
+    }
+    Some(prefix.to_string())
+}
+
+fn is_local_media_path(path: &str) -> bool {
+    let absolute = path.starts_with('/')
+        || (path.len() > 2
+            && path.as_bytes()[0].is_ascii_alphabetic()
+            && path.as_bytes()[1] == b':');
+    if !absolute {
+        return false;
+    }
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase());
+    matches!(
+        ext.as_deref(),
+        Some(
+            "mp4" | "m4v" | "mkv" | "webm" | "mov" | "avi" | "wmv" | "mpg" | "mpeg" | "ts"
+                | "ogv" | "mp3" | "flac" | "ogg" | "oga" | "wav" | "aac" | "m4a" | "wma"
+                | "opus" | "ape" | "aiff" | "aif" | "alac" | "mka"
+        )
+    )
+}
+
+/// Refuse directories, missing paths, and zero-byte files before libvlc opens
+/// them. An empty file is what produces `cache_read` / `mjpeg cannot peek`.
+pub fn ensure_playable_file(path: &str) -> Result<(), String> {
+    let meta = std::fs::metadata(path).map_err(|_| "media file is not readable".to_string())?;
+    if !meta.is_file() {
+        return Err("media path is not a file".to_string());
+    }
+    if meta.len() == 0 {
+        return Err("media file is empty".to_string());
+    }
+    Ok(())
 }
 
 fn file_url_to_path(rest: &str) -> Result<String, String> {
@@ -1405,6 +1459,11 @@ mod native {
 
     pub fn load(app: &tauri::AppHandle, raw: &str) -> Result<u64, String> {
         let target = super::classify_media_target(raw)?;
+        if let super::MediaTarget::Path(path) = &target {
+            // Directories, missing paths, and empty files never reach libvlc.
+            // An empty open is the `cache_read` / `mjpeg cannot peek` pair.
+            super::ensure_playable_file(path)?;
+        }
         // Suppress before tearing the previous player down: libvlc can emit
         // EndReached from stop(), and that must not advance the queue.
         EVENTS_SUPPRESSED.store(true, Ordering::Release);
@@ -2290,6 +2349,33 @@ mod tests {
             MediaTarget::Path(r"C:\Videos\clip.mkv".to_string())
         );
         assert!(classify_media_target("asset://localhost/").is_err());
+    }
+
+    #[test]
+    fn watch_keys_peel_to_the_file_path() {
+        let key = "/home/davisville/Videos/OBS/2026-11-05 18-49-26.mp4:asset://localhost/%2Fhome%2Fdavisville%2FVideos%2FOBS%2F2026-11-05%2018-49-26.mp4:native";
+        assert_eq!(
+            classify_media_target(key).unwrap(),
+            MediaTarget::Path(
+                "/home/davisville/Videos/OBS/2026-11-05 18-49-26.mp4".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn empty_files_and_directories_are_not_playable() {
+        let dir = std::env::temp_dir().join("kanea-player-guard");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let empty = dir.join("empty.mp4");
+        std::fs::write(&empty, b"").unwrap();
+        let real = dir.join("clip.mp4");
+        std::fs::write(&real, b"not-a-real-movie-but-not-empty").unwrap();
+        assert!(ensure_playable_file(empty.to_str().unwrap()).is_err());
+        assert!(ensure_playable_file(dir.to_str().unwrap()).is_err());
+        assert!(ensure_playable_file(real.to_str().unwrap()).is_ok());
+        assert!(ensure_playable_file("/tmp/kanea-does-not-exist.mp4").is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
