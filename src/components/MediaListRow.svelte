@@ -14,6 +14,10 @@ import { openMediaContextMenu } from '../stores/ui';
   export let mode: 'list' | 'compact' = 'list';
   export let onSelect: (item: MediaItem) => void = () => {};
   export let selected = false;
+  /** Network rows already carry artwork when the payload has it. */
+  export let captureFrame = true;
+  /** A live stream has no duration; leave the timestamp off instead of a placeholder. */
+  export let showMissingDuration = true;
 
   const dispatch = createEventDispatcher<{ info: MediaItem }>();
 
@@ -26,17 +30,28 @@ import { openMediaContextMenu } from '../stores/ui';
       ? `S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`
       : '';
   $: durationLabel =
-    item.durationSeconds > 0 ? formatDuration(item.durationSeconds) : '—:—';
+    item.durationSeconds > 0
+      ? formatDuration(item.durationSeconds)
+      : showMissingDuration
+        ? '—:—'
+        : '';
 
   // Frame thumbnail: session cache first, then a persisted path if any. The
   // capture itself is queued on mount so empty rows fill in as frames land.
-  $: thumbSrc = $mediaThumbnails.get(item.id) ?? item.thumbnailPath ?? '';
+  $: thumbSrc = captureFrame
+    ? ($mediaThumbnails.get(item.id) ?? item.thumbnailPath ?? '')
+    : (item.thumbnailPath ?? '');
   onMount(() => {
-    ensureItemThumbnail(item);
+    if (captureFrame) ensureItemThumbnail(item);
   });
-  $: ariaLabel = episodeCode
-    ? `Play ${item.title}, ${episodeCode}, ${durationLabel}${hasProgress ? `, ${progressLabel}` : ''}`
-    : `Play ${item.title}, ${durationLabel}${hasProgress ? `, ${progressLabel}` : ''}`;
+  $: ariaLabel = [
+    `Play ${item.title}`,
+    episodeCode,
+    durationLabel,
+    hasProgress ? progressLabel : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   const actionClass =
     'flex h-6 w-6 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60';
@@ -118,17 +133,25 @@ import { openMediaContextMenu } from '../stores/ui';
       <span class="min-w-0 flex-1">
         <span class="block truncate text-[13px] leading-4 text-vlc-text">{item.title}</span>
 
-        <span class="mt-1 flex items-center gap-1.5 text-[11px] leading-4 text-vlc-secondary">
-          {#if episodeCode}
-            <span class="tabular-nums">{episodeCode}</span>
-            <span class="text-vlc-dim" aria-hidden="true">·</span>
-          {/if}
-          <span class="tabular-nums">{durationLabel}</span>
-          {#if hasProgress}
-            <span class="text-vlc-dim" aria-hidden="true">·</span>
-            <span class="text-vlc-muted">{progressLabel}</span>
-          {/if}
-        </span>
+        {#if episodeCode || durationLabel || hasProgress}
+          <span class="mt-1 flex items-center gap-1.5 text-[11px] leading-4 text-vlc-secondary">
+            {#if episodeCode}
+              <span class="tabular-nums">{episodeCode}</span>
+            {/if}
+            {#if durationLabel}
+              {#if episodeCode}
+                <span class="text-vlc-dim" aria-hidden="true">·</span>
+              {/if}
+              <span class="tabular-nums">{durationLabel}</span>
+            {/if}
+            {#if hasProgress}
+              {#if episodeCode || durationLabel}
+                <span class="text-vlc-dim" aria-hidden="true">·</span>
+              {/if}
+              <span class="text-vlc-muted">{progressLabel}</span>
+            {/if}
+          </span>
+        {/if}
 
         <span
           class="mt-2 block h-[3px] w-full max-w-xs overflow-hidden rounded-full bg-vlc-raised"
@@ -170,9 +193,11 @@ import { openMediaContextMenu } from '../stores/ui';
         </span>
       </span>
 
-      <span class="w-12 shrink-0 text-right text-[11px] tabular-nums text-vlc-muted">
-        {durationLabel}
-      </span>
+      {#if durationLabel}
+        <span class="w-12 shrink-0 text-right text-[11px] tabular-nums text-vlc-muted">
+          {durationLabel}
+        </span>
+      {/if}
 
       <span
         class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-vlc-muted transition-opacity group-hover:opacity-0 group-focus-within:opacity-0"
