@@ -927,11 +927,11 @@ mod native {
     }
 
     /// Format callback (runs once per format change on libvlc's video
-    /// thread). Force RV32, cap the width at 960 preserving aspect with even
-    /// dimensions, keep pitch == width*4 exactly (no stride padding — the
-    /// swizzle then walks the plane linearly), (re)allocate the plane, and
-    /// open the frame gate. Returns the number of picture buffers allocated
-    /// (1 on success, 0 = failure).
+    /// thread). Force RV32 at the decoder's own width and height. Resizing
+    /// here makes swscale fail with "Failed to create video converter", so
+    /// the canvas scales the full frame. Pitch stays width*4 (no stride
+    /// padding — the swizzle walks the plane linearly). Returns the number
+    /// of picture buffers allocated (1 on success, 0 = failure).
     extern "C" fn format_cb(
         opaque: *mut *mut c_void,
         chroma: *mut libc::c_char,
@@ -953,27 +953,12 @@ mod native {
             return 0;
         }
 
-        let (orig_w, orig_h) = unsafe { (*width as u32, *height as u32) };
-        if orig_w == 0 || orig_h == 0 {
-            return 0;
-        }
-
-        // Cap width at 960 preserving aspect; integer maths keeps this
-        // panic-free (u64 products of ≤ 960*1080 cannot overflow).
-        let mut new_w = orig_w;
-        let mut new_h = orig_h;
-        if new_w > 960 {
-            new_h = (((orig_h as u64) * 960 + (orig_w as u64) / 2) / (orig_w as u64)) as u32;
-            new_w = 960;
-        }
-        // Even dimensions only: some decoders/filters assume it.
-        new_w &= !1;
-        new_h &= !1;
+        let (new_w, new_h) = unsafe { (*width as u32, *height as u32) };
         if new_w == 0 || new_h == 0 {
             return 0;
         }
 
-        let pitch = new_w * 4;
+        let pitch = new_w.saturating_mul(4);
         let size = match (new_h as usize).checked_mul(pitch as usize) {
             Some(size) if size > 0 => size,
             _ => return 0,
@@ -983,9 +968,9 @@ mod native {
         // duration of this callback; the plane is our UnsafeCell written
         // only on this thread.
         unsafe {
-            // Write exactly 4 bytes — libvlc's chroma is a 4-byte
-            // identifier, no trailing NUL.
-            std::ptr::copy_nonoverlapping(b"RV32".as_ptr(), chroma as *mut u8, 4);
+            // Fourcc plus the NUL libvlc's 5-byte chroma buffer already
+            // reserves. A missing NUL makes the converter reject RV32.
+            std::ptr::copy_nonoverlapping(b"RV32\0".as_ptr(), chroma as *mut u8, 5);
             *width = new_w;
             *height = new_h;
             *pitches = pitch;

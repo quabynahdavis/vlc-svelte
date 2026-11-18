@@ -4,6 +4,7 @@ Dates use `YYYY-MM-DD`.
 
 ## 2026-11-18
 
+- The RV32 callback keeps the decoder's width and height. Resizing inside that callback makes swscale fail, so the canvas shows the full frame. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 - Linux WebKitGTK fetches libvlc frames and PCM at `http://vlcframe.localhost/frame` and `http://vlcaudio.localhost/pcm`. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 - Software decode is required for the RV32 callback. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 
