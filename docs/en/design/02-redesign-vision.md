@@ -89,7 +89,7 @@
 - **Saved streams** for radio, podcasts and custom URLs.
 - A **simplified add flow**: paste a URL, detect the type, name it and save it.
 - One surface, like Videos and Playlists. The root lists Saved Streams, Open Network URL, Local Network (UPnP/DLNA and SMB), Podcasts, Internet Radio, Icecast, Jamendo and Shoutcast. Opening a source drills in; back or the breadcrumb returns to the parent.
-- Directories without a scanner name the source and how it will be filled. A file or episode with a duration uses the library card, timestamp and context menu.
+- UPnP/DLNA, SMB, podcasts, Icecast, Jamendo and Shoutcast scan for real results. A duration or thumbnail is shown only when the payload has one. Internet Radio still has no scanner. A file, episode or station uses the library card and context menu.
 
 ## Settings and personalisation
 
@@ -147,7 +147,7 @@ This section separates what exists in `src/` from the target above.
 | Audio and video | Audio track plus output-device selection; video filter previews and effect controls in the right dock. |
 | Bookmarks and chapters | A dedicated right-dock tab; bookmarks persist under `vlc.bookmarks.v1`. |
 | Music | Artists / Albums / Songs / Genres / Folders browse modes over the real `musicLibrary` store, real cover art through `ensureMusicCover`, genre detail levels and an optional waveform strip. **Implemented (desktop shell):** the view renders the store — scan, Rust audio metadata enrichment, artist/album/genre grouping, embedded covers, `vlc.musicLibrary.v1` persistence — with real playback sources and `recordMusicListen` history; the Folders tab mirrors the Videos library's navigation rules. |
-| Network | One surface with drill-in sources and no category sidebar. Saved streams persist under `vlc.network.streams.v1` with add, edit, play and remove. Open Network URL plays HTTP, HTTPS, FTP, FTPS, SFTP, SMB, NFS, RTSP, RTP, UDP, MMS and RTMP. UPnP, SMB, podcasts and the radio directories are real sources with an empty state until a scanner is connected. |
+| Network | One surface with drill-in sources and no category sidebar. Saved streams persist under `vlc.network.streams.v1`. Open Network URL plays HTTP, HTTPS, FTP, FTPS, SFTP, SMB, NFS, RTSP, RTP, UDP, MMS and RTMP. UPnP/DLNA and SMB scan from the desktop shell. Podcast subscriptions persist under `vlc.network.podcasts.v1`. Icecast reads the public directory. Jamendo needs a saved client id (`vlc.network.jamendo.v1`). Shoutcast shows that its directory is unavailable when the public endpoint fails. Internet Radio has no scanner. |
 | Settings | Sixteen categories including Layout and Profiles, a separate hotkeys window, info tips, human-readable subtitle matching and JSON export/import. |
 | Profiles | Named settings profiles can be saved, applied and deleted. |
 | Audio waveform seekbar | **Implemented.** `TransportBar.svelte` replaces the thick seek bar with a DPR-aware canvas of the existing 0..1 peaks (~800 thin bars, 2px+2px gap) when the current track is a music-library file or other local audio (audio extension, or an audio/music kind or `audio/*` mime). Played bars use the accent; unplayed bars stay muted in dark and light themes. Peaks resolve session cache → `waveform_get` → `waveform_generate`. Click and drag still seek. Video files keep the thick bar and hover thumbnails, even if they contain an audio stream. |

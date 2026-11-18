@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Kanea is a community redesign that rebuilds the VLC desktop player UI as a web-technology desktop application. Svelte renders the interface inside a Tauri window; Rust supplies the native shell, SQLite persistence, disk scanning, thumbnails and audio metadata/cover-art access. The application plays a bundled demo clip for mock items, can import local files/folders and stream URLs for the current session, and browses real disk-scanned data — the Videos library tree and the Music page both read the configured roots through the library and music library stores. Playlists are the user's own lists, persisted under `vlc.playlists.v1`. Network browse content stays mock; persistent media integration is still in progress.
+Kanea is a community redesign that rebuilds the VLC desktop player UI as a web-technology desktop application. Svelte renders the interface inside a Tauri window; Rust supplies the native shell, SQLite persistence, disk scanning, thumbnails and audio metadata/cover-art access. The application plays a bundled demo clip for mock items, can import local files/folders and stream URLs for the current session, and browses real disk-scanned data — the Videos library tree and the Music page both read the configured roots through the library and music library stores. Playlists are the user's own lists, persisted under `vlc.playlists.v1`. Network saved streams, podcast subscriptions and a Jamendo client id persist locally. UPnP, SMB, Icecast, Jamendo and Shoutcast scan when the page is opened. Internet Radio does not.
 
 ## Tech stack
 
@@ -112,9 +112,9 @@ The Svelte UI and the Tauri v2 shell are implemented, including ten registered T
 | Vite + Svelte + Tailwind frontend | Implemented; `bun run check` passes; `bun run dev:frontend` serves the browser build |
 | Player screen | Implemented: playlist panel, synced `<video>`, stage gestures, fullscreen shell with auto-hiding chrome and PiP (working tree), right dock, transport, demo and imported playback, **waveform seekbar for audio**, **real AnalyserNode visualizer** |
 | Library screen | Implemented: breadcrumb toolbar, search, watched filter, sorting, grid/list/compact, add file/folder/stream (working tree); selecting an item queues it and opens the player |
-| Music, Playlists, Recent, Network | Implemented browse screens with sorting and/or view modes; Music renders the real music library store (`Artists / Albums / Songs / Genres / Folders`), recent rows render the persisted history store, and Playlists renders the persisted user collection (`vlc.playlists.v1`). Network content is mock, and network and recent-Devices selections are inert |
+| Music, Playlists, Recent, Network | Implemented browse screens with sorting and/or view modes; Music renders the real music library store (`Artists / Albums / Songs / Genres / Folders`), recent rows render the persisted history store, and Playlists renders the persisted user collection (`vlc.playlists.v1`). Network lists saved streams and live UPnP, SMB, podcast, Icecast, Jamendo and Shoutcast results. Internet Radio has no scanner. Recent Devices still has no data source. |
 | Settings | Sixteen categories implemented, including Layout and Profiles; persistence, reset and JSON import/export |
 | Tauri v2 shell | Implemented; v2 config, `main.rs`, window capabilities and custom/system decorations |
-| Native plugins, commands, metadata | Implemented (`tauri-plugin-dialog` plus thirteen registered commands) |
+| Native plugins, commands, metadata | Implemented (`tauri-plugin-dialog` plus thirty-five registered commands, including network discovery) |
 | Native file dialogs, directory listing, persistent media sources | Implemented: native folder dialog, SQLite-backed persistence and Rust disk scanning; native playback itself is still planned |
 | Tests | Rust unit tests only (`cargo test`, 41 passing: asset scope, scanner, database, thumbnails, audio metadata, waveform); no frontend test suite — type checking runs through `bun run check` |
