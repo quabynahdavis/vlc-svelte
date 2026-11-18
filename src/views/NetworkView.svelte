@@ -13,6 +13,7 @@
     Plus,
     Podcast,
     Radio,
+    RefreshCw,
     Search,
     Server,
     Trash2,
@@ -23,18 +24,31 @@
   import MediaListRow from '../components/MediaListRow.svelte';
   import ViewModeToggle from '../components/ViewModeToggle.svelte';
   import type { MediaItem } from '../lib/mock';
+  import { normalizeFeedUrl } from '../lib/networkParse';
+  import {
+    loadNetworkLevel,
+    previewPodcastFeed,
+    type LoadedLevel,
+    type ScanMedia,
+  } from '../lib/networkScan';
   import { navigate } from '../stores/navigation';
   import {
+    addPodcastSubscription,
     addSavedStream,
+    clearJamendoClientId,
     describeNetworkLocationError,
     describeStreamUrlError,
+    jamendoClientId,
     networkContextMedia,
     networkLocationTitle,
     networkPath,
     networkSearch,
     normalizeNetworkLocation,
+    podcastSubscriptions,
+    removePodcastSubscription,
     removeSavedStream,
     savedStreams,
+    setJamendoClientId,
     type SavedStream,
   } from '../stores/network';
   import { setQueue } from '../stores/player';
@@ -50,19 +64,11 @@
     children?: SourceDef[];
   };
 
-  /** A file or episode with a real duration. Scanners append these; none are seeded. */
-  type BrowsedFile = {
-    id: string;
-    title: string;
-    url: string;
-    durationSeconds: number;
-    thumbnailPath?: string;
-  };
-
   type DrillRow = {
     id: string;
     title: string;
     summary: string;
+    icon?: string;
   };
 
   const OPEN_PROTOCOLS = [
@@ -109,7 +115,7 @@
           summary: 'Media servers',
           emptyTitle: 'No UPnP or DLNA servers',
           emptyBody:
-            'Media servers on this network will show up here when UPnP discovery is connected. Folders and files can then be opened the same way as library folders.',
+            'Media servers that answer an SSDP search on this network are listed here. A server stays listed by name when its folders cannot be browsed.',
         },
         {
           id: 'smb',
@@ -117,7 +123,7 @@
           summary: 'Shared folders',
           emptyTitle: 'No shared folders',
           emptyBody:
-            'SMB shares on this network will show up here when a network browser is connected. An smb:// address can be played from Open Network URL.',
+            'Shares found by smbtree or smbclient are listed here. Passwords are not stored. An smb:// address can still be played from Open Network URL.',
         },
       ],
     },
@@ -127,7 +133,7 @@
       summary: 'Shows and episodes',
       emptyTitle: 'No podcasts',
       emptyBody:
-        'Subscribed shows will show up here. Opening a show lists its episodes, with duration and the library preview when an episode has a length.',
+        'Add an RSS or Atom feed URL. Episodes from that feed are listed here, with a duration or image only when the feed includes one.',
     },
     {
       id: 'radio',
@@ -142,8 +148,7 @@
       title: 'Icecast',
       summary: 'Icecast directory',
       emptyTitle: 'No Icecast stations',
-      emptyBody:
-        'Stations from the Icecast directory will show up here when that catalog is connected.',
+      emptyBody: 'Stations published by the Icecast directory are listed here with their stream URL.',
     },
     {
       id: 'jamendo',
@@ -151,15 +156,14 @@
       summary: 'Jamendo directory',
       emptyTitle: 'No Jamendo music',
       emptyBody:
-        'Albums and tracks from Jamendo will show up here when that catalog is connected.',
+        'Jamendo needs a client id before any albums can be listed. No client id is configured.',
     },
     {
       id: 'shoutcast',
       title: 'Shoutcast',
       summary: 'Shoutcast directory',
       emptyTitle: 'No Shoutcast stations',
-      emptyBody:
-        'Stations from the Shoutcast directory will show up here when that catalog is connected.',
+      emptyBody: 'The Shoutcast directory is unavailable.',
     },
   ];
 
@@ -182,12 +186,38 @@
   const emptyActionClass =
     'rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50';
 
-  /**
-   * Files and episodes that already have a duration. There is no directory
-   * scanner in this build, so every source stays empty until one is connected.
-   */
-  function filesFor(_path: readonly string[]): BrowsedFile[] {
-    return [];
+  type PageScan = Omit<LoadedLevel, 'status'> & { status: 'idle' | 'loading' | 'ready' | 'error' };
+
+  const idleScan: PageScan = {
+    status: 'idle',
+    folders: [],
+    media: [],
+    message: '',
+    note: '',
+  };
+
+  function loadingCopy(segments: readonly string[]): string {
+    if (segments[1] === 'upnp' && segments.length === 2) return 'Searching this network for UPnP and DLNA servers.';
+    if (segments[1] === 'upnp') return 'Browsing this server.';
+    if (segments[1] === 'smb' && segments.length === 2) return 'Looking for SMB shares.';
+    if (segments[1] === 'smb') return 'Listing this share.';
+    if (segments[0] === 'podcasts' && segments.length === 1) return 'Loading subscriptions.';
+    if (segments[0] === 'podcasts') return 'Loading episodes.';
+    if (segments[0] === 'icecast') return 'Loading the Icecast directory.';
+    if (segments[0] === 'jamendo') return 'Loading Jamendo.';
+    if (segments[0] === 'shoutcast') return 'Checking the Shoutcast directory.';
+    return 'Loading.';
+  }
+
+  function scanKeyFor(segments: readonly string[], podcastKey: string, jamendoSet: boolean): string {
+    if (segments[0] === 'local' && (segments[1] === 'upnp' || segments[1] === 'smb')) {
+      return segments.join('\u0001');
+    }
+    if (segments[0] === 'podcasts' && segments.length === 1) return `podcasts\u0001${podcastKey}`;
+    if (segments[0] === 'podcasts') return segments.join('\u0001');
+    if (segments[0] === 'icecast' || segments[0] === 'shoutcast') return segments[0];
+    if (segments[0] === 'jamendo') return jamendoSet ? 'jamendo\u0001set' : 'jamendo';
+    return '';
   }
 
   function sourceById(id: string): SourceDef | null {
@@ -236,17 +266,33 @@
         });
   }
 
-  function mediaItemFromFile(file: BrowsedFile): MediaItem {
-    return {
+  function mediaItemFromScan(file: ScanMedia): MediaItem {
+    const item: MediaItem = {
       id: file.id,
       title: file.title,
       season: 0,
       episode: 0,
-      durationSeconds: file.durationSeconds,
+      durationSeconds: file.durationSeconds ?? 0,
       progress: 0,
-      thumbnailPath: file.thumbnailPath,
       src: file.url,
     };
+    if (file.thumbnailUrl) item.thumbnailPath = file.thumbnailUrl;
+    return item;
+  }
+
+  function segmentLabel(segment: string): string {
+    let decoded = segment;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      decoded = segment;
+    }
+    try {
+      const url = new URL(decoded);
+      return url.host || decoded;
+    } catch {
+      return decoded;
+    }
   }
 
   let query = '';
@@ -263,6 +309,16 @@
   let confirmRemoveEl: HTMLButtonElement | null = null;
   let statusMessage = '';
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
+  let scanState: PageScan = idleScan;
+  let scanToken = 0;
+  let activeScanKey = '';
+  let folderTitles: Record<string, string> = {};
+  let feedDraft = '';
+  let feedError = '';
+  let feedBusy = false;
+  let clientDraft = '';
+  let clientError = '';
+  let pendingPodcastRemove = false;
 
   $: path = $networkPath;
   $: atRoot = path.length === 0;
@@ -288,6 +344,15 @@
     }
     const child = root.children?.find((entry) => entry.id === path[1]);
     if (child) items.push({ label: child.title, depth: 2 });
+    const start = child ? 3 : 2;
+    for (let depth = start; depth <= path.length; depth += 1) {
+      const key = path.slice(0, depth).join('\u0001');
+      const podcast = path[0] === 'podcasts' ? $podcastSubscriptions.find((entry) => entry.id === path[depth - 1]) : null;
+      items.push({
+        label: folderTitles[key] ?? podcast?.title ?? segmentLabel(path[depth - 1] ?? ''),
+        depth,
+      });
+    }
     return items;
   })();
 
@@ -297,6 +362,40 @@
       title.toLowerCase().includes(normalizedQuery) ||
       extra.toLowerCase().includes(normalizedQuery)
     );
+  }
+
+  $: podcastKey = $podcastSubscriptions.map((subscription) => subscription.id).join('|');
+  $: jamendoSet = Boolean($jamendoClientId);
+  $: scanKey = scanKeyFor(path, podcastKey, jamendoSet);
+  $: scanning = scanKey !== '';
+  $: podcastDetail =
+    path[0] === 'podcasts' && path[1]
+      ? $podcastSubscriptions.find((subscription) => subscription.id === path[1]) ?? null
+      : null;
+
+  $: if (scanKey !== activeScanKey) {
+    void runScan(scanKey, path);
+  }
+
+  async function runScan(key: string, segments: readonly string[]) {
+    const token = ++scanToken;
+    activeScanKey = key;
+    if (!key) {
+      scanState = idleScan;
+      return;
+    }
+    const snapshot = segments.slice();
+    scanState = { status: 'loading', folders: [], media: [], message: loadingCopy(snapshot), note: '' };
+    const loaded = await loadNetworkLevel(snapshot, {
+      podcasts: get(podcastSubscriptions),
+      jamendoClientId: get(jamendoClientId),
+    });
+    if (token !== scanToken) return;
+    scanState = loaded;
+  }
+
+  function rescan() {
+    activeScanKey = '';
   }
 
   $: drillRows = ((): DrillRow[] => {
@@ -314,6 +413,16 @@
       }));
     }
     if (savedList) return [];
+    if (scanning) {
+      return scanState.folders
+        .filter((folder) => matches(folder.title, folder.summary))
+        .map((folder) => ({
+          id: folder.id,
+          title: folder.title,
+          summary: folder.summary,
+          icon: folder.icon,
+        }));
+    }
     const children = currentSource?.children ?? [];
     return children
       .filter((child) => matches(child.title, child.summary))
@@ -330,10 +439,10 @@
       )
     : [];
 
-  $: mediaItems = filesFor(path)
-    .filter((file) => file.durationSeconds > 0 && Boolean(file.url))
+  $: mediaItems = (scanning ? scanState.media : [])
+    .filter((file) => Boolean(file.url))
     .filter((file) => matches(file.title, file.url))
-    .map(mediaItemFromFile);
+    .map(mediaItemFromScan);
 
   $: networkContextMedia.set(mediaItems);
 
@@ -362,6 +471,7 @@
     clearQuery();
     detailsItemId = null;
     pendingRemoveId = null;
+    pendingPodcastRemove = false;
     urlTouched = false;
   }
 
@@ -376,7 +486,14 @@
     clearQuery();
     detailsItemId = null;
     pendingRemoveId = null;
+    pendingPodcastRemove = false;
     urlTouched = false;
+  }
+
+  function openScanFolder(row: DrillRow) {
+    const next = [...get(networkPath), row.id];
+    folderTitles = { ...folderTitles, [next.join('\u0001')]: row.title };
+    openDrill(row.id);
   }
 
   function openSaved(stream: SavedStream) {
@@ -397,7 +514,72 @@
 
   function playMedia(item: MediaItem) {
     if (!item.src) return;
-    playLocation(item.id, item.title, item.src, item.durationSeconds);
+    const tracks = mediaItems
+      .filter((entry) => entry.src)
+      .map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        duration: entry.durationSeconds > 0 ? entry.durationSeconds : 0,
+        src: entry.src,
+      }));
+    const index = Math.max(0, tracks.findIndex((entry) => entry.id === item.id));
+    setQueue(tracks.length ? tracks : [{ id: item.id, title: item.title, duration: item.durationSeconds, src: item.src }], index);
+    navigate('home');
+  }
+
+  async function submitFeed() {
+    feedError = '';
+    const url = normalizeFeedUrl(feedDraft);
+    if (!url) {
+      feedError = 'Enter an http or https feed URL.';
+      return;
+    }
+    feedBusy = true;
+    const preview = await previewPodcastFeed(url);
+    feedBusy = false;
+    if (!preview.ok) {
+      feedError = preview.error;
+      return;
+    }
+    const saved = addPodcastSubscription({ feedUrl: url, title: preview.feed.title });
+    if (!saved.ok) {
+      feedError = saved.error;
+      return;
+    }
+    feedDraft = '';
+    folderTitles = {
+      ...folderTitles,
+      [['podcasts', saved.subscription.id].join('\u0001')]: saved.subscription.title,
+    };
+    announce(saved.duplicate ? 'That podcast is already subscribed' : `Subscribed to ${saved.subscription.title}`);
+    clearQuery();
+    networkPath.set(['podcasts', saved.subscription.id]);
+  }
+
+  function saveClientId() {
+    const result = setJamendoClientId(clientDraft);
+    if (!result.ok) {
+      clientError = result.error;
+      return;
+    }
+    clientError = '';
+    clientDraft = '';
+    announce('Jamendo client id saved');
+    rescan();
+  }
+
+  function forgetClientId() {
+    clearJamendoClientId();
+    clientDraft = '';
+    clientError = '';
+    rescan();
+  }
+
+  function confirmPodcastRemove(subscriptionId: string) {
+    removePodcastSubscription(subscriptionId);
+    pendingPodcastRemove = false;
+    networkPath.set(['podcasts']);
+    announce('Podcast removed');
   }
 
   function announce(message: string) {
@@ -569,7 +751,11 @@
     <div class="ml-auto flex min-w-0 items-center gap-1">
       {#if listing && !detailsItem}
         <span class="mr-2 whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
-          {listCount} {listCount === 1 ? 'item' : 'items'}
+          {#if scanning && scanState.status === 'loading'}
+            Searching…
+          {:else}
+            {listCount} {listCount === 1 ? 'item' : 'items'}
+          {/if}
         </span>
       {/if}
 
@@ -590,6 +776,19 @@
             class="h-8 w-full rounded-input border border-vlc-border bg-vlc-card pl-8 pr-3 text-xs text-vlc-text outline-none transition-colors placeholder:text-vlc-muted focus:border-vlc-orange/40 focus:ring-1 focus:ring-vlc-orange/40"
           />
         </label>
+      {/if}
+
+      {#if scanning && !detailsItem}
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text disabled:opacity-40 {focusRing}"
+          title="Scan again"
+          aria-label="Scan again"
+          disabled={scanState.status === 'loading'}
+          on:click={rescan}
+        >
+          <RefreshCw size={15} strokeWidth={1.75} aria-hidden="true" />
+        </button>
       {/if}
 
       <ViewModeToggle
@@ -791,7 +990,127 @@
           </div>
         {/if}
       </section>
-    {:else if drillRows.length > 0 || liveStreams.length > 0 || mediaItems.length > 0}
+    {:else}
+      {#if path[0] === 'podcasts' && path.length === 1}
+        <form class="mx-auto w-full max-w-xl px-6 pt-6" on:submit|preventDefault={submitFeed}>
+          <label for="podcast-feed" class="mb-1.5 block text-[12px] font-medium text-vlc-secondary">
+            Podcast feed
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <input
+              id="podcast-feed"
+              bind:value={feedDraft}
+              type="url"
+              maxlength="2048"
+              autocomplete="url"
+              spellcheck="false"
+              placeholder="https://example.com/feed.xml"
+              class="h-10 min-w-0 flex-1 rounded-control border bg-vlc-card px-3 text-[13px] text-vlc-text outline-none placeholder:text-vlc-muted focus:ring-1 focus:ring-inset focus:ring-vlc-orange/50 {feedError
+                ? 'border-vlc-danger'
+                : 'border-vlc-border'}"
+              aria-invalid={feedError ? 'true' : undefined}
+              aria-describedby={feedError ? 'podcast-feed-error' : undefined}
+            />
+            <button
+              type="submit"
+              class="flex h-10 items-center gap-1.5 rounded-control bg-vlc-orange px-3 text-[12px] font-medium text-vlc-orangeDeep transition-[filter] hover:brightness-110 disabled:opacity-50 {focusRing}"
+              disabled={feedBusy}
+            >
+              <Plus size={14} strokeWidth={1.75} aria-hidden="true" />
+              {feedBusy ? 'Adding…' : 'Add feed'}
+            </button>
+          </div>
+          {#if feedError}
+            <p id="podcast-feed-error" class="mt-1 text-[11px] text-vlc-danger" role="alert">{feedError}</p>
+          {/if}
+        </form>
+      {/if}
+
+      {#if path[0] === 'jamendo' && path.length === 1}
+        <form class="mx-auto w-full max-w-xl px-6 pt-6" on:submit|preventDefault={saveClientId}>
+          <label for="jamendo-client" class="mb-1.5 block text-[12px] font-medium text-vlc-secondary">
+            Jamendo client id
+          </label>
+          <p class="mb-2 text-[12px] leading-5 text-vlc-muted">
+            Jamendo's catalog needs a client id from your own application. Kanea does not include one.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <input
+              id="jamendo-client"
+              bind:value={clientDraft}
+              type="text"
+              maxlength="64"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Client id"
+              class="h-10 min-w-0 flex-1 rounded-control border bg-vlc-card px-3 text-[13px] text-vlc-text outline-none placeholder:text-vlc-muted focus:ring-1 focus:ring-inset focus:ring-vlc-orange/50 {clientError
+                ? 'border-vlc-danger'
+                : 'border-vlc-border'}"
+              aria-invalid={clientError ? 'true' : undefined}
+              aria-describedby={clientError ? 'jamendo-client-error' : undefined}
+            />
+            <button
+              type="submit"
+              class="h-10 rounded-control bg-vlc-orange px-3 text-[12px] font-medium text-vlc-orangeDeep transition-[filter] hover:brightness-110 {focusRing}"
+            >
+              Save
+            </button>
+            {#if $jamendoClientId}
+              <button
+                type="button"
+                class="h-10 rounded-control border border-vlc-border px-3 text-[12px] text-vlc-secondary transition-colors hover:text-vlc-text {focusRing}"
+                on:click={forgetClientId}
+              >
+                Clear
+              </button>
+            {/if}
+          </div>
+          {#if clientError}
+            <p id="jamendo-client-error" class="mt-1 text-[11px] text-vlc-danger" role="alert">{clientError}</p>
+          {:else if $jamendoClientId}
+            <p class="mt-1 text-[11px] text-vlc-muted">A client id is saved on this device.</p>
+          {/if}
+        </form>
+      {/if}
+
+      {#if podcastDetail}
+        <div class="mx-auto flex w-full max-w-xl items-center justify-end px-6 pt-4">
+          {#if pendingPodcastRemove}
+            <div class="flex items-center gap-2" role="group" aria-label="Remove podcast">
+              <span class="text-[12px] text-vlc-secondary">Remove this subscription?</span>
+              <button
+                type="button"
+                class="h-7 rounded-control border border-vlc-danger/50 px-2.5 text-[11px] font-medium text-vlc-danger {focusRing}"
+                on:click={() => confirmPodcastRemove(podcastDetail.id)}
+              >
+                Remove
+              </button>
+              <button
+                type="button"
+                class="h-7 rounded-control px-2.5 text-[11px] text-vlc-secondary {focusRing}"
+                on:click={() => (pendingPodcastRemove = false)}
+              >
+                Cancel
+              </button>
+            </div>
+          {:else}
+            <button
+              type="button"
+              class="flex h-8 items-center gap-1.5 rounded-control border border-vlc-danger/40 px-3 text-[12px] text-vlc-danger transition-colors hover:bg-vlc-danger/10 {focusRing}"
+              on:click={() => (pendingPodcastRemove = true)}
+            >
+              <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+              Remove
+            </button>
+          {/if}
+        </div>
+      {/if}
+
+      {#if scanState.note && (drillRows.length > 0 || mediaItems.length > 0)}
+        <p class="px-6 pt-4 text-[12px] text-vlc-muted">{scanState.note}</p>
+      {/if}
+
+      {#if drillRows.length > 0 || liveStreams.length > 0 || mediaItems.length > 0}
       {#if drillRows.length > 0}
         {#if $networkViewMode === 'grid'}
           <div
@@ -804,7 +1123,7 @@
                 type="button"
                 class="group text-left focus-visible:outline-none"
                 aria-label={`Open ${row.title}`}
-                on:click={() => openDrill(row.id)}
+                on:click={() => (scanning ? openScanFolder(row) : openDrill(row.id))}
               >
                 <div
                   class="relative flex aspect-[16/10] w-full flex-col justify-end overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] p-4 transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105 group-focus-visible:border-vlc-orange/70"
@@ -813,7 +1132,7 @@
                     class="flex h-11 w-11 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-orange"
                   >
                     <svelte:component
-                      this={ICONS[row.id] ?? Folder}
+                      this={ICONS[row.icon ?? row.id] ?? Folder}
                       size={22}
                       strokeWidth={1.6}
                       aria-hidden="true"
@@ -844,13 +1163,13 @@
                     ? 'px-3 py-1.5'
                     : 'px-3 py-2.5'}"
                   aria-label={`Open ${row.title}`}
-                  on:click={() => openDrill(row.id)}
+                  on:click={() => (scanning ? openScanFolder(row) : openDrill(row.id))}
                 >
                   <span
                     class="flex h-9 w-9 shrink-0 items-center justify-center rounded-input border border-vlc-border bg-vlc-card text-vlc-orange"
                   >
                     <svelte:component
-                      this={ICONS[row.id] ?? Folder}
+                      this={ICONS[row.icon ?? row.id] ?? Folder}
                       size={18}
                       strokeWidth={1.6}
                       aria-hidden="true"
@@ -972,7 +1291,13 @@
         {#if $networkViewMode === 'grid'}
           <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {#each mediaItems as item (item.id)}
-              <MediaCard {item} onSelect={playMedia} on:info={(event) => (detailsItemId = event.detail.id)} />
+              <MediaCard
+                {item}
+                captureFrame={false}
+                showMissingDuration={false}
+                onSelect={playMedia}
+                on:info={(event) => (detailsItemId = event.detail.id)}
+              />
             {/each}
           </div>
         {:else if $networkViewMode === 'list'}
@@ -983,7 +1308,14 @@
               aria-label="Network media"
             >
               {#each mediaItems as item (item.id)}
-                <MediaListRow {item} mode="list" onSelect={playMedia} on:info={(event) => (detailsItemId = event.detail.id)} />
+                <MediaListRow
+                  {item}
+                  mode="list"
+                  captureFrame={false}
+                  showMissingDuration={false}
+                  onSelect={playMedia}
+                  on:info={(event) => (detailsItemId = event.detail.id)}
+                />
               {/each}
             </div>
           </div>
@@ -993,6 +1325,8 @@
               <MediaListRow
                 {item}
                 mode="compact"
+                captureFrame={false}
+                showMissingDuration={false}
                 onSelect={playMedia}
                 on:info={(event) => (detailsItemId = event.detail.id)}
               />
@@ -1035,11 +1369,25 @@
           <div class="mt-4">
             <button type="button" class={emptyActionClass} on:click={openAddDialog}>Add stream</button>
           </div>
+        {:else if scanning && scanState.status === 'loading'}
+          <p class="text-sm font-medium text-vlc-secondary">Searching…</p>
+          <p class="mt-1 max-w-md text-xs leading-5 text-vlc-muted">{scanState.message}</p>
+        {:else if scanning && scanState.message}
+          <p class="text-sm font-medium text-vlc-secondary">
+            {currentSource?.emptyTitle ?? 'Nothing listed'}
+          </p>
+          <p class="mt-1 max-w-md text-xs leading-5 text-vlc-muted">{scanState.message}</p>
+          {#if scanState.status === 'error'}
+            <div class="mt-4">
+              <button type="button" class={emptyActionClass} on:click={rescan}>Try again</button>
+            </div>
+          {/if}
         {:else if currentSource}
           <p class="text-sm font-medium text-vlc-secondary">{currentSource.emptyTitle}</p>
           <p class="mt-1 max-w-md text-xs leading-5 text-vlc-muted">{currentSource.emptyBody}</p>
         {/if}
       </div>
+      {/if}
     {/if}
   </div>
 

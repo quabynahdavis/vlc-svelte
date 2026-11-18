@@ -12,6 +12,10 @@
 
   export let item: MediaItem;
   export let onSelect: (item: MediaItem) => void = () => {};
+  /** Network rows already carry artwork when the payload has it. */
+  export let captureFrame = true;
+  /** A live stream has no duration; leave the chip off instead of a placeholder. */
+  export let showMissingDuration = true;
 
   const dispatch = createEventDispatcher<{ info: MediaItem }>();
 
@@ -19,13 +23,19 @@
   $: hasProgress = progress > 0;
   $: progressPercent = `${progress * 100}%`;
   $: durationLabel =
-    item.durationSeconds > 0 ? formatDuration(item.durationSeconds) : '—:—';
+    item.durationSeconds > 0
+      ? formatDuration(item.durationSeconds)
+      : showMissingDuration
+        ? '—:—'
+        : '';
 
   // Frame thumbnail: session cache first, then a persisted path if any. The
   // capture itself is queued on mount so empty cards fill in as frames land.
-  $: thumbSrc = $mediaThumbnails.get(item.id) ?? item.thumbnailPath ?? '';
+  $: thumbSrc = captureFrame
+    ? ($mediaThumbnails.get(item.id) ?? item.thumbnailPath ?? '')
+    : (item.thumbnailPath ?? '');
   onMount(() => {
-    ensureItemThumbnail(item);
+    if (captureFrame) ensureItemThumbnail(item);
   });
 
   const actionClass =
@@ -107,11 +117,13 @@
         </div>
       {/if}
 
-      <span
-        class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] tabular-nums text-vlc-secondary"
-      >
-        {durationLabel}
-      </span>
+      {#if durationLabel}
+        <span
+          class="absolute bottom-2 right-2 rounded bg-vlc-app/80 px-1.5 py-0.5 text-[10px] tabular-nums text-vlc-secondary"
+        >
+          {durationLabel}
+        </span>
+      {/if}
 
       {#if hasProgress}
         <div class="absolute inset-x-0 bottom-0 h-[2px] bg-black/40" aria-hidden="true">

@@ -1,6 +1,6 @@
 # Tauri Backend
 
-**Status:** the Tauri **v2 backend is implemented**: the SQLite persistence layer, the disk scanner, the ffmpeg thumbnail pipeline, the audio metadata/cover-art pipeline and the waveform pipeline are all live, with thirteen commands registered through `.invoke_handler(...)` and `tauri-plugin-dialog` as the single plugin crate. The Content Security Policy is still **planned**. Last updated 2026-11-12.
+**Status:** the Tauri **v2 backend is implemented**: the SQLite persistence layer, the disk scanner, the ffmpeg thumbnail pipeline, the audio metadata/cover-art pipeline, the waveform pipeline and network discovery are all live, with thirty-five commands registered through `.invoke_handler(...)` and `tauri-plugin-dialog` as the single plugin crate. The Content Security Policy is still **planned**. Last updated 2026-11-18.
 
 ## `Cargo.toml`
 
@@ -33,7 +33,8 @@ tauri-build = { version = "2", features = [] }
 | `walkdir` | Recursive media scanning for `scan_library_dir` |
 | `dirs` | `HOME`-anchored default media directory resolution |
 | `lofty` | Version 0.25; audio tag and embedded artwork parsing for the metadata/cover-art commands |
-| Source layout | Desktop-only: `src/main.rs` plus the modules `asset_scope`, `audio_meta`, `db`, `library` and `thumb`; there is no `lib.rs` or mobile entry point |
+| `ureq` | Version 2.12, rustls only (`default-features = false`, feature `tls`); timed HTTP for feeds, directories and UPnP SOAP |
+| Source layout | Desktop-only: `src/main.rs` plus the modules `asset_scope`, `audio_meta`, `db`, `duration`, `library`, `network`, `player`, `thumb` and `waveform`; there is no `lib.rs` or mobile entry point |
 
 ## `tauri.conf.json` (v2)
 
@@ -76,7 +77,7 @@ Current flow:
 
 ## Registered Tauri commands
 
-All thirteen commands are wired in `main.rs`'s `generate_handler!` and each has a typed TypeScript wrapper in `src/lib/` (`tauriFs.ts`, `dbPersistence.ts`, `thumbnails.ts`, `audioMeta.ts`).
+All thirty-five commands are wired in `main.rs`'s `generate_handler!` and each has a typed TypeScript wrapper in `src/lib/` (`tauriFs.ts`, `dbPersistence.ts`, `thumbnails.ts`, `audioMeta.ts`, `networkScan.ts`).
 
 | Command | Module | Signature (Rust side) | Purpose |
 | --- | --- | --- | --- |
@@ -93,6 +94,11 @@ All thirteen commands are wired in `main.rs`'s `generate_handler!` and each has 
 | `waveform_peaks` | `waveform.rs` | `(path: String, buckets: Option<u32>) -> Result<Vec<u16>, String>` | Decode audio via ffmpeg to mono PCM, compute peak-per-bucket across `buckets` (clamped 50–2000, default 800), return vector of `u16` peaks (0–65535). Non-audio extensions, missing files or decode failures return empty vector (never a panic). |
 | `waveform_get` | `waveform.rs` | `(state: State<Database>, path: String) -> Result<Option<Vec<u8>>, String>` | Read a persisted waveform peaks blob from the `waveforms` table (`None` when never stored). |
 | `waveform_generate` | `waveform.rs` | `(state: State<Database>, path: String, buckets: Option<u32>) -> Result<Option<Vec<u8>>, String>` | Generate peaks via `waveform_peaks` (default 800 buckets), `INSERT OR REPLACE` into `waveforms`, and return the serialized peaks — mirroring `thumb_generate` in a single IPC roundtrip. Any failure degrades to `Ok(None)`. |
+| `network_fetch_text` | `network.rs` | `(url: String, max_bytes: Option<u32>) -> FetchText` | HTTP(S) GET with an 8 s timeout, at most 3 redirects and a body cap (1 KB–8 MB). Non-HTTP URLs are rejected. Failures return `ok: false` and an error string. |
+| `network_discover_upnp` | `network.rs` | `() -> UpnpScan` | SSDP M-SEARCH for MediaServer and ContentDirectory, then a short fetch of each description. Servers are listed even when the description or control URL is missing. |
+| `network_browse_upnp` | `network.rs` | `(control_url: String, object_id: String) -> UpnpBrowse` | ContentDirectory Browse SOAP for one container. A failed browse returns `ok: false` and no invented children. |
+| `network_discover_smb` | `network.rs` | `() -> SmbScan` | `smbtree -N`, or `smbclient -L localhost -N` when `smbtree` is absent. No password is stored. A missing tool sets `toolMissing` and a message. |
+| `network_browse_smb` | `network.rs` | `(server: String, share: String, path: String) -> SmbBrowse` | `smbclient -N -c ls` for one share. Access failures say the share is visible and that passwords are not stored. |
 
 Design notes that all commands follow:
 
@@ -174,7 +180,7 @@ Replacing them with a Kanea icon set is **planned**. Keep every size referenced 
 - **Runtime-managed asset protocol scope:** `tauri.conf.json` ships `assetProtocol.scope.allow: []` (empty), and the setup hook manages an empty `AssetScopeRoots` state — the app starts allowing **nothing**. The frontend (`src/stores/settings.ts`) computes `scopedLibraryFolders()`, the deduped union of the configured video + music library roots, and syncs it once after settings hydration and reactively on every change via `scope_assets`. That command diffs old vs new normalized roots and calls `asset_protocol_scope().allow_directory(path, true)` / `forbid_directory(path, true)` accordingly, so removals actually revoke. The webview can only read exactly the folders the user configured — one privilege per root, no blanket globs (`$HOME/**`, `/run/media/**`, …).
 - **Waveform scope:** the three waveform commands (`waveform_peaks`, `waveform_get`, `waveform_generate`) operate on the same asset roots — they read audio files from the configured library roots via the already-synced asset protocol. No new filesystem surface is exposed.
 - `app.security.csp` is `null`. Set a restrictive policy before release.
-- `tauri-plugin-fs` / `tauri-plugin-shell` are deliberately not installed: the scanner, thumbnail, metadata and waveform commands read the filesystem from Rust, and no shell execution is exposed to the webview.
+- `tauri-plugin-fs` / `tauri-plugin-shell` are deliberately not installed: the scanner, thumbnail, metadata and waveform commands read the filesystem from Rust, and no general shell is exposed to the webview. SMB discovery spawns only `smbtree` or `smbclient` with fixed arguments and `-N` (no password), and kills the process if it exceeds 8 seconds.
 
 ## Window chrome
 
@@ -196,7 +202,7 @@ Replacing them with a Kanea icon set is **planned**. Keep every size referenced 
 | Add `capabilities/` with least-privilege window permissions | Done (`capabilities/default.json`) |
 | Disable native decorations and add the custom/system title bar toggle | Done |
 | Install the required v2 plugin crates | Done (`tauri-plugin-dialog`) |
-| Register plugins and an `invoke_handler` | Done (thirteen commands) |
+| Register plugins and an `invoke_handler` | Done (thirty-five commands) |
 | SQLite persistence (`kv`, `thumbnails`, `covers`, `waveforms` tables in `app_data_dir/kanea.db`) | Done |
 | Native file dialog for "Add folder…" | Done (`dialog:default`) |
 | Disk scanning, default media directory (`videos` / `music`) | Done |

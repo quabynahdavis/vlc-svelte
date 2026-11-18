@@ -6,6 +6,14 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 - Playlists can be renamed from the list and from an open playlist. An empty or duplicate name shows the create dialog's inline error, and a valid name is saved through `vlc.playlists.v1`. Recorded in [architecture/02-frontend.md](architecture/02-frontend.md), [design/02-redesign-vision.md](design/02-redesign-vision.md) and [guides/02-design-reference.md](guides/02-design-reference.md).
 
+### Added — Network scanners for UPnP, SMB, podcasts and radio directories
+
+- UPnP/DLNA searches the local network with SSDP and browses a server's ContentDirectory when that server advertises one. A server that cannot be browsed stays listed by name.
+- SMB lists shares through `smbtree` or `smbclient` without storing a password. A missing tool is named in the empty state.
+- Podcast subscriptions persist under `vlc.network.podcasts.v1`. Episodes come from the feed's audio enclosures.
+- Icecast lists stations from `https://dir.xiph.org/yp.xml`. Jamendo stays empty until a client id is saved under `vlc.network.jamendo.v1`. Shoutcast reports that its public directory is unavailable when the legacy endpoint fails.
+- Internet Radio is unchanged and still has no scanner. Documented in [architecture/02-frontend.md](architecture/02-frontend.md), [architecture/03-tauri-backend.md](architecture/03-tauri-backend.md) and [design/02-redesign-vision.md](design/02-redesign-vision.md).
+
 ## 2026-11-17
 
 ### Changed — Network page drills in like Videos and Playlists

@@ -1,5 +1,6 @@
 import { get, writable } from 'svelte/store';
 import { createKeyWriter, loadPersistedRaw } from '../lib/dbPersistence';
+import { normalizeFeedUrl, normalizeJamendoClientId } from '../lib/networkParse';
 import { hasTauri } from '../lib/tauriFs';
 import type { MediaItem } from '../lib/mock';
 
@@ -13,6 +14,12 @@ export type SavedStream = {
 
 /** Versioned key; bump the suffix when the persisted shape changes. */
 export const SAVED_STREAMS_STORAGE_KEY = 'vlc.network.streams.v1';
+
+/** Subscribed podcast feeds. Episodes are fetched again; only the subscription is stored. */
+export const PODCAST_SUBSCRIPTIONS_STORAGE_KEY = 'vlc.network.podcasts.v1';
+
+/** The user's Jamendo client id. Empty means the catalog stays closed. */
+export const JAMENDO_CLIENT_STORAGE_KEY = 'vlc.network.jamendo.v1';
 
 /** Keep the saved list small enough to stay useful and cheap to load. */
 export const MAX_SAVED_STREAMS = 100;
@@ -30,9 +37,9 @@ export const networkSearch = writable('');
 export const networkViewSubPath = writable<string | null>(null);
 
 /**
- * Playable files currently shown on the Network page (a browsed file or an
- * episode with a real duration). The shared context menu resolves these ids.
- * Live stations and directories are not registered here.
+ * Playable media currently shown on the Network page: a browsed file, a
+ * podcast episode, or a directory stream. The shared context menu resolves
+ * these ids. Folders and servers are not registered here.
  */
 export const networkContextMedia = writable<MediaItem[]>([]);
 
@@ -401,4 +408,172 @@ export function removeSavedStream(id: string): boolean {
   if (next.length === streams.length) return false;
   savedStreams.set(next);
   return true;
+}
+
+export const MAX_PODCAST_SUBSCRIPTIONS = 50;
+
+export type PodcastSubscription = {
+  id: string;
+  feedUrl: string;
+  title: string;
+  addedAt: number;
+};
+
+function sanitizeSubscription(value: unknown): PodcastSubscription | null {
+  if (!isRecord(value)) return null;
+  const { id, feedUrl, title, addedAt } = value;
+  if (typeof id !== 'string' || !id.trim()) return null;
+  if (typeof feedUrl !== 'string') return null;
+  if (typeof title !== 'string' || !title.trim()) return null;
+  if (typeof addedAt !== 'number' || !Number.isFinite(addedAt) || addedAt <= 0) return null;
+  const normalized = normalizeFeedUrl(feedUrl);
+  if (!normalized) return null;
+  return {
+    id: id.trim().slice(0, 160),
+    feedUrl: normalized,
+    title: title.trim().slice(0, MAX_STREAM_NAME_LENGTH),
+    addedAt: Math.trunc(addedAt),
+  };
+}
+
+function sanitizeSubscriptionList(parsed: unknown): PodcastSubscription[] {
+  if (!Array.isArray(parsed)) return [];
+  const subscriptions: PodcastSubscription[] = [];
+  const seenIds = new Set<string>();
+  const seenUrls = new Set<string>();
+  for (const entry of parsed) {
+    const subscription = sanitizeSubscription(entry);
+    if (!subscription) continue;
+    const urlKey = streamUrlKey(subscription.feedUrl);
+    if (seenIds.has(subscription.id) || seenUrls.has(urlKey)) continue;
+    seenIds.add(subscription.id);
+    seenUrls.add(urlKey);
+    subscriptions.push(subscription);
+    if (subscriptions.length >= MAX_PODCAST_SUBSCRIPTIONS) break;
+  }
+  return subscriptions;
+}
+
+function loadPodcastSubscriptions(): PodcastSubscription[] {
+  if (hasTauri()) return [];
+  try {
+    const raw = window.localStorage.getItem(PODCAST_SUBSCRIPTIONS_STORAGE_KEY);
+    if (raw === null) return [];
+    return sanitizeSubscriptionList(JSON.parse(raw) as unknown);
+  } catch {
+    return [];
+  }
+}
+
+const writePodcasts = createKeyWriter(PODCAST_SUBSCRIPTIONS_STORAGE_KEY);
+export const podcastSubscriptions = writable<PodcastSubscription[]>(loadPodcastSubscriptions());
+let podcastPersistenceActive = false;
+
+podcastSubscriptions.subscribe((subscriptions) => {
+  if (!podcastPersistenceActive) return;
+  void writePodcasts(JSON.stringify(subscriptions));
+});
+
+void (async () => {
+  const raw = await loadPersistedRaw(PODCAST_SUBSCRIPTIONS_STORAGE_KEY);
+  if (raw !== null) {
+    try {
+      const next = sanitizeSubscriptionList(JSON.parse(raw) as unknown);
+      if (next.length > 0) podcastSubscriptions.set(next);
+    } catch {
+      // Malformed blob: keep the current list.
+    }
+  }
+  podcastPersistenceActive = true;
+})();
+
+export type SavePodcastResult =
+  | { ok: true; subscription: PodcastSubscription; duplicate: boolean }
+  | { ok: false; error: string };
+
+export function addPodcastSubscription(input: { feedUrl: string; title: string }): SavePodcastResult {
+  const feedUrl = normalizeFeedUrl(input.feedUrl);
+  if (!feedUrl) return { ok: false, error: 'Enter an http or https feed URL.' };
+  const subscriptions = get(podcastSubscriptions);
+  const key = streamUrlKey(feedUrl);
+  const existing = subscriptions.find((subscription) => streamUrlKey(subscription.feedUrl) === key);
+  if (existing) return { ok: true, subscription: existing, duplicate: true };
+  const subscription: PodcastSubscription = {
+    id: createStreamId().replace(/^stream-/, 'podcast-'),
+    feedUrl,
+    title: (input.title.trim() || 'Podcast').slice(0, MAX_STREAM_NAME_LENGTH),
+    addedAt: Date.now(),
+  };
+  podcastSubscriptions.set([subscription, ...subscriptions].slice(0, MAX_PODCAST_SUBSCRIPTIONS));
+  return { ok: true, subscription, duplicate: false };
+}
+
+export function renamePodcastSubscription(id: string, title: string): void {
+  const trimmed = title.trim().slice(0, MAX_STREAM_NAME_LENGTH);
+  if (!trimmed) return;
+  const subscriptions = get(podcastSubscriptions);
+  const index = subscriptions.findIndex((subscription) => subscription.id === id);
+  if (index < 0 || subscriptions[index].title === trimmed) return;
+  const next = subscriptions.slice();
+  next[index] = { ...subscriptions[index], title: trimmed };
+  podcastSubscriptions.set(next);
+}
+
+export function removePodcastSubscription(id: string): boolean {
+  const subscriptions = get(podcastSubscriptions);
+  const next = subscriptions.filter((subscription) => subscription.id !== id);
+  if (next.length === subscriptions.length) return false;
+  podcastSubscriptions.set(next);
+  return true;
+}
+
+function sanitizeJamendoClient(parsed: unknown): string {
+  if (!isRecord(parsed) || typeof parsed.clientId !== 'string') return '';
+  return normalizeJamendoClientId(parsed.clientId) ?? '';
+}
+
+function loadJamendoClientId(): string {
+  if (hasTauri()) return '';
+  try {
+    const raw = window.localStorage.getItem(JAMENDO_CLIENT_STORAGE_KEY);
+    if (raw === null) return '';
+    return sanitizeJamendoClient(JSON.parse(raw) as unknown);
+  } catch {
+    return '';
+  }
+}
+
+const writeJamendo = createKeyWriter(JAMENDO_CLIENT_STORAGE_KEY);
+export const jamendoClientId = writable<string>(loadJamendoClientId());
+let jamendoPersistenceActive = false;
+
+jamendoClientId.subscribe((clientId) => {
+  if (!jamendoPersistenceActive) return;
+  void writeJamendo(JSON.stringify({ clientId }));
+});
+
+void (async () => {
+  const raw = await loadPersistedRaw(JAMENDO_CLIENT_STORAGE_KEY);
+  if (raw !== null) {
+    try {
+      const next = sanitizeJamendoClient(JSON.parse(raw) as unknown);
+      if (next) jamendoClientId.set(next);
+    } catch {
+      // Malformed blob: keep the current id.
+    }
+  }
+  jamendoPersistenceActive = true;
+})();
+
+export function setJamendoClientId(input: string): { ok: true; clientId: string } | { ok: false; error: string } {
+  const clientId = normalizeJamendoClientId(input);
+  if (!clientId) {
+    return { ok: false, error: 'Enter the client id from your Jamendo application. It is not built into Kanea.' };
+  }
+  jamendoClientId.set(clientId);
+  return { ok: true, clientId };
+}
+
+export function clearJamendoClientId(): void {
+  jamendoClientId.set('');
 }
