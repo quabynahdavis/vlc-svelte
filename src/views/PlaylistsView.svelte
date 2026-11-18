@@ -7,6 +7,7 @@
     ChevronRight,
     GripVertical,
     ListMusic,
+    Pencil,
     Pin,
     PinOff,
     Plus,
@@ -22,6 +23,7 @@
     addTrackToPlaylist,
     deletePlaylist,
     movePlaylistTrack,
+    renamePlaylist,
     type Playlist,
     type PlaylistTrack,
     pinnedPlaylistIds,
@@ -41,6 +43,7 @@
   import { watchEntries } from '../stores/watch';
   import { openMediaContextMenu } from '../stores/ui';
   import CreatePlaylistDialog from '../components/CreatePlaylistDialog.svelte';
+  import PlaylistRenameField from '../components/PlaylistRenameField.svelte';
   import LibraryDetails from '../components/LibraryDetails.svelte';
   import MediaCard from '../components/MediaCard.svelte';
   import MediaListRow from '../components/MediaListRow.svelte';
@@ -159,12 +162,14 @@
 
   function openPlaylist(id: string) {
     detailsItemId = null;
+    cancelRename();
     clearSearch();
     playlistsSelectedId.set(id);
   }
 
   function closePlaylist() {
     detailsItemId = null;
+    cancelRename();
     clearSearch();
     playlistsSelectedId.set(null);
   }
@@ -233,6 +238,36 @@
     if (!id) return;
     deletePlaylist(id);
     closePlaylist();
+  }
+
+  let renamingId: string | null = null;
+  let renameValue = '';
+  let renameError = '';
+
+  function cancelRename() {
+    renamingId = null;
+    renameValue = '';
+    renameError = '';
+  }
+
+  function startRename(id: string, name: string) {
+    renamingId = id;
+    renameValue = name;
+    renameError = '';
+  }
+
+  function commitRename() {
+    if (!renamingId) return;
+    const result = renamePlaylist(renamingId, renameValue);
+    if (result === 'empty') {
+      renameError = 'Enter a playlist name.';
+      return;
+    }
+    if (result === 'duplicate') {
+      renameError = 'A playlist with that name already exists.';
+      return;
+    }
+    cancelRename();
   }
 
   $: activePlaylist = $playlistsData.find((playlist) => playlist.id === selected) ?? null;
@@ -581,7 +616,7 @@
 <svelte:window on:dragend={handleWindowDragEnd} on:keydown={handleDetailsKeydown} />
 
 <div class="flex h-full min-h-0 flex-col bg-vlc-app">
-  <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-4 sm:px-6">
+    <header class="flex min-h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-4 py-2 sm:px-6">
     <button
       type="button"
       class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control transition-colors {activePlaylist
@@ -613,9 +648,22 @@
           class="shrink-0 text-vlc-muted"
           aria-hidden="true"
         />
-        <span class="min-w-0 truncate whitespace-nowrap text-vlc-text" aria-current="page">
-          {activePlaylist.name}
-        </span>
+        {#if renamingId === activePlaylist.id}
+          <div class="w-52 min-w-0">
+            <PlaylistRenameField
+              bind:value={renameValue}
+              error={renameError}
+              label={`Rename ${activePlaylist.name}`}
+              on:commit={commitRename}
+              on:cancel={cancelRename}
+              on:input={() => (renameError = '')}
+            />
+          </div>
+        {:else}
+          <span class="min-w-0 truncate whitespace-nowrap text-vlc-text" aria-current="page">
+            {activePlaylist.name}
+          </span>
+        {/if}
       {:else}
         <span class="min-w-0 truncate whitespace-nowrap text-vlc-text" aria-current="page">
           Playlists
@@ -666,6 +714,15 @@
           {:else}
             <Pin size={16} strokeWidth={1.75} aria-hidden="true" />
           {/if}
+        </button>
+        <button
+          type="button"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
+          title={`Rename ${opened.name}`}
+          aria-label={`Rename ${opened.name}`}
+          on:click={() => startRename(opened.id, opened.name)}
+        >
+          <Pencil size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -1242,13 +1299,41 @@
                         >
                           <ListMusic size={30} strokeWidth={1.5} aria-hidden="true" />
                         </div>
-                        <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">
-                          {pl.name}
+                        {#if renamingId !== pl.id}
+                          <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">
+                            {pl.name}
+                          </div>
+                          <div class="truncate text-[11px] text-vlc-muted">
+                            {playlistTrackLabel(pl.trackCount)} • {formatDuration(pl.totalDurationSeconds)}
+                          </div>
+                        {/if}
+                      </button>
+                      {#if renamingId === pl.id}
+                        <div class="mt-2.5">
+                          <PlaylistRenameField
+                            bind:value={renameValue}
+                            error={renameError}
+                            label={`Rename ${pl.name}`}
+                            on:commit={commitRename}
+                            on:cancel={cancelRename}
+                            on:input={() => (renameError = '')}
+                          />
                         </div>
                         <div class="truncate text-[11px] text-vlc-muted">
                           {playlistTrackLabel(pl.trackCount)} • {formatDuration(pl.totalDurationSeconds)}
                         </div>
-                      </button>
+                      {/if}
+                      {#if renamingId !== pl.id}
+                        <button
+                          type="button"
+                          class="absolute right-10 top-2 flex h-7 w-7 items-center justify-center rounded-input bg-vlc-panel/90 text-vlc-muted opacity-0 transition-opacity hover:bg-vlc-raised hover:text-vlc-text group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 {focusRing}"
+                          title={`Rename ${pl.name}`}
+                          aria-label={`Rename ${pl.name}`}
+                          on:click={() => startRename(pl.id, pl.name)}
+                        >
+                          <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />
+                        </button>
+                      {/if}
                       <button
                         type="button"
                         class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-input bg-vlc-panel/90 transition-opacity hover:bg-vlc-raised hover:text-vlc-text {focusRing} {isPinned
@@ -1282,27 +1367,55 @@
                       on:dragleave={(event) => handlePlaylistDragLeave(event, pl.id)}
                       on:drop={(event) => handlePlaylistDrop(event, pl.id)}
                     >
-                      <button
-                        type="button"
-                        class="flex min-w-0 flex-1 items-center gap-3 rounded-control px-3 py-2 text-left {focusRing}"
-                        title={`Open ${pl.name}`}
-                        aria-label={`Open ${pl.name}`}
-                        on:click={() => openPlaylist(pl.id)}
-                      >
-                        <span
-                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-vlc-border bg-vlc-card text-vlc-muted"
-                          aria-hidden="true"
+                      {#if renamingId === pl.id}
+                        <div class="flex min-w-0 flex-1 items-center gap-3 px-3 py-2">
+                          <span
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-vlc-border bg-vlc-card text-vlc-muted"
+                            aria-hidden="true"
+                          >
+                            <ListMusic size={16} strokeWidth={1.75} />
+                          </span>
+                          <PlaylistRenameField
+                            bind:value={renameValue}
+                            error={renameError}
+                            label={`Rename ${pl.name}`}
+                            on:commit={commitRename}
+                            on:cancel={cancelRename}
+                            on:input={() => (renameError = '')}
+                          />
+                        </div>
+                      {:else}
+                        <button
+                          type="button"
+                          class="flex min-w-0 flex-1 items-center gap-3 rounded-control px-3 py-2 text-left {focusRing}"
+                          title={`Open ${pl.name}`}
+                          aria-label={`Open ${pl.name}`}
+                          on:click={() => openPlaylist(pl.id)}
                         >
-                          <ListMusic size={16} strokeWidth={1.75} />
-                        </span>
-                        <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{pl.name}</span>
-                        <span class="w-24 shrink-0 text-right text-xs text-vlc-secondary">
-                          {playlistTrackLabel(pl.trackCount)}
-                        </span>
-                        <span class="w-20 shrink-0 text-right text-xs text-vlc-muted">
-                          {formatDuration(pl.totalDurationSeconds)}
-                        </span>
-                      </button>
+                          <span
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-vlc-border bg-vlc-card text-vlc-muted"
+                            aria-hidden="true"
+                          >
+                            <ListMusic size={16} strokeWidth={1.75} />
+                          </span>
+                          <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{pl.name}</span>
+                          <span class="w-24 shrink-0 text-right text-xs text-vlc-secondary">
+                            {playlistTrackLabel(pl.trackCount)}
+                          </span>
+                          <span class="w-20 shrink-0 text-right text-xs text-vlc-muted">
+                            {formatDuration(pl.totalDurationSeconds)}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          class="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-input text-vlc-muted opacity-0 transition-opacity hover:bg-vlc-card hover:text-vlc-text group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 {focusRing}"
+                          title={`Rename ${pl.name}`}
+                          aria-label={`Rename ${pl.name}`}
+                          on:click={() => startRename(pl.id, pl.name)}
+                        >
+                          <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />
+                        </button>
+                      {/if}
                       <button
                         type="button"
                         class="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-input transition-opacity hover:bg-vlc-card hover:text-vlc-text {focusRing} {isPinned
@@ -1328,29 +1441,51 @@
                   {#each section.items as pl (pl.id)}
                     {@const isPinned = pinnedIds.includes(pl.id)}
                     <div
-                      class="group flex h-8 items-center rounded-input border-b border-vlc-border/40 transition-colors last:border-b-0 hover:bg-vlc-raised {dropTargetId === pl.id
-                        ? 'ring-2 ring-inset ring-vlc-orange'
-                        : ''}"
+                      class="group flex items-center rounded-input border-b border-vlc-border/40 transition-colors last:border-b-0 hover:bg-vlc-raised {renamingId === pl.id
+                        ? 'min-h-8 py-1'
+                        : 'h-8'} {dropTargetId === pl.id ? 'ring-2 ring-inset ring-vlc-orange' : ''}"
                       role="group"
                       on:dragover={(event) => handlePlaylistDragOver(event, pl.id)}
                       on:dragleave={(event) => handlePlaylistDragLeave(event, pl.id)}
                       on:drop={(event) => handlePlaylistDrop(event, pl.id)}
                     >
-                      <button
-                        type="button"
-                        class="flex h-full min-w-0 flex-1 items-center gap-3 rounded-input px-2 text-left text-xs {focusRing}"
-                        title={`Open ${pl.name}`}
-                        aria-label={`Open ${pl.name}`}
-                        on:click={() => openPlaylist(pl.id)}
-                      >
-                        <span class="min-w-0 flex-1 truncate text-vlc-text">{pl.name}</span>
-                        <span class="w-20 shrink-0 text-right text-[11px] text-vlc-muted">
-                          {playlistTrackLabel(pl.trackCount)}
-                        </span>
-                        <span class="w-14 shrink-0 text-right text-[11px] text-vlc-muted">
-                          {formatDuration(pl.totalDurationSeconds)}
-                        </span>
-                      </button>
+                      {#if renamingId === pl.id}
+                        <div class="min-w-0 flex-1 px-2">
+                          <PlaylistRenameField
+                            bind:value={renameValue}
+                            error={renameError}
+                            label={`Rename ${pl.name}`}
+                            on:commit={commitRename}
+                            on:cancel={cancelRename}
+                            on:input={() => (renameError = '')}
+                          />
+                        </div>
+                      {:else}
+                        <button
+                          type="button"
+                          class="flex h-full min-w-0 flex-1 items-center gap-3 rounded-input px-2 text-left text-xs {focusRing}"
+                          title={`Open ${pl.name}`}
+                          aria-label={`Open ${pl.name}`}
+                          on:click={() => openPlaylist(pl.id)}
+                        >
+                          <span class="min-w-0 flex-1 truncate text-vlc-text">{pl.name}</span>
+                          <span class="w-20 shrink-0 text-right text-[11px] text-vlc-muted">
+                            {playlistTrackLabel(pl.trackCount)}
+                          </span>
+                          <span class="w-14 shrink-0 text-right text-[11px] text-vlc-muted">
+                            {formatDuration(pl.totalDurationSeconds)}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          class="mr-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-input text-vlc-muted opacity-0 transition-opacity hover:bg-vlc-card hover:text-vlc-text group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 {focusRing}"
+                          title={`Rename ${pl.name}`}
+                          aria-label={`Rename ${pl.name}`}
+                          on:click={() => startRename(pl.id, pl.name)}
+                        >
+                          <Pencil size={12} strokeWidth={1.75} aria-hidden="true" />
+                        </button>
+                      {/if}
                       <button
                         type="button"
                         class="mr-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-input transition-opacity hover:bg-vlc-card hover:text-vlc-text {focusRing} {isPinned

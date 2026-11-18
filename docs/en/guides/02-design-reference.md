@@ -153,6 +153,6 @@ Alternate accents appear in `Player-2.png` (purple), `Player-3.png` (pink) and `
 - Library and network content is mock data; music browses the real `musicLibrary` store, recent rows render the persisted history store, and playlists render the user's persisted lists. Mock items use `public/demo/sample.mp4`; imported files and stream URLs are session-only and are not persisted.
 - The player queue is not persisted, and no media is queued at startup.
 - The full next-episode prompt, subtitle timeline, audio track/output-device selection, video filter previews, bookmarks/chapters, saved network streams, editable address bar, details view and add actions in the library empty state are planned. See [../design/02-redesign-vision.md](../design/02-redesign-vision.md).
-- Recent and network selections are inert. Create playlist, add to playlist, pin and delete are wired to the playlist store.
+- Recent and network selections are inert. Create playlist, add to playlist, pin, rename and delete are wired to the playlist store.
 - True two-tone menu glyphs are not rendered, Inter is loaded from Google Fonts rather than self-hosted, and `src-tauri/icons/` still contains placeholder Tauri icons.
 - There is no URL router and no automated test suite.

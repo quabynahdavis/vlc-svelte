@@ -375,6 +375,53 @@ export function deletePlaylist(playlistId: string): void {
   pinnedPlaylistIds.update((ids) => ids.filter((id) => id !== playlistId));
 }
 
+export type PlaylistRenameError = 'empty' | 'duplicate' | 'missing';
+
+function playlistNamesMatch(a: string, b: string): boolean {
+  return a.localeCompare(b, undefined, { sensitivity: 'base' }) === 0;
+}
+
+/**
+ * Rename a playlist and persist it through `vlc.playlists.v1`.
+ * Empty names and names that match another playlist are rejected. The same
+ * playlist may keep its current name, including a case-only change.
+ */
+export function renamePlaylist(playlistId: string, name: string): PlaylistRenameError | null {
+  const trimmed = name.trim().slice(0, MAX_NAME);
+  if (!trimmed) return 'empty';
+
+  let error: PlaylistRenameError | null = null;
+
+  playlistsData.update((items) => {
+    const index = items.findIndex((playlist) => playlist.id === playlistId);
+    const current = index >= 0 ? items[index] : undefined;
+    if (!current) {
+      error = 'missing';
+      return items;
+    }
+
+    const duplicate = items.some(
+      (playlist) => playlist.id !== playlistId && playlistNamesMatch(playlist.name, trimmed),
+    );
+    if (duplicate) {
+      error = 'duplicate';
+      return items;
+    }
+
+    if (current.name === trimmed) return items;
+
+    const next = items.slice();
+    next[index] = {
+      ...current,
+      name: trimmed,
+      lastModified: Date.now(),
+    };
+    return next;
+  });
+
+  return error;
+}
+
 /** Stored pins are untrusted: keep only unique, non-empty string ids. */
 function sanitizePinnedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

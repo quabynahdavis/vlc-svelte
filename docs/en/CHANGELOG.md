@@ -2,6 +2,10 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-18
+
+- Playlists can be renamed from the list and from an open playlist. An empty or duplicate name shows the create dialog's inline error, and a valid name is saved through `vlc.playlists.v1`. Recorded in [architecture/02-frontend.md](architecture/02-frontend.md), [design/02-redesign-vision.md](design/02-redesign-vision.md) and [guides/02-design-reference.md](guides/02-design-reference.md).
+
 ## 2026-11-17
 
 ### Changed — Network page drills in like Videos and Playlists
