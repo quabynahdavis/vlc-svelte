@@ -157,8 +157,8 @@
   $: nativeVideoActive = nativeTarget !== null && nativeTarget.visual;
   /** Either native route owns playback instead of the element. */
   $: nativeRoutingActive = nativeTarget !== null;
-  // KNOWN GAP: TransportBar's hover preview sources its own off-screen
-  // element from videoEl.src, which native mode empties.
+  // Native local video hover reads thumb_generate at the hovered time.
+  // A stream has no local path, so that card stays a timestamp only.
   // KNOWN GAP: the dock visualizer falls back to synthetic bars — its
   // analyser has no element media to attach to in native mode.
   // Subtitles in native mode are libvlc's freetype SPU blended into the
@@ -1656,6 +1656,9 @@
         bufferedRatio={buffered}
         fullscreenTarget={shellEl}
         nativeActive={nativeAudioActive || nativeVideoActive}
+        nativePreviewPath={nativeVideoActive && nativeTarget && isVideoFile(nativeTarget.location)
+          ? nativeTarget.location
+          : null}
         onSettings={() => dispatch('settings')}
       />
     </div>

@@ -36,10 +36,11 @@ const VIDEO_EXTENSIONS: &[&str] = &[
     "3gp",
 ];
 
-/// Seek clamp for frame extraction: start just after the first frame, never
-/// more than 45 seconds in.
+/// Seek clamp for frame extraction. Library cards ask for an early frame.
+/// Seek-bar hover asks for the hovered time, which can sit far past that
+/// poster sample, so the upper bound is a day rather than 45 seconds.
 const SEEK_MIN_SECONDS: f64 = 0.05;
-const SEEK_MAX_SECONDS: f64 = 45.0;
+const SEEK_MAX_SECONDS: f64 = 86_400.0;
 
 /// Hard cap for one JPEG (sane images for 240px frames are tens of KB).
 const MAX_OUTPUT_BYTES: usize = 2_000_000;
@@ -211,7 +212,11 @@ pub fn thumb_get(state: State<'_, Database>, path: String) -> Result<Option<Vec<
     load_thumbnail(&conn, &path).map_err(|e| e.to_string())
 }
 
-/// Extract one frame with ffmpeg and persist it, in a single IPC roundtrip.
+/// Extract one frame with ffmpeg, in a single IPC roundtrip.
+///
+/// `persist` writes the JPEG into the one-row-per-path `thumbnails` table.
+/// Library cards pass `true`. Seek-bar hover passes `false` so a scrub does
+/// not replace that poster with whichever timestamp was last under the pointer.
 ///
 /// Returns the JPEG bytes, or `None` when no frame could be produced
 /// (non-absolute path, non-video container, missing file, missing ffmpeg
@@ -222,6 +227,7 @@ pub fn thumb_generate(
     state: State<'_, Database>,
     path: String,
     seek_seconds: f64,
+    persist: bool,
 ) -> Result<Option<Vec<u8>>, String> {
     let file_path = PathBuf::from(&path);
     if !file_path.is_absolute() || !is_video_path(&file_path) {
@@ -238,8 +244,10 @@ pub fn thumb_generate(
     let bytes = run_ffmpeg_frame(FFMPEG_PATH, &path, clamp_seek(seek_seconds));
 
     if let Some(data) = bytes {
-        let conn = state.0.lock().map_err(|_| "database is locked".to_string())?;
-        store_thumbnail(&conn, &path, &data, unix_time_ms()).map_err(|e| e.to_string())?;
+        if persist {
+            let conn = state.0.lock().map_err(|_| "database is locked".to_string())?;
+            store_thumbnail(&conn, &path, &data, unix_time_ms()).map_err(|e| e.to_string())?;
+        }
         Ok(Some(data))
     } else {
         Ok(None)
@@ -326,7 +334,8 @@ mod tests {
         assert_eq!(clamp_seek(-5.0), SEEK_MIN_SECONDS);
         assert_eq!(clamp_seek(0.0), SEEK_MIN_SECONDS);
         assert_eq!(clamp_seek(12.0), 12.0);
-        assert_eq!(clamp_seek(10_000.0), SEEK_MAX_SECONDS);
+        assert_eq!(clamp_seek(10_000.0), 10_000.0);
+        assert_eq!(clamp_seek(200_000.0), SEEK_MAX_SECONDS);
         assert_eq!(clamp_seek(f64::NAN), SEEK_MIN_SECONDS);
     }
 }

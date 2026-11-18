@@ -163,8 +163,82 @@ async function generateThumbnailInRust(item: MediaItem): Promise<string | null> 
     const bytes = await invokeCommand<number[] | Uint8Array>('thumb_generate', {
         path: item.id,
         seekSeconds: seek,
+        persist: true,
     });
     return bytes && bytes.length > 0 ? bytesToJpegDataUrl(bytes) : null;
+}
+
+/**
+ * One second per hover frame. Nearby pointer positions share a JPEG, and the
+ * session cache key is the file path plus this second.
+ */
+const HOVER_BUCKET_SECONDS = 1;
+const HOVER_CACHE_LIMIT = 48;
+
+/** path + hovered second → JPEG data URL. Not the SQLite poster row. */
+const hoverFrames = new Map<string, string>();
+const hoverPending = new Map<string, Promise<string | null>>();
+
+function hoverSecond(seekSeconds: number): number {
+    if (!Number.isFinite(seekSeconds) || seekSeconds <= 0) return 0;
+    return Math.round(seekSeconds / HOVER_BUCKET_SECONDS) * HOVER_BUCKET_SECONDS;
+}
+
+function hoverCacheKey(path: string, second: number): string {
+    return `${path}\0${second}`;
+}
+
+function rememberHoverFrame(key: string, dataUrl: string): void {
+    if (hoverFrames.has(key)) hoverFrames.delete(key);
+    hoverFrames.set(key, dataUrl);
+    while (hoverFrames.size > HOVER_CACHE_LIMIT) {
+        const oldest = hoverFrames.keys().next().value;
+        if (oldest === undefined) break;
+        hoverFrames.delete(oldest);
+    }
+}
+
+/**
+ * JPEG for a local video at `seekSeconds`.
+ *
+ * `thumb_get` reads the single library poster stored for `path`. That row is
+ * not a frame at an arbitrary time, so hover does not use it. The frame comes
+ * from `thumb_generate` at the hovered second, with `persist: false`, and is
+ * kept in a session cache keyed by the path and that second. A stream has no
+ * local path and never reaches this function.
+ */
+export async function thumbnailAtTime(path: string, seekSeconds: number): Promise<string | null> {
+    if (!hasTauri() || !path) return null;
+
+    const second = hoverSecond(seekSeconds);
+    const key = hoverCacheKey(path, second);
+    const cached = hoverFrames.get(key);
+    if (cached) {
+        hoverFrames.delete(key);
+        hoverFrames.set(key, cached);
+        return cached;
+    }
+
+    const pending = hoverPending.get(key);
+    if (pending) return pending;
+
+    const task = invokeCommand<number[] | Uint8Array>('thumb_generate', {
+        path,
+        seekSeconds: second,
+        persist: false,
+    })
+        .then((bytes) => {
+            if (!bytes || bytes.length === 0) return null;
+            const dataUrl = bytesToJpegDataUrl(bytes);
+            rememberHoverFrame(key, dataUrl);
+            return dataUrl;
+        })
+        .finally(() => {
+            hoverPending.delete(key);
+        });
+
+    hoverPending.set(key, task);
+    return task;
 }
 
 /** Small JPEG payload → data URL, b64-encoded in bounded chunks. */

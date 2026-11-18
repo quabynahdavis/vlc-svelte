@@ -30,6 +30,7 @@
   import type { PlayerState, Track } from '../stores/player';
   import { waveformFilePath } from '../lib/audio';
   import { waveformGenerate, waveformGet } from '../lib/audioMeta';
+  import { thumbnailAtTime } from '../lib/thumbnails';
   import { musicTracks } from '../stores/musicLibrary';
   import { hasTauri } from '../lib/tauriFs';
   import { toggleFullscreen } from '../lib/gestures';
@@ -43,6 +44,11 @@
   export let onSettings: () => void = () => {};
   /** True while libvlc owns the current audio track (element carries no media). */
   export let nativeActive = false;
+  /**
+   * Absolute path of the local file libvlc is showing. Null for HTML5 playback
+   * and for native streams, which keep the timestamp card without a frame.
+   */
+  export let nativePreviewPath: string | null = null;
 
   const PREVIEW_WIDTH = 160;
   const PREVIEW_HEIGHT = 90;
@@ -90,6 +96,11 @@
   let previewSeekTarget = 0;
   let previewSeekTimer: ReturnType<typeof setTimeout> | null = null;
   let previewPendingTime: number | null = null;
+  /** Drops a hover frame that arrives after the pointer left or the file changed. */
+  let nativePreviewToken = 0;
+  let nativePreviewBusy = false;
+  let nativePreviewQueued: number | null = null;
+  let nativePreviewSeen = '';
   let promptLocked = false;
   let promptLockedVisible = false;
 
@@ -135,6 +146,13 @@
     wavePeaks.length > 0;
   // A video hover frame must not survive the switch onto an audio waveform.
   $: if (waveActive && previewFrameReady) previewFrameReady = false;
+  // A new local file must not keep the previous file's hover frame.
+  $: if ((nativePreviewPath ?? '') !== nativePreviewSeen) {
+    nativePreviewSeen = nativePreviewPath ?? '';
+    previewFrameReady = false;
+    nativePreviewToken += 1;
+    nativePreviewQueued = null;
+  }
   // Redraw when the playhead moves or a new peak array arrives. `wavePeaks`
   // has to be an argument: Svelte does not track reads inside the callee.
   $: if (waveCanvas && waveActive && wavePeaks) drawWaveCanvas(wavePeaks, elapsed, duration);
@@ -521,8 +539,105 @@
 
     previewSeekTimer = setTimeout(() => {
       previewSeekTimer = null;
+      if (nativePreviewPath) {
+        void showNativePreview(previewSeekTarget);
+        return;
+      }
       seekPreviewVideo(previewSeekTarget);
     }, PREVIEW_SEEK_THROTTLE_MS);
+  }
+
+  /**
+   * Native local video has no media element to seek. Ask the thumbnail
+   * pipeline for the hovered second and paint that JPEG into the same card.
+   * One extract runs at a time; a newer hover replaces the queued time.
+   */
+  async function showNativePreview(time: number): Promise<void> {
+    const path = nativePreviewPath;
+    if (!path) {
+      previewFrameReady = false;
+      return;
+    }
+
+    if (nativePreviewBusy) {
+      nativePreviewQueued = time;
+      return;
+    }
+
+    nativePreviewBusy = true;
+    const token = ++nativePreviewToken;
+    try {
+      const url = await thumbnailAtTime(path, time);
+      if (token !== nativePreviewToken || !previewVisible || nativePreviewPath !== path) return;
+      if (!url) {
+        previewFrameReady = false;
+        return;
+      }
+      drawPreviewDataUrl(url, token, path);
+    } finally {
+      nativePreviewBusy = false;
+      if (nativePreviewQueued !== null && previewVisible && nativePreviewPath) {
+        const next = nativePreviewQueued;
+        nativePreviewQueued = null;
+        void showNativePreview(next);
+      } else {
+        nativePreviewQueued = null;
+      }
+    }
+  }
+
+  function drawPreviewDataUrl(url: string, token: number, path: string): void {
+    const image = new Image();
+    image.onload = () => {
+      if (token !== nativePreviewToken || !previewVisible || nativePreviewPath !== path) return;
+      const canvas = previewCanvas;
+      const context = canvas?.getContext('2d');
+      if (!canvas || !context) {
+        previewFrameReady = false;
+        return;
+      }
+      try {
+        paintPreviewCover(context, image, image.naturalWidth, image.naturalHeight);
+      } catch {
+        previewFrameReady = false;
+      }
+    };
+    image.onerror = () => {
+      if (token !== nativePreviewToken) return;
+      previewFrameReady = false;
+    };
+    image.src = url;
+  }
+
+  function paintPreviewCover(
+    context: CanvasRenderingContext2D,
+    source: CanvasImageSource,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): void {
+    if (sourceWidth <= 0 || sourceHeight <= 0) {
+      previewFrameReady = false;
+      return;
+    }
+
+    const targetRatio = PREVIEW_WIDTH / PREVIEW_HEIGHT;
+    const sourceRatio = sourceWidth / sourceHeight;
+    let sx = 0;
+    let sy = 0;
+    let sw = sourceWidth;
+    let sh = sourceHeight;
+
+    if (sourceRatio > targetRatio) {
+      sw = sourceHeight * targetRatio;
+      sx = (sourceWidth - sw) / 2;
+    } else {
+      sh = sourceWidth / targetRatio;
+      sy = (sourceHeight - sh) / 2;
+    }
+
+    context.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+    context.drawImage(source, sx, sy, sw, sh, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+    previewFrameReady = true;
   }
 
   function seekPreviewVideo(time: number): void {
@@ -580,26 +695,8 @@
     }
 
     try {
-      const targetRatio = PREVIEW_WIDTH / PREVIEW_HEIGHT;
-      const sourceRatio = el.videoWidth / el.videoHeight;
-
-      let sx = 0;
-      let sy = 0;
-      let sw = el.videoWidth;
-      let sh = el.videoHeight;
-
       // Cover-crop into the 16:9 card so portrait or ultrawide media still fills it.
-      if (sourceRatio > targetRatio) {
-        sw = el.videoHeight * targetRatio;
-        sx = (el.videoWidth - sw) / 2;
-      } else {
-        sh = el.videoWidth / targetRatio;
-        sy = (el.videoHeight - sh) / 2;
-      }
-
-      context.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
-      context.drawImage(el, sx, sy, sw, sh, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
-      previewFrameReady = true;
+      paintPreviewCover(context, el, el.videoWidth, el.videoHeight);
     } catch {
       // Cross-origin frames taint the canvas; fall back to the time-only card.
       previewFrameReady = false;
@@ -613,6 +710,8 @@
 
   function hidePreview(): void {
     previewVisible = false;
+    nativePreviewToken += 1;
+    nativePreviewQueued = null;
 
     if (previewSeekTimer !== null) {
       clearTimeout(previewSeekTimer);
