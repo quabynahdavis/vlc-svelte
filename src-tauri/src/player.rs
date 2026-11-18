@@ -312,7 +312,10 @@ const NETWORK_SCHEMES: &[&str] = &[
 /// Classify a player argument. Absolute and relative paths stay paths so the
 /// Phase 1 local-file contract is unchanged. `http`/`https` (HLS and DASH
 /// included), `rtsp`, `rtmp`, `mms`, `rtp` and `udp` become locations.
-/// `file://` is decoded back into a path. Every other scheme is rejected.
+/// `file://` is decoded back into a path. Tauri asset URLs (`asset://` and
+/// `http://asset.localhost/...`, including `https`) are percent-decoded to a
+/// filesystem path for `libvlc_media_new_path` and are not opened as HTTP.
+/// Every other scheme is rejected.
 pub fn classify_media_target(input: &str) -> Result<MediaTarget, String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -335,6 +338,9 @@ pub fn classify_media_target(input: &str) -> Result<MediaTarget, String> {
             return Err("empty file url".to_string());
         }
         return Ok(MediaTarget::Path(path));
+    }
+    if scheme == "asset" || is_asset_localhost(&scheme, rest) {
+        return Ok(MediaTarget::Path(asset_url_to_path(rest)?));
     }
     if !NETWORK_SCHEMES.contains(&scheme.as_str()) {
         return Err(format!("unsupported media scheme: {scheme}"));
@@ -419,6 +425,46 @@ fn file_url_to_path(rest: &str) -> Result<String, String> {
         rest
     };
     percent_decode(path)
+}
+
+/// `http://asset.localhost` and `https://asset.localhost` (optional port).
+fn is_asset_localhost(scheme: &str, rest: &str) -> bool {
+    if scheme != "http" && scheme != "https" {
+        return false;
+    }
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let host = authority
+        .rsplit_once('@')
+        .map(|(_, host)| host)
+        .unwrap_or(authority);
+    let host = match host.rsplit_once(':') {
+        Some((name, port))
+            if !name.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit()) =>
+        {
+            name
+        }
+        _ => host,
+    };
+    host.eq_ignore_ascii_case("asset.localhost")
+}
+
+/// Filesystem path inside a Tauri `convertFileSrc` URL.
+///
+/// The absolute path is percent-encoded after one slash that is not part of
+/// the path (`asset://localhost/%2Ftmp%2Fa.mp4`,
+/// `http://asset.localhost/C%3A%5Cclip.mkv`). That slash is skipped, matching
+/// the asset protocol handler, then the remainder is decoded.
+fn asset_url_to_path(rest: &str) -> Result<String, String> {
+    let without_suffix = rest.split(['?', '#']).next().unwrap_or(rest);
+    let encoded = without_suffix
+        .split_once('/')
+        .map(|(_, path)| path)
+        .unwrap_or("");
+    let path = percent_decode(encoded)?;
+    if path.is_empty() {
+        return Err("empty asset url".to_string());
+    }
+    Ok(path)
 }
 
 fn percent_decode(input: &str) -> Result<String, String> {
@@ -1731,22 +1777,49 @@ mod native {
         available
     }
 
-    /// `libvlc_new` with the profile. A bad argv falls back to a plain
-    /// instance so a font or option problem cannot stop playback.
+    /// `libvlc_new` with the profile. A bad argv falls back to software
+    /// decode alone so a font or option problem cannot stop playback.
+    ///
+    /// `--avcodec-hw=none` is always passed. The RV32 format callback needs
+    /// a CPU picture; a hardware chroma is one swscale cannot convert, so
+    /// no frame is ever published.
     fn open_instance(style: &super::SubtitleStyle) -> Option<Instance> {
-        let args = style.libvlc_args();
+        ensure_vlc_plugin_path();
+        let mut args = style.libvlc_args();
+        args.push("--avcodec-hw=none".to_string());
+        if let Some(instance) = instance_with_args(&args) {
+            return Some(instance);
+        }
+        instance_with_args(&["--avcodec-hw=none".to_string()])
+    }
+
+    /// Point libvlc at the system plugins when a Tauri launch from the repo
+    /// has no `VLC_PLUGIN_PATH`. swscale and amem live in that directory.
+    fn ensure_vlc_plugin_path() {
+        let already_set = std::env::var_os("VLC_PLUGIN_PATH")
+            .is_some_and(|value| !value.is_empty());
+        if already_set {
+            return;
+        }
+        let plugins = "/usr/lib/vlc/plugins";
+        if std::path::Path::new(plugins).exists() {
+            std::env::set_var("VLC_PLUGIN_PATH", plugins);
+        }
+    }
+
+    fn instance_with_args(args: &[String]) -> Option<Instance> {
         let cstrings: Option<Vec<CString>> = args
             .iter()
             .map(|arg| CString::new(arg.as_str()).ok())
             .collect();
-        if let Some(cstrings) = cstrings {
-            let ptrs: Vec<*const libc::c_char> = cstrings.iter().map(|arg| arg.as_ptr()).collect();
-            let ptr = unsafe { ffi::libvlc_new(ptrs.len() as i32, ptrs.as_ptr()) };
-            if !ptr.is_null() {
-                return Some(Instance { ptr });
-            }
+        let cstrings = cstrings?;
+        let ptrs: Vec<*const libc::c_char> = cstrings.iter().map(|arg| arg.as_ptr()).collect();
+        let ptr = unsafe { ffi::libvlc_new(ptrs.len() as i32, ptrs.as_ptr()) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(Instance { ptr })
         }
-        Instance::new()
     }
 
     const VLC_VAR_INTEGER: i32 = 0x0030;
@@ -2215,6 +2288,23 @@ mod tests {
             classify_media_target("file://localhost/tmp/a.mp3").unwrap(),
             MediaTarget::Path("/tmp/a.mp3".to_string())
         );
+    }
+
+    #[test]
+    fn asset_urls_decode_to_filesystem_paths() {
+        assert_eq!(
+            classify_media_target("asset://localhost/%2Ftmp%2Fmy%20clip.mp4").unwrap(),
+            MediaTarget::Path("/tmp/my clip.mp4".to_string())
+        );
+        assert_eq!(
+            classify_media_target("http://asset.localhost/%2Fhome%2Fme%2Fa.mkv").unwrap(),
+            MediaTarget::Path("/home/me/a.mkv".to_string())
+        );
+        assert_eq!(
+            classify_media_target("https://asset.localhost/C%3A%5CVideos%5Cclip.mkv").unwrap(),
+            MediaTarget::Path(r"C:\Videos\clip.mkv".to_string())
+        );
+        assert!(classify_media_target("asset://localhost/").is_err());
     }
 
     #[test]

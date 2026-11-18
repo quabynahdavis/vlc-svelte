@@ -142,7 +142,7 @@ Register `set_video_callbacks(lock/unlock/display/cleanup)` (vlc-rs exposes thes
 
 The shipped pump is:
 
-- **960 px wide**, even dimensions, **RV32**, as implemented (the 1080p sample is published at 960×544).
+- **960 px wide**, even dimensions, **RV32**, as implemented (the 1080p sample is published at 960×544). Software decode (`--avcodec-hw=none`) is required for the RV32 callback.
 - **Latest frame wins.** The pump drops frames; it does not queue them.
 - **DOM overlays stay**: transport, hover chrome, docks, and the subtitle UI. The frame is pixels in a `<canvas>`, so those Svelte surfaces remain.
 

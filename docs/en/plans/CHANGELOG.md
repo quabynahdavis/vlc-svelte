@@ -5,6 +5,7 @@ Dates use `YYYY-MM-DD`.
 ## 2026-11-18
 
 - Linux WebKitGTK fetches libvlc frames and PCM at `http://vlcframe.localhost/frame` and `http://vlcaudio.localhost/pcm`. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
+- Software decode is required for the RV32 callback. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
 
 ## 2026-11-17
 
