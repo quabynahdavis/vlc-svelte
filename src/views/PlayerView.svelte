@@ -690,11 +690,10 @@
   // instrumentation exists because this build is meant to be measured.
 
   /**
-   * Custom-protocol frame URL registered in `src-tauri/src/main.rs`. Windows
-   * webviews expose custom schemes as `http://vlcframe.localhost/frame`
-   * instead — this prototype targets the Linux WebKit build.
+   * Frame URL. Tauri 2 on Linux WebKitGTK serves the `vlcframe` custom
+   * protocol at this host; `vlcframe://localhost/frame` is not fetchable.
    */
-  const FRAME_URL = 'vlcframe://localhost/frame';
+  const FRAME_URL = 'http://vlcframe.localhost/frame';
   /** Self-describing body header: [seq u64 LE][width u32 LE][height u32 LE]. */
   const FRAME_HEADER_BYTES = 16;
 

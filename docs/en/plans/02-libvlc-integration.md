@@ -201,7 +201,7 @@ The UI stays 0–200.
 
 The play callback only copies into a ring sized ahead of time (~171 ms of stereo 48 kHz). It does not call libvlc or Tauri, and it does not allocate. If the webview falls behind, the oldest unread samples are dropped. Each callback body is wrapped so a panic cannot unwind across FFI.
 
-`vlcaudio://localhost/pcm` serves at most ~20 ms per poll: `[seq u64][generation u32][rate u32][channels u32][frames u32][interleaved f32 LE]`. No chunk answers `204`. The player polls from `requestAnimationFrame`, one fetch at a time, and skips the poll while more than ~120 ms is already scheduled.
+`vlcaudio://localhost/pcm` serves at most ~20 ms per poll: `[seq u64][generation u32][rate u32][channels u32][frames u32][interleaved f32 LE]`. No chunk answers `204`. The player polls from `requestAnimationFrame`, one fetch at a time, and skips the poll while more than ~120 ms is already scheduled. On Linux WebKitGTK the webview fetches those custom protocols at `http://vlcframe.localhost/frame` and `http://vlcaudio.localhost/pcm`.
 
 Those chunks play through the existing graph: `GainNode` → `AnalyserNode` → destination. The gain node is only the mute and 0% switch. HTML5 playback still uses `createMediaElementSource` on the media element. Native mode clears that element's `src`, so it does not also play.
 

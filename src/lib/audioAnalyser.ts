@@ -42,7 +42,7 @@ let watchFrame = 0;
 let silentSince = 0;
 let lastPoll = 0;
 
-const NATIVE_PCM_URL = 'vlcaudio://localhost/pcm';
+const NATIVE_PCM_URL = 'http://vlcaudio.localhost/pcm';
 /** Header: seq u64, generation u32, rate u32, channels u32, frames u32. */
 const NATIVE_PCM_HEADER_BYTES = 24;
 /** Keep this much scheduled audio. Longer than this, leave the ring alone. */
@@ -375,7 +375,7 @@ function nativePcmTick(): void {
 }
 
 /**
- * Start polling `vlcaudio://` and playing the chunks. Idempotent.
+ * Start polling `http://vlcaudio.localhost/pcm` and playing the chunks. Idempotent.
  * No-op outside a native playback session; call `stopNativePcmPlayback`
  * when leaving native mode.
  */

@@ -2,6 +2,10 @@
 
 Dates use `YYYY-MM-DD`.
 
+## 2026-11-18
+
+- Linux WebKitGTK fetches libvlc frames and PCM at `http://vlcframe.localhost/frame` and `http://vlcaudio.localhost/pcm`. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md).
+
 ## 2026-11-17
 
 - libvlc is the default playback engine. The webview `<video>` player is optional: it is used when the binary is built without the `libvlc` feature, or when the user turns Webview player on (`html5Playback`, default false). A saved `nativePlayback: false` from the old default is not treated as that opt-in. Recorded in [02-libvlc-integration.md](02-libvlc-integration.md). [OVERVIEW.md](OVERVIEW.md) matches.
