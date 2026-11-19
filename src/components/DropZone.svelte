@@ -46,6 +46,11 @@
 
     onDrop(multiple ? files : files.slice(0, 1));
   }
+
+  function handleKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+  }
 </script>
 
 <div
@@ -54,10 +59,12 @@
   role="button"
   tabindex="0"
   aria-label="Drop files here"
+  title="Drop files here"
   on:dragenter={handleDragEnter}
   on:dragover={handleDragOver}
   on:dragleave={handleDragLeave}
   on:drop={handleDrop}
+  on:keydown={handleKeydown}
 >
   <span>{dragging ? 'Drop files to add them' : 'Drag and drop files here'}</span>
 </div>
@@ -66,14 +73,23 @@
   .drop-zone {
     background-color: rgb(var(--bg-card-rgb) / 0.8);
     border: 2px dashed var(--border);
+    border-radius: 12px;
+    min-height: 160px;
     height: 200px;
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 1.25rem;
     color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.2s ease;
+    cursor: default;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.4;
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease,
+      color 0.2s ease;
   }
 
   .drop-zone:hover,
@@ -81,5 +97,10 @@
     border-color: var(--accent);
     background-color: rgb(var(--accent-rgb) / 0.12);
     color: var(--accent-ink);
+  }
+
+  .drop-zone:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 0.5);
   }
 </style>
