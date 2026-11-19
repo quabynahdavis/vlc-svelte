@@ -1,4 +1,4 @@
-import { writable, get } from 'svelte/store';
+import { writable } from 'svelte/store';
 
 export type ContextMenuState = {
   open: boolean;
@@ -57,6 +57,8 @@ export function openDock(mode: DockMode): void {
 /**
  * Open the context menu at the pointer position.
  * Right-click handlers call this directly; the native menu is suppressed.
+ * Callers that need a non-global menu must set `currentContext` / `contextItemId`
+ * before invoking this (see the typed openers below).
  */
 export function openContextMenu(event: MouseEvent): void {
   event.preventDefault();
@@ -66,15 +68,12 @@ export function openContextMenu(event: MouseEvent): void {
     x: event.clientX,
     y: event.clientY,
   });
-  // default to global if not overridden by a more specific opener
-  if (get(currentContext) === 'global') {
-    // keep as global
-  }
 }
 
 /** Open a folder‑specific context menu. */
 export function openFolderContextMenu(event: MouseEvent, id: string): void {
   event.preventDefault();
+  event.stopPropagation();
   contextItemId.set(id);
   currentContext.set('folder');
   openContextMenu(event);
@@ -83,6 +82,7 @@ export function openFolderContextMenu(event: MouseEvent, id: string): void {
 /** Open a media‑specific context menu. */
 export function openMediaContextMenu(event: MouseEvent, id: string): void {
   event.preventDefault();
+  event.stopPropagation();
   contextItemId.set(id);
   currentContext.set('media');
   openContextMenu(event);
@@ -91,6 +91,7 @@ export function openMediaContextMenu(event: MouseEvent, id: string): void {
 /** Open a Watch Later entry context menu (player-view library overlay). */
 export function openWatchLaterContextMenu(event: MouseEvent, id: string): void {
   event.preventDefault();
+  event.stopPropagation();
   contextItemId.set(id);
   currentContext.set('watchLater');
   openContextMenu(event);
@@ -99,6 +100,7 @@ export function openWatchLaterContextMenu(event: MouseEvent, id: string): void {
 /** Open a history entry context menu (player-view library overlay). */
 export function openHistoryContextMenu(event: MouseEvent, id: string): void {
   event.preventDefault();
+  event.stopPropagation();
   contextItemId.set(id);
   currentContext.set('history');
   openContextMenu(event);
@@ -107,6 +109,7 @@ export function openHistoryContextMenu(event: MouseEvent, id: string): void {
 /** Open the saved-stream menu: play, edit and remove. */
 export function openSavedStreamContextMenu(event: MouseEvent, id: string): void {
   event.preventDefault();
+  event.stopPropagation();
   contextItemId.set(id);
   currentContext.set('savedStream');
   openContextMenu(event);
@@ -115,6 +118,7 @@ export function openSavedStreamContextMenu(event: MouseEvent, id: string): void 
 /** Open a bookmark context menu (player-view library overlay). */
 export function openBookmarkContextMenu(event: MouseEvent, id: string): void {
   event.preventDefault();
+  event.stopPropagation();
   contextItemId.set(id);
   currentContext.set('bookmark');
   openContextMenu(event);
