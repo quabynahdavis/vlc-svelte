@@ -2,6 +2,12 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-19
+
+### Fixed — Context menu density, focus, and item visibility
+
+- Shell context menus now use panel tokens and keyboard navigation, stop bubbling into the empty-space handler, toggle Play/Pause Hide/Show and Mute/Unmute labels from live state, and hide history Watch Later for non-video entries.
+
 ## 2026-11-18
 
 ### Changed — HTML5 is the temporary default playback engine
