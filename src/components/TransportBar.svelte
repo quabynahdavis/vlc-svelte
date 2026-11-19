@@ -52,7 +52,8 @@
 
   const PREVIEW_WIDTH = 160;
   const PREVIEW_HEIGHT = 90;
-  const PREVIEW_CARD_HALF_WIDTH = 65;
+  /** Half of the hover card's rendered width (w-[128px]) so edge clamping stays flush. */
+  const PREVIEW_CARD_HALF_WIDTH = 64;
   const PREVIEW_SEEK_THROTTLE_MS = 80;
   const NEXT_PROMPT_WINDOW_SECONDS = 20;
   const VOLUME_STEP = 5;
@@ -963,7 +964,7 @@
 </script>
 
 <footer
-  class="flex h-[52px] shrink-0 items-center gap-2 border-t border-vlc-border bg-vlc-app px-3"
+  class="flex h-[52px] shrink-0 items-center gap-1.5 border-t border-vlc-border bg-vlc-app px-2.5 sm:gap-2 sm:px-3"
   aria-label="Player controls"
 >
   <!-- Off-screen media element used only to render hover thumbnails. -->
@@ -1013,7 +1014,7 @@
 
     <button
       type="button"
-      class="flex h-9 w-10 items-center justify-center rounded-control bg-vlc-orange text-white transition-[filter,background-color] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vlc-orange"
+      class="flex h-9 w-10 items-center justify-center rounded-control bg-vlc-orange text-white transition-[filter,background-color] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-app"
       title={$player.isPlaying ? 'Pause' : 'Play'}
       aria-label={$player.isPlaying ? 'Pause' : 'Play'}
       on:click={() => void togglePlay()}
@@ -1120,8 +1121,11 @@
     ></span>
 
     <div
-      class="pointer-events-none absolute bottom-full z-50 mb-2 w-[128px] -translate-x-1/2 rounded-md border border-vlc-borderStrong bg-vlc-panel/95 p-1 shadow-lg backdrop-blur-sm"
+      class="pointer-events-none absolute bottom-full z-50 mb-2 w-[128px] -translate-x-1/2 overflow-hidden rounded-md border border-vlc-borderStrong bg-vlc-panel/95 shadow-lg backdrop-blur-sm"
       class:hidden={!previewVisible}
+      class:p-1={previewFrameReady}
+      class:px-1.5={!previewFrameReady}
+      class:py-1={!previewFrameReady}
       style={`left: ${previewX}px;`}
       aria-hidden="true"
     >
@@ -1137,7 +1141,9 @@
         ></canvas>
       </div>
       <div
-        class="px-0.5 pt-1 text-center font-mono text-[10px] tabular-nums text-vlc-secondary"
+        class="text-center font-mono text-[10px] leading-4 tabular-nums text-vlc-secondary"
+        class:mt-1={previewFrameReady}
+        class:px-0.5={previewFrameReady}
       >
         {formatTime(previewTime)}
       </div>
@@ -1228,7 +1234,7 @@
     {#if $layout.playerControls.audio}
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-raised hover:text-vlc-text"
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       class:text-vlc-orangeText={$dockMode === 'audio'}
       class:text-vlc-secondary={$dockMode !== 'audio'}
       class:bg-vlc-card={$dockMode === 'audio'}
@@ -1237,7 +1243,7 @@
       aria-pressed={$dockMode === 'audio'}
       on:click={() => openDock('audio')}
     >
-      <AudioLines size={18} strokeWidth={1.6} />
+      <AudioLines size={18} strokeWidth={1.6} aria-hidden="true" />
     </button>
     {/if}
     {#if $layout.playerControls.subtitles}
@@ -1284,7 +1290,7 @@
     {#if $layout.playerControls.queue}
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-raised hover:text-vlc-text"
+      class="flex h-8 w-8 items-center justify-center rounded-control transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       class:text-vlc-orangeText={$dockMode === 'queue'}
       class:text-vlc-secondary={$dockMode !== 'queue'}
       class:bg-vlc-card={$dockMode === 'queue'}
@@ -1293,7 +1299,7 @@
       aria-pressed={$dockMode === 'queue'}
       on:click={() => openDock('queue')}
     >
-      <ListVideo size={18} strokeWidth={1.6} />
+      <ListVideo size={18} strokeWidth={1.6} aria-hidden="true" />
     </button>
     {/if}
   </div>
