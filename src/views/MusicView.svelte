@@ -1,12 +1,8 @@
 <script lang="ts">
   import { get } from "svelte/store";
-  import { onMount, tick } from "svelte";
+  import { onMount } from "svelte";
   import {
-    ArrowDown,
     ArrowLeft,
-    ArrowUp,
-    ArrowUpDown,
-    Check,
     ChevronRight,
     FolderPlus,
     ListMusic,
@@ -53,6 +49,7 @@
   import { t } from "../lib/t";
   import FuzzySearch from "../components/FuzzySearch.svelte";
   import MusicCover from "../components/MusicCover.svelte";
+  import SortMenu from "../components/SortMenu.svelte";
   import ViewModeToggle from "../components/ViewModeToggle.svelte";
 
   type BrowseLevel =
@@ -687,9 +684,6 @@
   $: activeSortKey = sortOptions.some((option) => option.key === $musicSort)
     ? $musicSort
     : sortOptions[0].key;
-  $: activeSortLabel =
-    sortOptions.find((option) => option.key === activeSortKey)?.label ??
-    "Title";
 
   $: filteredArtists = artistEntries.filter((entry) => matches([entry.name]));
   $: sortedArtists = sortStable(
@@ -982,80 +976,25 @@
     return segments;
   }
 
-  /* ---------- Sort menu ---------- */
+  /* ---------- Sort ---------- */
 
-  let sortOpen = false;
-  let sortRoot: HTMLDivElement;
-  let sortMenu: HTMLDivElement;
-
-  async function toggleSortMenu() {
-    sortOpen = !sortOpen;
-    if (!sortOpen) return;
-
-    await tick();
-    sortMenu?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
-  }
-
-  function closeSortMenu(refocus = false) {
-    sortOpen = false;
-    if (!refocus) return;
-
-    requestAnimationFrame(() => {
-      sortRoot?.querySelector<HTMLElement>("[data-sort-trigger]")?.focus();
-    });
-  }
-
-  function selectSortKey(key: MusicSortKey) {
+  function selectSortKey(key: string) {
+    if (
+      key !== "title" &&
+      key !== "artist" &&
+      key !== "album" &&
+      key !== "year" &&
+      key !== "duration"
+    ) {
+      return;
+    }
     musicSort.set(key);
-    closeSortMenu(true);
   }
 
   function toggleSortDirection() {
     musicSortDirection.update((direction) =>
       direction === "asc" ? "desc" : "asc",
     );
-    closeSortMenu(true);
-  }
-
-  function handleWindowPointer(event: MouseEvent) {
-    if (!sortOpen) return;
-    const target = event.target;
-    if (target instanceof Node && sortRoot?.contains(target)) return;
-    sortOpen = false;
-  }
-
-  function handleWindowKeydown(event: KeyboardEvent) {
-    if (!sortOpen || event.key !== "Escape") return;
-    event.preventDefault();
-    closeSortMenu(true);
-  }
-
-  function handleSortMenuKeydown(event: KeyboardEvent) {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-
-    const items = Array.from(
-      sortMenu?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [],
-    );
-    if (items.length === 0) return;
-
-    event.preventDefault();
-    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
-    let nextIndex = 0;
-
-    if (event.key === "ArrowDown")
-      nextIndex = (currentIndex + 1) % items.length;
-    else if (event.key === "ArrowUp")
-      nextIndex = (currentIndex - 1 + items.length) % items.length;
-    else if (event.key === "End") nextIndex = items.length - 1;
-
-    items[nextIndex]?.focus();
-  }
-
-  function handleSortFocusOut(event: FocusEvent) {
-    if (!sortOpen) return;
-    const next = event.relatedTarget;
-    if (next instanceof Node && sortRoot?.contains(next)) return;
-    sortOpen = false;
   }
 
   /* ---------- Selection / navigation ---------- */
@@ -1244,14 +1183,9 @@
   }
 </script>
 
-<svelte:window
-  on:click={handleWindowPointer}
-  on:keydown={handleWindowKeydown}
-/>
-
 <div class="flex h-full min-h-0 flex-col bg-vlc-app">
   <header class="shrink-0 border-b border-vlc-border px-4 sm:px-6">
-    <div class="flex h-14 min-w-0 items-center gap-2 sm:gap-3">
+    <div class="flex h-16 min-w-0 items-center gap-2 sm:gap-3">
       <button
         type="button"
         class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control transition-colors {canGoBack
@@ -1262,7 +1196,7 @@
         disabled={!canGoBack}
         on:click={goBack}
       >
-        <ArrowLeft size={18} strokeWidth={1.75} />
+        <ArrowLeft size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
 
       <nav
@@ -1281,130 +1215,53 @@
           {#if segment.action}
             <button
               type="button"
-              class="min-w-0 truncate whitespace-nowrap text-vlc-secondary transition-colors hover:text-vlc-text {focusRing}"
+              class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 text-vlc-secondary transition-colors hover:text-vlc-text {focusRing}"
               aria-current={segment.isCurrent ? "page" : undefined}
+              title={`Go to ${segment.label}`}
               on:click={segment.action}
             >
               {segment.label}
             </button>
           {:else}
             <span
-              class="min-w-0 truncate whitespace-nowrap {segment.isCurrent
+              class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 {segment.isCurrent
                 ? 'text-vlc-text'
                 : 'text-vlc-secondary'}"
               aria-current={segment.isCurrent ? "page" : undefined}
+              title={segment.label}
               >{segment.label}</span
             >
           {/if}
         {/each}
       </nav>
 
-      <div class="ml-auto flex shrink-0 items-center gap-2">
-        <div class="w-40 shrink md:w-56">
+      <div class="ml-auto flex min-w-0 items-center gap-1.5">
+        <span
+          class="mr-1 hidden whitespace-nowrap text-xs text-vlc-muted sm:inline"
+          aria-live="polite"
+        >
+          {itemCount}
+          {itemCount === 1 ? "item" : "items"}
+        </span>
+
+        <div class="w-36 shrink sm:w-44 md:w-56">
           {#key searchKey}
             <FuzzySearch
               placeholder={t("music.search_placeholder")}
+              label="Search music"
               on:search={handleSearch}
             />
           {/key}
         </div>
 
-        <div
-          class="relative"
-          bind:this={sortRoot}
-          on:focusout={handleSortFocusOut}
-        >
-          <button
-            type="button"
-            data-sort-trigger
-            class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
-            title={`Sort: ${activeSortLabel} (${$musicSortDirection === "asc" ? "ascending" : "descending"})`}
-            aria-label={`Sort music, currently ${activeSortLabel}, ${$musicSortDirection === "asc" ? "ascending" : "descending"}`}
-            aria-haspopup="menu"
-            aria-expanded={sortOpen}
-            aria-controls={sortOpen ? "music-sort-menu" : undefined}
-            on:click={toggleSortMenu}
-          >
-            <ArrowUpDown size={16} strokeWidth={1.75} aria-hidden="true" />
-            <span class="hidden whitespace-nowrap text-xs sm:inline"
-              >{activeSortLabel}</span
-            >
-            {#if $musicSortDirection === "asc"}
-              <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
-            {:else}
-              <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
-            {/if}
-          </button>
-
-          {#if sortOpen}
-            <div
-              id="music-sort-menu"
-              bind:this={sortMenu}
-              role="menu"
-              tabindex="-1"
-              aria-label="Sort music by"
-              class="absolute right-0 top-full z-30 mt-1 w-44 rounded-control border border-vlc-borderStrong bg-vlc-panel p-1 shadow-2xl"
-              on:keydown={handleSortMenuKeydown}
-            >
-              <p
-                class="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-vlc-muted"
-              >
-                Sort by
-              </p>
-
-              {#each sortOptions as option (option.key)}
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={activeSortKey === option.key}
-                  tabindex="-1"
-                  class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {activeSortKey ===
-                  option.key
-                    ? 'bg-vlc-raised text-vlc-text'
-                    : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'}"
-                  on:click={() => selectSortKey(option.key)}
-                >
-                  <Check
-                    size={13}
-                    strokeWidth={2}
-                    class={activeSortKey === option.key
-                      ? "text-vlc-orangeText"
-                      : "text-transparent"}
-                    aria-hidden="true"
-                  />
-                  <span class="flex-1">{option.label}</span>
-                </button>
-              {/each}
-
-              <div class="my-1 h-px bg-vlc-border" role="separator"></div>
-
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={$musicSortDirection === "desc"}
-                tabindex="-1"
-                class="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-                title="Toggle sort direction"
-                on:click={toggleSortDirection}
-              >
-                <Check
-                  size={13}
-                  strokeWidth={2}
-                  class={$musicSortDirection === "desc"
-                    ? "text-vlc-orangeText"
-                    : "text-transparent"}
-                  aria-hidden="true"
-                />
-                <span class="flex-1">Descending</span>
-                {#if $musicSortDirection === "desc"}
-                  <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
-                {:else}
-                  <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
-                {/if}
-              </button>
-            </div>
-          {/if}
-        </div>
+        <SortMenu
+          options={sortOptions}
+          value={activeSortKey}
+          direction={$musicSortDirection}
+          onValueChange={selectSortKey}
+          onToggleDirection={toggleSortDirection}
+          label="Sort music"
+        />
 
         <ViewModeToggle
           value={$musicViewMode}
@@ -1434,10 +1291,11 @@
           {@const active = $musicBrowseMode === mode.id}
           <button
             type="button"
-            class="h-7 rounded-input px-3 text-xs transition-colors {active
+            class="h-7 rounded-input px-2.5 text-xs transition-colors sm:px-3 {active
               ? 'bg-vlc-raised text-vlc-text'
               : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-card"
             aria-pressed={active}
+            title={`Browse by ${mode.label}`}
             on:click={() => setBrowseMode(mode.id)}
           >
             {mode.label}
@@ -1446,7 +1304,7 @@
       </div>
 
       <span
-        class="ml-auto whitespace-nowrap text-xs text-vlc-muted"
+        class="ml-auto whitespace-nowrap text-xs text-vlc-muted sm:hidden"
         aria-live="polite"
       >
         {itemCount}
@@ -1458,32 +1316,45 @@
   <div class="min-h-0 flex-1 overflow-y-auto">
     {#if itemCount === 0}
       <div
-        class="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+        class="flex h-full min-h-[360px] flex-col items-center justify-center px-6 text-center"
       >
-        <Music2
-          size={28}
-          strokeWidth={1.5}
-          class="text-vlc-dim"
-          aria-hidden="true"
-        />
+        <div
+          class="mb-3 flex h-12 w-12 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-muted"
+        >
+          <Music2 size={22} strokeWidth={1.5} aria-hidden="true" />
+        </div>
         <p class="text-sm font-medium text-vlc-secondary">{emptyTitle}</p>
-        <p class="text-xs text-vlc-muted">{emptyHint}</p>
+        <p class="mt-1 text-xs text-vlc-muted">{emptyHint}</p>
         {#if query}
-          <button
-            type="button"
-            class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
-            on:click={clearSearch}
-          >
-            Clear search
-          </button>
+          <div class="mt-4">
+            <button
+              type="button"
+              class="rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+              on:click={clearSearch}
+            >
+              Clear search
+            </button>
+          </div>
+        {:else if level === "folders"}
+          <div class="mt-4">
+            <button
+              type="button"
+              class="rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+              on:click={handleAddMusicFolder}
+            >
+              Add music folder
+            </button>
+          </div>
         {:else if level === "genre" || level === "folder"}
-          <button
-            type="button"
-            class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
-            on:click={goBack}
-          >
-            Back
-          </button>
+          <div class="mt-4">
+            <button
+              type="button"
+              class="rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+              on:click={goBack}
+            >
+              Back
+            </button>
+          </div>
         {/if}
       </div>
     {:else}
@@ -1502,6 +1373,7 @@
             </p>
             <h1
               class="truncate text-xl font-semibold text-vlc-text sm:text-2xl"
+              title={selectedArtistEntry.name}
             >
               {selectedArtistEntry.name}
             </h1>
@@ -1526,6 +1398,7 @@
               </p>
               <h1
                 class="truncate text-xl font-semibold text-vlc-text sm:text-2xl"
+                title={selectedAlbumEntry.title}
               >
                 {selectedAlbumEntry.title}
               </h1>
@@ -1566,6 +1439,7 @@
             </p>
             <h1
               class="truncate text-xl font-semibold text-vlc-text sm:text-2xl"
+              title={selectedGenreEntry.name}
             >
               {selectedGenreEntry.name}
             </h1>
@@ -1587,6 +1461,7 @@
                 type="button"
                 class="group block w-full rounded-control text-left {focusRing}"
                 title={`Open ${card.displayName}`}
+                aria-label={`Open ${card.displayName}`}
                 on:click={() => selectFolderCard(card)}
                 on:contextmenu={(event) => folderContextMenu(event, card)}
               >
@@ -1600,6 +1475,7 @@
                 </div>
                 <div
                   class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                  title={card.displayName}
                 >
                   {card.displayName}
                 </div>
@@ -1635,7 +1511,7 @@
                   />
                   <span
                     class="min-w-0 flex-1 truncate text-[13px] text-vlc-text"
-                    >{card.displayName}</span
+                    title={card.displayName}>{card.displayName}</span
                   >
                   <span
                     class="w-20 shrink-0 text-right text-xs text-vlc-secondary"
@@ -1658,7 +1534,7 @@
                 on:click={() => selectFolderCard(card)}
                 on:contextmenu={(event) => folderContextMenu(event, card)}
               >
-                <span class="min-w-0 flex-1 truncate text-vlc-text"
+                <span class="min-w-0 flex-1 truncate text-vlc-text" title={card.displayName}
                   >{card.displayName}</span
                 >
                 <span
@@ -1685,6 +1561,7 @@
                 type="button"
                 class="group block w-full rounded-control text-left {focusRing}"
                 title={`Open ${artist.name}`}
+                aria-label={`Open ${artist.name}`}
                 on:click={() => selectArtist(artist)}
               >
                 <div class="relative aspect-square w-full">
@@ -1697,6 +1574,7 @@
                 </div>
                 <div
                   class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                  title={artist.name}
                 >
                   {artist.name}
                 </div>
@@ -1778,6 +1656,7 @@
                 type="button"
                 class="group block w-full rounded-control text-left {focusRing}"
                 title={`Open ${entry.title}`}
+                aria-label={`Open ${entry.title}`}
                 on:click={() => selectAlbum(entry)}
               >
                 <div class="relative aspect-square w-full">
@@ -1790,6 +1669,7 @@
                 </div>
                 <div
                   class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                  title={entry.title}
                 >
                   {entry.title}
                 </div>
@@ -1894,6 +1774,7 @@
                 type="button"
                 class="group block w-full rounded-control text-left {focusRing}"
                 title={`Open ${genre.name}`}
+                aria-label={`Open ${genre.name}`}
                 on:click={() => selectGenre(genre)}
               >
                 <div class="relative aspect-square w-full">
@@ -1905,6 +1786,7 @@
                 </div>
                 <div
                   class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                  title={genre.name}
                 >
                   {genre.name}
                 </div>
@@ -2022,6 +1904,7 @@
                   </div>
                   <div
                     class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                    title={entry.title}
                   >
                     {entry.title}
                   </div>
