@@ -11,12 +11,14 @@
 >
   <button
     type="button"
-    class="flex h-[52px] w-full items-center justify-between gap-3 px-5 text-left text-vlc-dim transition-colors hover:text-vlc-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
+    class="flex h-11 w-full items-center justify-between gap-3 px-4 text-left text-vlc-dim transition-colors hover:text-vlc-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
     aria-expanded={open}
+    aria-label={title}
+    title={title}
     data-accordion-header
     on:click={() => (open = !open)}
   >
-    <span class="min-w-0 truncate text-[15px] leading-5">{title}</span>
+    <span class="min-w-0 truncate text-[13px] font-medium leading-5">{title}</span>
     <span
       class="flex shrink-0 items-center justify-center text-vlc-dim transition-transform duration-150"
       class:-rotate-90={!open}
@@ -28,7 +30,7 @@
 
   <div
     class:hidden={!open}
-    class="space-y-5 p-5"
+    class="space-y-4 px-4 pb-4 pt-1"
     data-accordion-body
   >
     <slot />

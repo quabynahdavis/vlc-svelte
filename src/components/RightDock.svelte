@@ -202,9 +202,11 @@
     data-right-dock
     data-dock-mode={$dockMode}
   >
-    <header class="flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-vlc-border px-4">
+    <header class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-vlc-border px-3.5">
       <div class="flex min-w-0 items-center gap-2">
-        <h2 class="min-w-0 truncate text-[14px] font-medium leading-5 text-vlc-text">{title}</h2>
+        <h2 class="min-w-0 truncate text-[13px] font-medium leading-5 text-vlc-text" title={title}>
+          {title}
+        </h2>
         {#if $dockMode === 'queue'}
           <span class="shrink-0 text-[11px] leading-4 text-vlc-muted">{queueCount}</span>
         {/if}
@@ -217,12 +219,12 @@
         aria-label="Close panel"
         on:click={() => openDock('closed')}
       >
-        <X size={18} strokeWidth={1.7} />
+        <X size={18} strokeWidth={1.7} aria-hidden="true" />
       </button>
     </header>
 
     {#if showTabs}
-      <div class="flex h-14 shrink-0 items-stretch border-b border-vlc-border">
+      <div class="flex h-11 shrink-0 items-stretch border-b border-vlc-border">
         {#if hasOverflow}
           <button
             type="button"
@@ -252,11 +254,11 @@
               role="tab"
               aria-selected={active}
               tabindex={active ? 0 : -1}
-              title={active ? null : tab.label}
-              aria-label={active ? null : tab.label}
-              class="relative flex h-full flex-none items-center justify-center gap-1.5 whitespace-nowrap text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
-              class:px-3={active}
-              class:w-10={!active}
+              title={tab.label}
+              aria-label={tab.label}
+              class="relative flex h-full min-w-[2.5rem] flex-none items-center justify-center gap-1.5 whitespace-nowrap text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/40"
+              class:px-2.5={active}
+              class:px-2={!active}
               class:text-vlc-text={active}
               class:text-vlc-dim={!active}
               class:hover:text-vlc-text={!active}
@@ -265,13 +267,13 @@
             >
               <svelte:component
                 this={tab.icon}
-                size={18}
+                size={17}
                 strokeWidth={1.7}
                 aria-hidden="true"
                 class={active ? 'shrink-0 text-vlc-orangeText' : 'shrink-0'}
               />
               {#if active}
-                <span class="whitespace-nowrap">{tab.label}</span>
+                <span class="max-w-[7rem] truncate">{tab.label}</span>
                 <span
                   class="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-vlc-orange"
                   aria-hidden="true"

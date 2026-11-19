@@ -115,14 +115,14 @@
 <div class="w-full min-w-0">
   {#if label}
     <div class="flex items-baseline justify-between gap-3">
-      <span class="truncate text-[14px] leading-5 text-vlc-dim">{label}</span>
-      <span class="shrink-0 text-[14px] leading-5 tabular-nums text-vlc-dim">{formatted}</span>
+      <span class="truncate text-[13px] leading-5 text-vlc-dim" title={label}>{label}</span>
+      <span class="shrink-0 text-[13px] leading-5 tabular-nums text-vlc-dim">{formatted}</span>
     </div>
   {/if}
 
   <div
     bind:this={trackEl}
-    class="relative my-[14px] h-7 w-full cursor-pointer touch-none select-none rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+    class="relative my-3 h-7 w-full cursor-pointer touch-none select-none rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
     role="slider"
     tabindex="0"
     aria-label={ariaLabel || label || 'Slider'}
