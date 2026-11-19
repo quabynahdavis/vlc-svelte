@@ -2,6 +2,12 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-19
+
+### Changed — Player shell UI polish
+
+- Tightened transport, rail, dock, welcome, drop-zone, up-next, fullscreen chrome, and settings-modal spacing, focus rings, tooltips, and tab overflow without changing HTML5-default playback routing.
+
 ## 2026-11-18
 
 ### Changed — HTML5 is the temporary default playback engine
