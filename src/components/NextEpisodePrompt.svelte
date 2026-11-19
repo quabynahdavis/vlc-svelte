@@ -64,7 +64,7 @@
 
 {#if promptVisible && nextTrack}
   <div
-    class="absolute bottom-20 right-4 z-30 w-72 max-w-[calc(100%-2rem)] rounded-panel border border-vlc-borderStrong bg-vlc-panel/95 p-3 text-vlc-text shadow-2xl backdrop-blur-md"
+    class="absolute bottom-24 right-4 z-30 w-72 max-w-[calc(100%-2rem)] rounded-panel border border-vlc-borderStrong bg-vlc-panel/95 p-3.5 text-vlc-text shadow-2xl backdrop-blur-md"
     role="status"
     aria-live="polite"
     aria-atomic="false"
@@ -72,17 +72,17 @@
     <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-vlc-muted">
       Up next
     </p>
-    <p class="mt-1 truncate text-[13px] font-medium leading-5 text-vlc-text" title={nextTrack.title}>
+    <p class="mt-1.5 truncate text-[13px] font-medium leading-5 text-vlc-text" title={nextTrack.title}>
       {nextTrack.title}
     </p>
-    <p class="mt-0.5 text-[11px] tabular-nums text-vlc-secondary">
+    <p class="mt-1 text-[11px] tabular-nums text-vlc-secondary">
       Playing in {remainingSeconds}s
     </p>
 
-    <div class="mt-2.5 flex items-center gap-1.5">
+    <div class="mt-3 flex items-center gap-2">
       <button
         type="button"
-        class="rounded-control bg-vlc-orange px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-vlc-orangeDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+        class="rounded-control bg-vlc-orange px-2.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-vlc-orangeDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
         aria-label={`Play ${nextTrack.title} now`}
         on:click={playNow}
       >
@@ -90,7 +90,9 @@
       </button>
       <button
         type="button"
-        class="rounded-control border border-vlc-border bg-vlc-raised px-2.5 py-1 text-[11px] font-medium text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+        class="rounded-control border border-vlc-border bg-vlc-raised px-2.5 py-1.5 text-[11px] font-medium text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+        aria-label="Cancel up next"
+        title="Cancel"
         on:click={cancel}
       >
         Cancel

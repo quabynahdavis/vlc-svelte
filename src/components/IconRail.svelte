@@ -55,20 +55,30 @@
   data-expanded={expanded}
   aria-label="Primary navigation"
 >
-  <div class="flex min-h-0 flex-1 flex-col gap-1 p-2">
+  <div
+    class="flex min-h-0 flex-1 flex-col gap-0.5 p-2"
+    class:items-center={!expanded}
+  >
     {#each railItems as item (item.id)}
-      {#if expanded && item.id === 'add'}
-        <div class="mx-2 my-1.5 h-px shrink-0 bg-vlc-border/70" aria-hidden="true"></div>
+      {#if item.id === 'add'}
+        <div
+          class="my-1.5 h-px shrink-0 bg-vlc-border/70"
+          class:mx-2={expanded}
+          class:w-8={!expanded}
+          class:w-auto={expanded}
+          class:self-stretch={expanded}
+          aria-hidden="true"
+        ></div>
       {/if}
 
       <button
         type="button"
-        class="group relative flex h-10 shrink-0 items-center rounded-control transition-colors duration-150 hover:bg-vlc-raised"
+        class="group relative flex h-10 shrink-0 items-center rounded-control transition-colors duration-150 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
         class:w-10={!expanded}
         class:justify-center={!expanded}
         class:w-full={expanded}
         class:gap-3={expanded}
-        class:px-4={expanded}
+        class:px-3.5={expanded}
         class:bg-vlc-card={active === item.id}
         title={item.label}
         aria-label={item.label}
@@ -76,6 +86,13 @@
         data-rail-item={item.id}
         on:click={() => onSelect(item.id)}
       >
+        {#if active === item.id}
+          <span
+            class="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-vlc-orange"
+            aria-hidden="true"
+          ></span>
+        {/if}
+
         <span
           class="flex shrink-0 items-center justify-center transition-colors duration-150"
           class:text-vlc-orangeText={active === item.id}
@@ -87,7 +104,7 @@
 
         {#if expanded}
           <span
-            class="min-w-0 truncate text-[14px] leading-5 transition-colors duration-150"
+            class="min-w-0 truncate text-[13px] leading-5 transition-colors duration-150"
             class:text-vlc-text={active === item.id}
             class:text-vlc-secondary={active !== item.id}
             class:group-hover:text-vlc-text={active !== item.id}
@@ -102,7 +119,7 @@
   <div class="flex shrink-0 p-2" class:justify-center={!expanded}>
     <button
       type="button"
-      class="flex h-9 w-9 items-center justify-center rounded-control text-vlc-muted transition-colors duration-150 hover:bg-vlc-raised hover:text-vlc-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+      class="flex h-9 w-9 items-center justify-center rounded-control text-vlc-muted transition-colors duration-150 hover:bg-vlc-raised hover:text-vlc-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
       title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
       aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
       aria-pressed={expanded}
@@ -110,9 +127,9 @@
       on:click={toggleExpanded}
     >
       {#if expanded}
-        <PanelLeftClose size={18} strokeWidth={1.6} />
+        <PanelLeftClose size={18} strokeWidth={1.6} aria-hidden="true" />
       {:else}
-        <PanelLeftOpen size={18} strokeWidth={1.6} />
+        <PanelLeftOpen size={18} strokeWidth={1.6} aria-hidden="true" />
       {/if}
     </button>
   </div>

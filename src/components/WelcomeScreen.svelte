@@ -53,9 +53,9 @@
   ];
 
   const BACK_BTN =
-    'h-9 rounded-md bg-vlc-raised px-6 text-[13px] text-vlc-text transition-colors hover:brightness-110 focus-visible:ring-2 focus-visible:ring-vlc-orange/60';
+    'h-9 rounded-md bg-vlc-raised px-6 text-[13px] text-vlc-text transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60';
   const PRIMARY_BTN =
-    'h-9 rounded-md bg-vlc-orange px-7 text-[13px] font-medium text-black transition-[filter] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vlc-orange';
+    'h-9 rounded-md bg-vlc-orange px-7 text-[13px] font-medium text-black transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-panel';
 
   type LibraryTab = 'videos' | 'music';
   const libraryTabs: { id: LibraryTab; label: string }[] = [
@@ -194,8 +194,8 @@
     >
       <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {#if step === 0}
-          <div class="flex flex-1 flex-col items-center justify-center px-8">
-            <svg class="h-20 w-20" viewBox="0 0 96 96" fill="none" role="img" aria-label="VLC cone">
+          <div class="flex flex-1 flex-col items-center justify-center px-8 py-6">
+            <svg class="h-20 w-20 shrink-0" viewBox="0 0 96 96" fill="none" role="img" aria-label="VLC cone">
               <defs>
                 <clipPath id="vlc-cone-clip"><path d="M48 6 L71 64 H25 Z" /></clipPath>
               </defs>
@@ -208,17 +208,17 @@
               <rect x="20" y="68" width="56" height="15" rx="5" fill="var(--accent)" />
             </svg>
 
-            <h1 id="welcome-title" class="mt-7 text-center text-[28px] font-medium text-vlc-text">
+            <h1 id="welcome-title" class="mt-6 text-center text-[28px] font-medium leading-tight text-vlc-text">
               Welcome to VLC!
             </h1>
 
-            <p id="welcome-description" class="mx-auto mt-4 max-w-[540px] text-center text-[15px] leading-6 text-vlc-secondary">
+            <p id="welcome-description" class="mx-auto mt-3 max-w-[540px] text-center text-[15px] leading-6 text-vlc-secondary">
               VLC is a free and open source cross-platform multimedia player and framework that plays
               most multimedia files as well as DVDs, Audio CDs, VCDs, and various streaming protocols.
             </p>
 
-            <div class="mt-8 w-full max-w-[540px]">
-              <p class="text-[13px] text-vlc-text">Choose a Media Folder to get started with</p>
+            <div class="mt-7 w-full max-w-[540px]">
+              <p class="text-center text-[13px] text-vlc-text">Choose a Media Folder to get started with</p>
               <!-- Tab bar -->
               <div class="mt-3 flex justify-center gap-6" role="tablist" aria-label="Library type">
                 {#each libraryTabs as tab (tab.id)}
@@ -226,7 +226,7 @@
                     type="button"
                     role="tab"
                     aria-selected={libraryTab === tab.id}
-                    class="border-b-2 px-1 pb-1.5 text-[13px] transition-colors {libraryTab === tab.id
+                    class="border-b-2 px-1 pb-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 {libraryTab === tab.id
                       ? 'border-vlc-orange text-vlc-text'
                       : 'border-transparent text-vlc-secondary hover:text-vlc-text'}"
                     on:click={() => (libraryTab = tab.id)}
@@ -234,12 +234,13 @@
                 {/each}
               </div>
               <!-- Active tab: input + Browse -->
-              <div class="mt-3 flex gap-3">
+              <div class="mt-3 flex gap-2.5">
                 {#if libraryTab === 'videos'}
                   <input
                     id="welcome-folder"
                     type="text"
                     data-welcome-first
+                    aria-label="Videos folder path"
                     class="h-10 min-w-0 flex-1 rounded-md border border-vlc-border bg-vlc-app px-3 text-[13px] text-vlc-text outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
                     bind:value={videoDraft}
                   />
@@ -248,13 +249,15 @@
                     id="welcome-folder"
                     type="text"
                     data-welcome-first
+                    aria-label="Music folder path"
                     class="h-10 min-w-0 flex-1 rounded-md border border-vlc-border bg-vlc-app px-3 text-[13px] text-vlc-text outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
                     bind:value={musicDraft}
                   />
                 {/if}
                 <button
                   type="button"
-                  class="h-10 shrink-0 rounded-md bg-vlc-raised px-5 text-[13px] text-vlc-text hover:brightness-110"
+                  class="h-10 shrink-0 rounded-md bg-vlc-raised px-5 text-[13px] text-vlc-text transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
+                  aria-label="Browse for a media folder"
                   on:click={() => void browseFolder()}
                 >
                   Browse
@@ -262,17 +265,18 @@
               </div>
               <!-- Already-added folders for the active tab (chips with remove) -->
               {#if (libraryTab === 'videos' ? $settings.libraryFolders : $settings.musicLibraryFolders).length > 0}
-                <div class="mt-2.5 flex flex-wrap justify-center gap-2">
+                <div class="mt-3 flex flex-wrap justify-center gap-2">
                   {#each (libraryTab === 'videos' ? $settings.libraryFolders : $settings.musicLibraryFolders) as folder, i (folder)}
-                    <span class="flex h-7 items-center gap-1.5 rounded-md border border-vlc-border bg-vlc-app pl-2.5 pr-1 text-[12px] text-vlc-secondary">
-                      <span class="max-w-[260px] truncate">{folder}</span>
+                    <span class="flex h-7 max-w-full items-center gap-1.5 rounded-md border border-vlc-border bg-vlc-app pl-2.5 pr-1 text-[12px] text-vlc-secondary">
+                      <span class="max-w-[260px] truncate" title={folder}>{folder}</span>
                       <button
                         type="button"
-                        class="flex h-5 w-5 items-center justify-center rounded text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text"
+                        class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60"
                         aria-label={`Remove ${folder}`}
+                        title={`Remove ${folder}`}
                         on:click={() => removeFolder(libraryTab, i)}
                       >
-                        <X size={12} strokeWidth={2} />
+                        <X size={12} strokeWidth={2} aria-hidden="true" />
                       </button>
                     </span>
                   {/each}
@@ -281,17 +285,18 @@
             </div>
           </div>
         {:else if step === 1}
-          <h2 class="mt-9 text-center text-[22px] text-vlc-text">
+          <h2 class="mt-8 px-8 text-center text-[22px] leading-snug text-vlc-text">
             Select your preferred theme and color.
           </h2>
 
-          <div class="mt-9 flex items-start justify-center gap-10">
+          <div class="mt-8 flex items-start justify-center gap-8 px-8 sm:gap-10">
             {#each themeOptions as option (option.value)}
               {@const active = $settings.theme === option.value}
               <button
                 type="button"
                 data-welcome-first={option.value === 'light' ? '' : undefined}
-                class="group flex flex-col items-center gap-3 focus-visible:outline-none"
+                class="group flex flex-col items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-panel"
+                aria-label={`${option.label} theme`}
                 aria-pressed={active}
                 on:click={() => setTheme(option.value)}
               >
@@ -341,12 +346,12 @@
             </span>
           </div>
 
-          <div class="flex shrink-0 items-center gap-4 px-8 pb-4">
+          <div class="flex shrink-0 flex-wrap items-center gap-3 px-8 pb-4">
             {#each ACCENT_COLORS as accent (accent.color)}
               {@const active = $settings.accentColor.toLowerCase() === accent.color.toLowerCase()}
               <button
                 type="button"
-                class="h-7 w-7 rounded-full transition-transform focus-visible:outline-none"
+                class="h-7 w-7 rounded-full transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vlc-panel"
                 class:scale-110={active}
                 style={`background-color:${accent.color};${active
                   ? ` box-shadow:0 0 0 2px rgb(22 22 22), 0 0 0 4px ${accent.color};`
@@ -359,11 +364,11 @@
             {/each}
           </div>
         {:else if step === 2}
-          <h2 class="mt-9 text-center text-[22px] text-vlc-text">
+          <h2 class="mt-8 px-8 text-center text-[22px] leading-snug text-vlc-text">
             Learn the basic keyboard shortcuts.
           </h2>
 
-          <div class="mx-auto mt-9 grid w-full max-w-[880px] grid-cols-2 gap-x-16 gap-y-6 px-8">
+          <div class="mx-auto mt-8 grid w-full max-w-[880px] grid-cols-1 gap-x-16 gap-y-5 px-8 sm:grid-cols-2 sm:gap-y-6">
             <div class="flex flex-col gap-y-6">
               {#each SHORTCUT_COLUMNS.slice(0, 6) as row, ri (row.label)}
                 <div class="flex items-center gap-6" data-welcome-first={ri === 0 ? '' : undefined}>
@@ -402,7 +407,7 @@
         {/if}
       </div>
 
-      <footer class="flex shrink-0 items-center justify-end gap-2 px-6 pb-4">
+      <footer class="flex shrink-0 items-center justify-end gap-2.5 border-t border-vlc-border/50 px-6 pb-5 pt-3">
         {#if step === 1}
           <button type="button" class={BACK_BTN} on:click={() => (step = 0)}>Back</button>
           <button type="button" class={PRIMARY_BTN} on:click={() => (step = 2)}>Next</button>

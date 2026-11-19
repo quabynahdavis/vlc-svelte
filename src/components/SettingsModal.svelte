@@ -313,8 +313,8 @@
     <div
       class="flex h-full w-full flex-col overflow-hidden rounded-[12px] border border-vlc-border bg-vlc-app shadow-[0_24px_80px_var(--shadow-color)]"
     >
-      <header class="flex h-16 shrink-0 items-center px-3.5">
-        <label class="relative block w-[300px] shrink-0">
+      <header class="flex h-14 shrink-0 items-center gap-3 border-b border-vlc-border/60 px-3.5">
+        <label class="relative block w-[280px] shrink-0">
           <Search
             size={18}
             strokeWidth={1.7}
@@ -328,33 +328,33 @@
             aria-label="Search settings"
             autocomplete="off"
             spellcheck="false"
-            class="h-10 w-full rounded-[8px] bg-vlc-card pl-11 pr-3 text-[14px] text-vlc-text outline-none transition-colors placeholder:text-vlc-muted focus:ring-1 focus:ring-inset focus:ring-vlc-orange/50"
+            class="h-10 w-full rounded-[8px] bg-vlc-card pl-11 pr-3 text-[14px] text-vlc-text outline-none transition-colors placeholder:text-vlc-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/50"
           />
         </label>
 
-        <h1 class="ml-[26px] min-w-0 flex-1 truncate text-[16px] font-normal text-vlc-text">
+        <h1 class="min-w-0 flex-1 truncate text-[16px] font-normal text-vlc-text" title={title}>
           {title}
         </h1>
 
         <button
           type="button"
-          class="ml-4 flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
           title="Close settings"
           aria-label="Close settings"
           on:click={close}
         >
-          <X size={19} strokeWidth={1.6} />
+          <X size={19} strokeWidth={1.6} aria-hidden="true" />
         </button>
       </header>
 
       <div class="flex min-h-0 flex-1">
         <aside
-          class="w-[300px] shrink-0 overflow-y-auto border-r border-vlc-border px-4 py-3"
+          class="w-[280px] shrink-0 overflow-y-auto border-r border-vlc-border px-3 py-3"
           aria-label="Settings categories"
         >
           {#each filteredGroups as group (group.label)}
             <p
-              class="px-6 pb-2 pt-5 text-[12px] font-normal tracking-[0.01em] text-vlc-muted first:pt-3"
+              class="px-4 pb-1.5 pt-4 text-[11px] font-medium uppercase tracking-[0.04em] text-vlc-muted first:pt-1"
             >
               {group.label}
             </p>
@@ -363,7 +363,7 @@
                 {@const active = category === item.id}
                 <button
                   type="button"
-                  class="flex h-11 w-full items-center gap-[18px] rounded-[8px] px-6 text-left text-[14px] transition-colors"
+                  class="flex h-10 w-full items-center gap-3.5 rounded-[8px] px-4 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/50"
                   class:bg-vlc-card={active}
                   class:text-vlc-text={active}
                   class:text-vlc-secondary={!active}
@@ -373,23 +373,24 @@
                   on:click={() => selectCategory(item.id)}
                 >
                   <span class={active ? 'shrink-0 text-vlc-orangeText' : 'shrink-0 text-vlc-secondary'}>
-                    <svelte:component this={item.icon} size={20} strokeWidth={1.6} />
+                    <svelte:component this={item.icon} size={18} strokeWidth={1.6} aria-hidden="true" />
                   </span>
-                  <span class="truncate">{item.label}</span>
+                  <span class="truncate" title={item.label}>{item.label}</span>
                 </button>
               {/each}
             </div>
           {/each}
 
           {#if filteredGroups.length === 0}
-            <p class="px-6 pt-3 text-[13px] leading-5 text-vlc-muted">
+            <p class="px-4 pt-3 text-[13px] leading-5 text-vlc-muted">
               No settings found for “{query}”.
             </p>
           {/if}
-          <button 
-            type="button" 
-            class="h-9 px-4 rounded-[8px] bg-vlc-danger/20 text-vlc-danger hover:bg-vlc-danger/30"
+          <button
+            type="button"
+            class="mt-6 h-9 w-full rounded-[8px] bg-vlc-danger/20 px-4 text-[13px] text-vlc-danger transition-colors hover:bg-vlc-danger/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/50"
             aria-label="Reset all settings"
+            title="Reset all settings"
             on:click={resetAllSettings}
           >
             Reset All Settings

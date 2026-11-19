@@ -1486,8 +1486,8 @@
           ></canvas>
         {/if}
       {:else}
-        <div class="flex h-full w-full flex-col items-center justify-start gap-6 overflow-y-auto px-6 py-10">
-          <div class="flex flex-col items-center gap-4">
+        <div class="flex h-full w-full flex-col items-center justify-start gap-8 overflow-y-auto px-6 py-12">
+          <div class="flex flex-col items-center gap-3.5">
             <svg class="h-24 w-24 drop-shadow-[0_0_40px_rgb(var(--accent-rgb)_/_0.18)]" viewBox="0 0 96 96" fill="none" aria-hidden="true">
               <defs>
                 <linearGradient id="vlc-empty-cone-gradient" x1="48" y1="8" x2="48" y2="85" gradientUnits="userSpaceOnUse">
@@ -1500,7 +1500,7 @@
               <path d="M35.2 50h25.6l2.2 8.5H33l2.2-8.5Z" fill="var(--selection-ink)" fill-opacity=".12" />
               <rect x="18" y="72" width="60" height="13" rx="5" fill="url(#vlc-empty-cone-gradient)" />
             </svg>
-            <div class="space-y-1.5 text-center">
+            <div class="space-y-1 text-center">
               <p class="text-[15px] font-medium text-vlc-secondary">No media loaded</p>
               <p class="text-xs text-vlc-muted">Open a file to start playback</p>
             </div>
@@ -1508,7 +1508,7 @@
 
           {#if continueItems.length > 0}
             <section class="w-full max-w-5xl">
-              <div class="flex items-center justify-between mb-3">
+              <div class="mb-3 flex items-center justify-between gap-3">
                 <h2 class="text-[13px] font-medium uppercase tracking-wide text-vlc-muted">Continue</h2>
                 <div class="flex items-center gap-2">
                   <p class="text-[10px] text-vlc-muted hidden lg:block">Scroll or use arrows</p>
@@ -1624,7 +1624,8 @@
       </div>
 
       <div
-        class="bookmark-hud pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/10 bg-black/80 px-3.5 py-2 shadow-lg backdrop-blur-sm transition-opacity duration-200"
+        class="bookmark-hud pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/10 bg-black/80 px-3.5 py-2 shadow-lg backdrop-blur-sm transition-[opacity,margin] duration-200"
+        class:mb-11={bookmarkHudVisible && volumeHudVisible}
         style:opacity={bookmarkHudVisible ? 1 : 0}
         role="status"
         aria-live="polite"
@@ -1730,30 +1731,36 @@
   .player-shell:fullscreen .player-topbar,
   .player-shell:fullscreen .player-transport {
     transition:
-      opacity 200ms ease,
-      transform 200ms ease;
+      opacity 180ms ease,
+      transform 180ms ease,
+      visibility 180ms ease;
   }
 
   .player-shell:fullscreen.chrome-hidden .player-topbar {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
+    visibility: hidden;
     pointer-events: none;
   }
 
   .player-shell:fullscreen.chrome-hidden .player-transport {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
+    visibility: hidden;
     pointer-events: none;
   }
 
-  /* Keep the volume HUD clear of the overlaid transport. */
-  .player-shell:fullscreen .volume-hud {
+  /* Keep stage HUDs clear of the overlaid transport. */
+  .player-shell:fullscreen .volume-hud,
+  .player-shell:fullscreen .bookmark-hud {
     bottom: 5.5rem;
   }
 
   @media (prefers-reduced-motion: reduce) {
     .volume-hud,
-    .volume-hud * {
+    .bookmark-hud,
+    .volume-hud *,
+    .bookmark-hud * {
       transition: none !important;
     }
 

@@ -66,8 +66,8 @@
   class="relative flex h-10 shrink-0 select-none items-center justify-between bg-vlc-app"
   data-tauri-drag-region
 >
-  <div class="flex h-full items-center gap-0.5 px-2" data-tauri-drag-region>
-    <div class="flex h-8 w-8 items-center justify-center" data-tauri-drag-region>
+  <div class="flex h-full items-center gap-1 px-2" data-tauri-drag-region>
+    <div class="flex h-8 w-8 shrink-0 items-center justify-center" data-tauri-drag-region>
       <svg
         class="h-[18px] w-[18px]"
         viewBox="0 0 24 24"
@@ -118,7 +118,8 @@
   </div>
 
   <span
-    class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[12px] font-normal tracking-[0.01em] text-vlc-secondary"
+    class="pointer-events-none absolute left-1/2 top-1/2 max-w-[40%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-[12px] font-normal tracking-[0.01em] text-vlc-secondary"
+    title={t('app.title')}
     data-tauri-drag-region
   >
     {t('app.title')}

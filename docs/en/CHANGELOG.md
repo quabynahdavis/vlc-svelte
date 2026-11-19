@@ -12,6 +12,10 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 - Videos, Music, Playlists and Network align toolbar height, search controls, focus rings, truncated titles, grid/list/compact rows and empty-state actions without changing the existing vlc token look.
 
+### Changed — Player shell UI polish
+
+- Tightened transport, rail, dock, welcome, drop-zone, up-next, fullscreen chrome, and settings-modal spacing, focus rings, tooltips, and tab overflow without changing HTML5-default playback routing.
+
 ## 2026-11-18
 
 ### Changed — HTML5 is the temporary default playback engine
