@@ -89,7 +89,7 @@
 >
   <button
     type="button"
-    class="block w-full cursor-pointer text-left focus:outline-none"
+    class="block w-full cursor-pointer rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
     aria-label={`Open ${item.title}. Drag to add to the queue.`}
     on:click={() => onSelect(item)}
   >
@@ -132,7 +132,7 @@
       {/if}
     </div>
 
-    <div class="mt-2.5 truncate text-[11px] leading-4 text-vlc-secondary">
+    <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text" title={item.title}>
       {item.title}
     </div>
   </button>

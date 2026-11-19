@@ -106,7 +106,7 @@
   <button
     type="button"
     data-sort-trigger
-    class="flex h-8 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+    class="flex h-8 shrink-0 items-center gap-1.5 rounded-control px-2 text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
     title={`${activeSortLabel}${directionLabel ? ` (${directionLabel.toLowerCase()})` : ''}`}
     aria-label={`${label}, currently ${activeSortLabel}${directionLabel ? `, ${directionLabel.toLowerCase()}` : ''}`}
     aria-haspopup="menu"
@@ -115,7 +115,7 @@
     on:click={toggleSortMenu}
   >
     <ArrowUpDown size={16} strokeWidth={1.75} aria-hidden="true" />
-    <span class="whitespace-nowrap text-xs">{activeSortLabel}</span>
+    <span class="max-w-[7rem] truncate whitespace-nowrap text-xs">{activeSortLabel}</span>
     {#if direction !== null}
       {#if direction === 'asc'}
         <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />

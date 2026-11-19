@@ -167,7 +167,10 @@
           {typeLabel}
         </p>
 
-        <h1 class="mt-1.5 break-words text-xl font-semibold leading-tight text-vlc-text lg:text-2xl">
+        <h1
+          class="mt-1.5 break-words text-xl font-semibold leading-tight text-vlc-text lg:text-2xl"
+          title={item.title}
+        >
           {item.title}
         </h1>
 
@@ -221,6 +224,7 @@
             class={primaryActionClass}
             disabled={!hasSource}
             title={hasSource ? `Play ${item.title}` : 'No playable source'}
+            aria-label={hasSource ? `Play ${item.title}` : 'No playable source'}
             on:click={() => onPlay(item)}
           >
             <Play size={13} strokeWidth={2.2} class="translate-x-px" aria-hidden="true" />
@@ -232,6 +236,7 @@
             class={secondaryActionClass}
             disabled={!hasSource}
             title={hasSource ? 'Add to queue' : 'No playable source'}
+            aria-label={hasSource ? `Add ${item.title} to the queue` : 'No playable source'}
             on:click={queueItem}
           >
             <ListMusic size={13} strokeWidth={1.9} aria-hidden="true" />
@@ -243,6 +248,7 @@
             class={secondaryActionClass}
             disabled={!hasSource}
             title={hasSource ? 'Add to playlist' : 'No playable source'}
+            aria-label={hasSource ? `Add ${item.title} to a playlist` : 'No playable source'}
             on:click={addToPlaylist}
           >
             <ListPlus size={13} strokeWidth={1.9} aria-hidden="true" />
@@ -250,7 +256,15 @@
           </button>
 
           {#if canToggleWatched}
-            <button type="button" class={secondaryActionClass} on:click={toggleWatched}>
+            <button
+              type="button"
+              class={secondaryActionClass}
+              title={watched ? `Mark ${item.title} as unwatched` : `Mark ${item.title} as watched`}
+              aria-label={watched
+                ? `Mark ${item.title} as unwatched`
+                : `Mark ${item.title} as watched`}
+              on:click={toggleWatched}
+            >
               {#if watched}
                 <EyeOff size={13} strokeWidth={1.9} aria-hidden="true" />
                 Mark unwatched
