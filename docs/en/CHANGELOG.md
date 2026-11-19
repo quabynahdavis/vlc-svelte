@@ -2,6 +2,12 @@
 
 Dates use `YYYY-MM-DD`. This file records project milestones and documentation changes for the English documentation tree.
 
+## 2026-11-19
+
+### Changed — Browse pages share denser toolbars and clearer empty states
+
+- Videos, Music, Playlists and Network align toolbar height, search controls, focus rings, truncated titles, grid/list/compact rows and empty-state actions without changing the existing vlc token look.
+
 ## 2026-11-18
 
 ### Changed — HTML5 is the temporary default playback engine
