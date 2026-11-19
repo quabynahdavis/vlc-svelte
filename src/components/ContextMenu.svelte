@@ -8,6 +8,7 @@
     Clock,
     Copy,
     Disc3,
+    Eye,
     EyeOff,
     File,
     Folder,
@@ -21,6 +22,7 @@
     ListPlus,
     LogOut,
     MonitorPlay,
+    Pause,
     Pencil,
     Play,
     Puzzle,
@@ -47,12 +49,15 @@
   import { findPlaylistTrack, playlistTrackIsVideo } from '../lib/playlistMedia';
   import { history, type HistoryEntry } from '../stores/history';
   import { networkContextMedia } from '../stores/network';
+  import { player } from '../stores/player';
 
   export let x = 0;
   export let y = 0;
   export let open = false;
   /** Right-click menus stay short; the title-bar menu shows the full tree. */
   export let compact = false;
+  /** When true, the Hide UI row reads as Show UI (chrome already hidden). */
+  export let chromeHidden = false;
   export let onClose: () => void = () => {};
   export let onAction: (id: string) => void = () => {};
 
@@ -156,7 +161,7 @@
       { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'orange' },
       {
         id: 'about-vlc',
-        label: 'About VLC',
+        label: 'About Kanea',
         shortcut: 'Shift + F1',
         icon: Info,
         tone: 'orange',
@@ -170,46 +175,62 @@
    * Right-click menu: fast, short and focused on playback plus Hide UI. The
    * VLC-style Open/Tools tree stays in the title-bar menu.
    */
-  const compactMenuItems: MenuItem[] = [
-    { id: 'play-pause', label: 'Play', shortcut: 'Space', icon: Play, tone: 'accent' },
-    { id: 'stop', label: 'Stop', shortcut: 'S', icon: Square, tone: 'accent' },
-    { id: 'previous-item', label: 'Previous Item', shortcut: 'P', icon: SkipBack, tone: 'accent' },
-    { id: 'next-item', label: 'Next Item', shortcut: 'N', icon: SkipForward, tone: 'accent' },
-    { id: 'hide-ui', label: 'Hide UI', shortcut: 'Ctrl + \\', icon: EyeOff, tone: 'neutral' },
-    { type: 'divider' },
-    {
-      id: 'video',
-      label: 'Video',
-      icon: Clapperboard,
-      tone: 'neutral',
-      children: [{ id: 'video-fullscreen', label: 'Fullscreen' }],
-    },
-    {
-      id: 'audio',
-      label: 'Audio',
-      icon: AudioLines,
-      tone: 'neutral',
-      children: [
-        { id: 'audio-mute', label: 'Mute' },
-        { id: 'audio-track', label: 'Audio Track' },
-      ],
-    },
-    {
-      id: 'subtitle',
-      label: 'Subtitle',
-      icon: Captions,
-      tone: 'neutral',
-      children: [
-        { id: 'subtitle-add-file', label: 'Add Subtitle File' },
-        { id: 'subtitle-track', label: 'Subtitle Track' },
-        { id: 'subtitle-delay', label: 'Subtitle Delay' },
-      ],
-    },
-    { type: 'divider' },
-    { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard, tone: 'neutral' },
-    { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
-    { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
-  ];
+  $: compactMenuItems = ((): MenuItem[] => {
+    const playing = $player.isPlaying;
+    const muted = $player.muted || $player.volume === 0;
+    return [
+      {
+        id: 'play-pause',
+        label: playing ? 'Pause' : 'Play',
+        shortcut: 'Space',
+        icon: playing ? Pause : Play,
+        tone: 'accent',
+      },
+      { id: 'stop', label: 'Stop', shortcut: 'S', icon: Square, tone: 'accent' },
+      { id: 'previous-item', label: 'Previous Item', shortcut: 'P', icon: SkipBack, tone: 'accent' },
+      { id: 'next-item', label: 'Next Item', shortcut: 'N', icon: SkipForward, tone: 'accent' },
+      {
+        id: 'hide-ui',
+        label: chromeHidden ? 'Show UI' : 'Hide UI',
+        shortcut: 'Ctrl + \\',
+        icon: chromeHidden ? Eye : EyeOff,
+        tone: 'neutral',
+      },
+      { type: 'divider' },
+      {
+        id: 'video',
+        label: 'Video',
+        icon: Clapperboard,
+        tone: 'neutral',
+        children: [{ id: 'video-fullscreen', label: 'Fullscreen' }],
+      },
+      {
+        id: 'audio',
+        label: 'Audio',
+        icon: AudioLines,
+        tone: 'neutral',
+        children: [
+          { id: 'audio-mute', label: muted ? 'Unmute' : 'Mute' },
+          { id: 'audio-track', label: 'Audio Track' },
+        ],
+      },
+      {
+        id: 'subtitle',
+        label: 'Subtitle',
+        icon: Captions,
+        tone: 'neutral',
+        children: [
+          { id: 'subtitle-add-file', label: 'Add Subtitle File' },
+          { id: 'subtitle-track', label: 'Subtitle Track' },
+          { id: 'subtitle-delay', label: 'Subtitle Delay' },
+        ],
+      },
+      { type: 'divider' },
+      { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard, tone: 'neutral' },
+      { id: 'settings', label: 'Settings', shortcut: 'Ctrl + P', icon: Settings, tone: 'neutral' },
+      { id: 'quit', label: 'Quit Kanea', shortcut: 'Ctrl + Q', icon: LogOut, tone: 'neutral' },
+    ];
+  })();
 
   let menuEl: HTMLDivElement | null = null;
   let menuLeft = 8;
@@ -219,13 +240,15 @@
   let openSubmenu: string | null = null;
   let submenuLeft = 0;
   let submenuTop = 0;
+  let lastFocusToken = '';
 
-  const MENU_WIDTH = 350;
-  const SUBMENU_WIDTH = 260;
+  /** Match the design-system floating menu width (300px panel). */
+  const MENU_WIDTH = 300;
+  const SUBMENU_WIDTH = 220;
   const SUBMENU_ITEM_HEIGHT = 32;
   const SUBMENU_PADDING = 12;
   /** Keep this much room on the right before flipping the flyout to the left. */
-  const SUBMENU_FLIP_THRESHOLD = 340;
+  const SUBMENU_FLIP_THRESHOLD = 280;
   const VIEWPORT_MARGIN = 8;
 
   /** Normalized path key: trailing separators stripped, case folded. */
@@ -302,6 +325,10 @@
     return true;
   })();
 
+  /** History overlay entry — Watch Later only applies to video history. */
+  $: contextHistoryEntry =
+    $history.find((entry) => entry.id === $contextItemId) ?? null;
+
   // Substitute menu based on UI context – global, folder, media, or a
   // player-view library entry. Every action is handled in App.svelte.
   $: activeMenuItems = (() => {
@@ -362,6 +389,7 @@
       const items: MenuItem[] = [
         { id: 'stream-play', label: 'Play', icon: Play, tone: 'accent' },
         { id: 'stream-edit', label: 'Edit', icon: Pencil, tone: 'neutral' },
+        { type: 'divider' },
         { id: 'stream-remove', label: 'Remove', icon: Trash2, tone: 'neutral' },
       ];
       return items;
@@ -372,6 +400,7 @@
       const items: MenuItem[] = [
         { id: 'watchlater-play', label: 'Play', icon: Play, tone: 'accent' },
         { id: 'watchlater-add-to-playlist', label: 'Add to Playlist', icon: ListPlus, tone: 'neutral' },
+        { type: 'divider' },
         { id: 'watchlater-remove', label: 'Remove from Watch Later', icon: X, tone: 'neutral' },
       ];
       return items;
@@ -381,9 +410,23 @@
     if (ctx === 'history') {
       const items: MenuItem[] = [
         { id: 'history-play', label: 'Play', icon: Play, tone: 'accent' },
-        { id: 'history-add-to-watch-later', label: 'Add to Watch Later', icon: Clock, tone: 'neutral' },
-        { id: 'history-remove', label: 'Remove from History', icon: Trash2, tone: 'neutral' },
       ];
+      // Watch Later is video-only; hide for music/stream history where it cannot apply.
+      if (contextHistoryEntry?.type === 'video') {
+        items.push({
+          id: 'history-add-to-watch-later',
+          label: 'Add to Watch Later',
+          icon: Clock,
+          tone: 'neutral',
+        });
+      }
+      items.push({ type: 'divider' });
+      items.push({
+        id: 'history-remove',
+        label: 'Remove from History',
+        icon: Trash2,
+        tone: 'neutral',
+      });
       return items;
     }
 
@@ -391,6 +434,7 @@
     if (ctx === 'bookmark') {
       const items: MenuItem[] = [
         { id: 'bookmark-play', label: 'Play', icon: Play, tone: 'accent' },
+        { type: 'divider' },
         { id: 'bookmark-remove', label: 'Remove Bookmark', icon: Trash2, tone: 'neutral' },
       ];
       return items;
@@ -415,6 +459,20 @@
 
   $: if (!open) {
     openSubmenu = null;
+    lastFocusToken = '';
+  }
+
+  /** Focus the first row once per open (token changes with position/context). */
+  $: if (open) {
+    const token = `${x},${y},${$currentContext},${$contextItemId},${compact ? 'c' : 'f'}`;
+    void focusFirstItem(token);
+  }
+
+  async function focusFirstItem(token: string): Promise<void> {
+    if (!open || token === lastFocusToken) return;
+    lastFocusToken = token;
+    await tick();
+    topLevelItems()[0]?.focus();
   }
 
   async function reposition(): Promise<void> {
@@ -435,6 +493,18 @@
     if (typeof window === 'undefined') return;
     viewportWidth = window.innerWidth;
     viewportHeight = window.innerHeight;
+  }
+
+  function topLevelItems(): HTMLElement[] {
+    if (!menuEl) return [];
+    return Array.from(menuEl.querySelectorAll<HTMLElement>(':scope > .relative > [data-menu-item]'));
+  }
+
+  function submenuItemElements(): HTMLElement[] {
+    if (!menuEl) return [];
+    const sub = menuEl.querySelector('[data-context-submenu]');
+    if (!sub) return [];
+    return Array.from(sub.querySelectorAll<HTMLElement>('[data-submenu-item]'));
   }
 
   /**
@@ -459,7 +529,7 @@
     submenuTop = Math.max(VIEWPORT_MARGIN, Math.min(rect.top, lowestTop));
     submenuLeft = flip
       ? Math.max(VIEWPORT_MARGIN, rect.left - SUBMENU_WIDTH + 2)
-      : rect.right - 2;
+      : Math.min(rect.right - 2, viewportWidth - SUBMENU_WIDTH - VIEWPORT_MARGIN);
     openSubmenu = item.id;
   }
 
@@ -476,10 +546,6 @@
 
   function handleRowEnter(event: Event): void {
     openSubmenuForRow(event.currentTarget as HTMLElement);
-  }
-
-  function handleRowClick(item: ActionItem, event: MouseEvent): void {
-    handleItemClick(item, event.currentTarget as HTMLElement);
   }
 
   function handleRowClickWrapper(item: ActionItem): (event: MouseEvent) => void {
@@ -519,17 +585,99 @@
     openSubmenu = null;
   }
 
+  function handleMenuKeydown(event: KeyboardEvent): void {
+    if (!open) return;
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (openSubmenu) {
+        const parentId = openSubmenu;
+        openSubmenu = null;
+        void tick().then(() => {
+          menuEl
+            ?.querySelector<HTMLElement>(`[data-menu-item][data-item-id="${CSS.escape(parentId)}"]`)
+            ?.focus();
+        });
+        return;
+      }
+      onClose();
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      // Match the queue panel: leave focus, but do not orphan the menu.
+      onClose();
+      return;
+    }
+
+    const inSubmenu =
+      Boolean(openSubmenu) &&
+      Boolean(
+        menuEl
+          ?.querySelector('[data-context-submenu]')
+          ?.contains(document.activeElement),
+      );
+    const items = inSubmenu ? submenuItemElements() : topLevelItems();
+    if (items.length === 0) return;
+
+    const activeIndex = items.indexOf(document.activeElement as HTMLElement);
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      items[(activeIndex + 1 + items.length) % items.length]?.focus();
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(activeIndex - 1 + items.length) % items.length]?.focus();
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      items[0]?.focus();
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+      return;
+    }
+
+    if (event.key === 'ArrowRight' && !inSubmenu) {
+      const row = document.activeElement as HTMLElement | null;
+      if (row?.dataset?.hasChildren === 'true') {
+        event.preventDefault();
+        openSubmenuForRow(row);
+        void tick().then(() => submenuItemElements()[0]?.focus());
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowLeft' && inSubmenu && openSubmenu) {
+      event.preventDefault();
+      const parentId = openSubmenu;
+      openSubmenu = null;
+      void tick().then(() => {
+        menuEl
+          ?.querySelector<HTMLElement>(`[data-menu-item][data-item-id="${CSS.escape(parentId)}"]`)
+          ?.focus();
+      });
+    }
+  }
+
   onMount(() => {
     updateViewport();
 
     function handleKeydown(event: KeyboardEvent): void {
       if (!open) return;
-
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-      }
+      // Prefer the menu's own keydown when focus is inside; this catches Escape
+      // and arrows when focus has not yet moved into the menu.
+      if (menuEl?.contains(document.activeElement)) return;
+      handleMenuKeydown(event);
     }
 
     function handlePointerDown(event: PointerEvent): void {
@@ -560,7 +708,7 @@
 {#if open}
   <div
     bind:this={menuEl}
-    class="fixed z-50 w-[350px] rounded-[10px] border border-vlc-border bg-vlc-panel py-1 shadow-2xl"
+    class="fixed z-50 w-[300px] rounded-panel border border-vlc-borderStrong bg-vlc-panel py-1 shadow-2xl"
     style={`left: ${menuLeft}px; top: ${menuTop}px;`}
     role="menu"
     tabindex="-1"
@@ -574,6 +722,7 @@
     on:focus={handleRowMouseOver}
     on:mouseleave={handleMenuLeave}
     on:scroll={() => (openSubmenu = null)}
+    on:keydown={handleMenuKeydown}
   >
     {#each activeMenuItems as item, index (item.type === 'divider' ? `divider-${index}` : item.id)}
       {#if item.type === 'divider'}
@@ -582,8 +731,9 @@
         <div class="relative">
           <button
             type="button"
-            class="mx-1.5 flex h-8 items-center gap-2.5 rounded-md px-2 text-left transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
+            class="mx-1.5 flex h-8 w-[calc(100%-0.75rem)] items-center gap-2.5 rounded-control px-2 text-left transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:bg-vlc-raised focus-visible:text-vlc-text focus-visible:outline-none"
             role="menuitem"
+            tabindex="-1"
             aria-haspopup={item.children ? 'menu' : undefined}
             aria-expanded={item.children ? openSubmenu === item.id : undefined}
             data-menu-item
@@ -595,16 +745,16 @@
             on:focus={handleRowEnter}
           >
             <span
-              class={`flex h-5 w-5 shrink-0 items-center justify-center ${item.tone === 'accent' ? 'text-vlc-orangeText' : item.tone === 'orange' ? 'text-vlc-orange' : 'text-vlc-secondary'}`}
+              class={`flex h-5 w-5 shrink-0 items-center justify-center ${item.tone === 'accent' ? 'text-vlc-orangeText' : item.tone === 'orange' ? 'text-vlc-orange' : 'text-vlc-muted'}`}
               aria-hidden="true"
             >
               <svelte:component this={item.icon} size={16} strokeWidth={1.6} />
             </span>
 
-            <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{item.label}</span>
+            <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-secondary">{item.label}</span>
 
             {#if item.shortcut}
-              <span class="ml-auto shrink-0 text-[12px] text-vlc-secondary tabular-nums">{item.shortcut}</span>
+              <span class="ml-auto shrink-0 text-[12px] text-vlc-muted tabular-nums">{item.shortcut}</span>
             {/if}
 
             {#if item.children}
@@ -614,7 +764,7 @@
 
           {#if item.children && openSubmenu === item.id}
             <div
-              class="fixed z-10 overflow-y-auto overscroll-contain rounded-[10px] border border-vlc-border bg-vlc-panel py-1 shadow-2xl"
+              class="fixed z-10 overflow-y-auto overscroll-contain rounded-panel border border-vlc-borderStrong bg-vlc-panel py-1 shadow-2xl"
               style={`top: ${submenuTop}px; left: ${submenuLeft}px; width: ${SUBMENU_WIDTH}px; max-height: ${
                 viewportHeight - submenuTop - VIEWPORT_MARGIN
               }px;`}
@@ -623,18 +773,20 @@
               aria-label={`${item.label} submenu`}
               data-context-submenu
               on:mouseleave={handleSubmenuLeave}
+              on:keydown={handleMenuKeydown}
             >
               {#each item.children as child (child.id)}
                 <button
                   type="button"
-                  class="mx-1.5 flex h-8 w-[calc(100%-0.75rem)] items-center justify-between gap-2.5 rounded-md px-2 text-left text-[13px] text-vlc-text transition-colors hover:bg-vlc-raised focus-visible:bg-vlc-raised focus-visible:outline-none"
+                  class="mx-1.5 flex h-8 w-[calc(100%-0.75rem)] items-center justify-between gap-2.5 rounded-control px-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:bg-vlc-raised focus-visible:text-vlc-text focus-visible:outline-none"
                   role="menuitem"
+                  tabindex="-1"
                   data-submenu-item
                   on:click={() => select(child.id)}
                 >
                   <span class="truncate">{child.label}</span>
                   {#if child.shortcut}
-                    <span class="shrink-0 text-[12px] text-vlc-secondary tabular-nums">{child.shortcut}</span>
+                    <span class="shrink-0 text-[12px] text-vlc-muted tabular-nums">{child.shortcut}</span>
                   {/if}
                 </button>
               {/each}

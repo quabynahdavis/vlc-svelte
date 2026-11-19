@@ -68,6 +68,7 @@
     closeContextMenu,
     contextItemId,
     contextMenu,
+    currentContext,
     openContextMenu,
     openDock,
     propertiesPanel,
@@ -162,6 +163,8 @@
     const trigger = event.currentTarget;
     const rect = trigger instanceof HTMLElement ? trigger.getBoundingClientRect() : null;
     menuCompact = false;
+    currentContext.set('global');
+    contextItemId.set('');
     contextMenu.set({
       open: true,
       x: Math.round(rect?.left ?? 12),
@@ -172,6 +175,8 @@
   /** Right-click keeps the shorter, playback-focused menu. */
   function handleContextMenu(event: MouseEvent): void {
     menuCompact = true;
+    currentContext.set('global');
+    contextItemId.set('');
     openContextMenu(event);
   }
 
@@ -687,6 +692,7 @@
     y={$contextMenu.y}
     open={$contextMenu.open}
     compact={menuCompact}
+    chromeHidden={hideChrome}
     onClose={closeContextMenu}
     onAction={handleMenuAction}
   />
