@@ -709,19 +709,22 @@
 </script>
 
 <div class="relative flex h-full min-h-0 flex-col bg-vlc-app">
-  <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-6">
+  <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-4 sm:px-6">
     <button
       type="button"
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control transition-colors {atRoot
+        ? 'text-vlc-dim opacity-50'
+        : 'text-vlc-secondary hover:bg-vlc-raised hover:text-vlc-text'} {focusRing}"
       title="Back"
       aria-label="Go back"
+      disabled={atRoot}
       on:click={goBack}
     >
       <ArrowLeft size={18} strokeWidth={1.75} aria-hidden="true" />
     </button>
 
     <nav
-      class="flex min-w-0 items-center gap-2 text-[13px] leading-none"
+      class="flex min-w-0 items-center gap-1.5 text-[13px] leading-none"
       aria-label="Breadcrumb"
     >
       {#each crumbs as crumb, index (crumb.depth)}
@@ -748,9 +751,9 @@
       {/each}
     </nav>
 
-    <div class="ml-auto flex min-w-0 items-center gap-1">
+    <div class="ml-auto flex min-w-0 items-center gap-1.5">
       {#if listing && !detailsItem}
-        <span class="mr-2 whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
+        <span class="mr-1 whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
           {#if scanning && scanState.status === 'loading'}
             Searching…
           {:else}
@@ -760,7 +763,7 @@
       {/if}
 
       {#if listing && !detailsItem}
-        <label class="relative ml-1 min-w-0 max-w-60 flex-1">
+        <label class="relative min-w-0 max-w-52 flex-1 sm:max-w-60">
           <Search
             size={14}
             strokeWidth={1.75}
@@ -903,7 +906,10 @@
         <p class="text-[11px] font-medium uppercase tracking-[0.08em] text-vlc-muted">
           Saved stream
         </p>
-        <h1 class="mt-1.5 break-words text-xl font-semibold leading-tight text-vlc-text">
+        <h1
+          class="mt-1.5 break-words text-xl font-semibold leading-tight text-vlc-text"
+          title={stream.name}
+        >
           {stream.name}
         </h1>
         <p class="mt-2 text-[13px] text-vlc-secondary">{streamLocation(stream)}</p>
@@ -924,7 +930,9 @@
           </div>
           <div>
             <dt class="text-vlc-muted">Host</dt>
-            <dd class="mt-0.5 truncate text-vlc-secondary">{streamHost(stream.url)}</dd>
+            <dd class="mt-0.5 truncate text-vlc-secondary" title={streamHost(stream.url)}>
+              {streamHost(stream.url)}
+            </dd>
           </div>
         </dl>
 
@@ -1114,15 +1122,16 @@
       {#if drillRows.length > 0}
         {#if $networkViewMode === 'grid'}
           <div
-            class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
             role="group"
             aria-label={atRoot ? 'Network sources' : 'Network folders'}
           >
             {#each drillRows as row (row.id)}
               <button
                 type="button"
-                class="group text-left focus-visible:outline-none"
+                class="group rounded-control text-left {focusRing}"
                 aria-label={`Open ${row.title}`}
+                title={row.title}
                 on:click={() => (scanning ? openScanFolder(row) : openDrill(row.id))}
               >
                 <div
@@ -1140,16 +1149,19 @@
                   </div>
                 </div>
                 <div
-                  class="mt-2.5 truncate text-[12px] font-medium leading-4 text-vlc-secondary group-hover:text-vlc-text"
+                  class="mt-2.5 truncate text-[12px] font-medium leading-4 text-vlc-text"
+                  title={row.title}
                 >
                   {row.title}
                 </div>
-                <div class="truncate text-[10px] leading-4 text-vlc-muted">{row.summary}</div>
+                <div class="truncate text-[11px] leading-4 text-vlc-muted" title={row.summary}>
+                  {row.summary}
+                </div>
               </button>
             {/each}
           </div>
-        {:else}
-          <div class="px-6 pt-6">
+        {:else if $networkViewMode === 'list'}
+          <div class="px-4 pt-6 sm:px-6">
             <div
               class="overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel"
               role="group"
@@ -1158,11 +1170,9 @@
               {#each drillRows as row (row.id)}
                 <button
                   type="button"
-                  class="flex w-full items-center gap-3 border-b border-vlc-border text-left transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-vlc-orange/50 {$networkViewMode ===
-                  'compact'
-                    ? 'px-3 py-1.5'
-                    : 'px-3 py-2.5'}"
+                  class="flex w-full items-center gap-3 border-b border-vlc-border px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/70"
                   aria-label={`Open ${row.title}`}
+                  title={row.title}
                   on:click={() => (scanning ? openScanFolder(row) : openDrill(row.id))}
                 >
                   <span
@@ -1176,14 +1186,13 @@
                     />
                   </span>
                   <span class="min-w-0 flex-1">
-                    <span class="block truncate text-[13px] text-vlc-text">{row.title}</span>
-                    {#if $networkViewMode !== 'compact'}
-                      <span class="block truncate text-[10px] text-vlc-muted">{row.summary}</span>
-                    {/if}
+                    <span class="block truncate text-[13px] text-vlc-text" title={row.title}
+                      >{row.title}</span
+                    >
+                    <span class="block truncate text-[11px] text-vlc-muted" title={row.summary}
+                      >{row.summary}</span
+                    >
                   </span>
-                  {#if $networkViewMode === 'compact'}
-                    <span class="shrink-0 truncate text-[11px] text-vlc-muted">{row.summary}</span>
-                  {/if}
                   <ChevronRight
                     size={14}
                     strokeWidth={1.75}
@@ -1194,13 +1203,43 @@
               {/each}
             </div>
           </div>
+        {:else}
+          <div class="px-4 pt-2 sm:px-6" role="group" aria-label={atRoot ? 'Network sources' : 'Network folders'}>
+            {#each drillRows as row (row.id)}
+              <button
+                type="button"
+                class="flex h-10 w-full items-center gap-3 border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/70"
+                aria-label={`Open ${row.title}`}
+                title={row.title}
+                on:click={() => (scanning ? openScanFolder(row) : openDrill(row.id))}
+              >
+                <svelte:component
+                  this={ICONS[row.icon ?? row.id] ?? Folder}
+                  size={14}
+                  strokeWidth={1.75}
+                  class="shrink-0 text-vlc-orange"
+                  aria-hidden="true"
+                />
+                <span class="min-w-0 flex-1 truncate text-vlc-text" title={row.title}>{row.title}</span>
+                <span class="max-w-[40%] shrink-0 truncate text-[11px] text-vlc-muted" title={row.summary}
+                  >{row.summary}</span
+                >
+                <ChevronRight
+                  size={14}
+                  strokeWidth={1.75}
+                  class="shrink-0 text-vlc-muted"
+                  aria-hidden="true"
+                />
+              </button>
+            {/each}
+          </div>
         {/if}
       {/if}
 
       {#if liveStreams.length > 0}
         {#if $networkViewMode === 'grid'}
           <div
-            class="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+            class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 2xl:grid-cols-4"
             role="group"
             aria-label="Saved streams"
           >
@@ -1219,12 +1258,18 @@
                 </span>
                 <button
                   type="button"
-                  class="min-w-0 flex-1 text-left {focusRing}"
+                  class="min-w-0 flex-1 rounded-control text-left {focusRing}"
                   aria-label={`Open ${stream.name}, ${streamLocation(stream)}, added ${formatAddedAt(stream.addedAt)}`}
+                  title={stream.name}
                   on:click={() => openSaved(stream)}
                 >
-                  <span class="block truncate text-sm font-medium text-vlc-text">{stream.name}</span>
-                  <span class="mt-0.5 block truncate text-xs text-vlc-secondary">
+                  <span class="block truncate text-sm font-medium text-vlc-text" title={stream.name}
+                    >{stream.name}</span
+                  >
+                  <span
+                    class="mt-0.5 block truncate text-xs text-vlc-secondary"
+                    title={streamLocation(stream)}
+                  >
                     {streamLocation(stream)}
                   </span>
                   <span class="mt-2 block text-[11px] text-vlc-muted">
@@ -1235,9 +1280,9 @@
             {/each}
           </div>
         {:else if $networkViewMode === 'list'}
-          <div class="px-6 py-4" role="group" aria-label="Saved streams">
+          <div class="px-4 py-4 sm:px-6" role="group" aria-label="Saved streams">
             <div
-              class="grid grid-cols-[1fr_180px_120px] gap-3 px-3 py-2 text-[11px] uppercase tracking-wide text-vlc-muted"
+              class="grid grid-cols-[1fr_180px_120px] gap-3 border-b border-vlc-border px-3 pb-2 text-[11px] uppercase tracking-wide text-vlc-muted"
               aria-hidden="true"
             >
               <span>Name</span>
@@ -1249,13 +1294,14 @@
                 <li>
                   <button
                     type="button"
-                    class="grid w-full grid-cols-[1fr_180px_120px] items-center gap-3 rounded-control border-t border-vlc-border/30 px-3 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
+                    class="grid w-full grid-cols-[1fr_180px_120px] items-center gap-3 rounded-control px-3 py-2 text-left text-[13px] text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
                     aria-label={`Open ${stream.name}, ${streamLocation(stream)}, added ${formatAddedAt(stream.addedAt)}`}
+                    title={stream.name}
                     on:click={() => openSaved(stream)}
                     on:contextmenu={(event) => openSavedStreamContextMenu(event, stream.id)}
                   >
-                    <span class="truncate text-vlc-text">{stream.name}</span>
-                    <span class="truncate">{streamLocation(stream)}</span>
+                    <span class="truncate text-vlc-text" title={stream.name}>{stream.name}</span>
+                    <span class="truncate" title={streamLocation(stream)}>{streamLocation(stream)}</span>
                     <span class="text-right text-vlc-muted">{formatAddedAt(stream.addedAt)}</span>
                   </button>
                 </li>
@@ -1263,22 +1309,25 @@
             </ul>
           </div>
         {:else}
-          <div class="px-6 py-3" role="group" aria-label="Saved streams">
+          <div class="px-4 py-2 sm:px-6" role="group" aria-label="Saved streams">
             <ul>
               {#each liveStreams as stream (stream.id)}
                 <li>
                   <button
                     type="button"
-                    class="grid h-7 w-full grid-cols-[1fr_180px] items-center gap-3 rounded-input px-2 text-left text-xs text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
+                    class="grid h-10 w-full grid-cols-[1fr_180px] items-center gap-3 border-b border-vlc-border/40 px-2 text-left text-xs text-vlc-secondary transition-colors last:border-b-0 hover:bg-vlc-raised hover:text-vlc-text {focusRing}"
                     aria-label={`Open ${stream.name}, ${streamLocation(stream)}`}
+                    title={stream.name}
                     on:click={() => openSaved(stream)}
                     on:contextmenu={(event) => openSavedStreamContextMenu(event, stream.id)}
                   >
                     <span class="inline-flex min-w-0 items-center gap-2 text-vlc-text">
                       <Radio size={12} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
-                      <span class="truncate">{stream.name}</span>
+                      <span class="truncate" title={stream.name}>{stream.name}</span>
                     </span>
-                    <span class="truncate text-right text-vlc-muted">{streamLocation(stream)}</span>
+                    <span class="truncate text-right text-vlc-muted" title={streamLocation(stream)}
+                      >{streamLocation(stream)}</span
+                    >
                   </button>
                 </li>
               {/each}
@@ -1289,7 +1338,9 @@
 
       {#if mediaItems.length > 0}
         {#if $networkViewMode === 'grid'}
-          <div class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div
+            class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
             {#each mediaItems as item (item.id)}
               <MediaCard
                 {item}
@@ -1301,7 +1352,7 @@
             {/each}
           </div>
         {:else if $networkViewMode === 'list'}
-          <div class="p-6">
+          <div class="p-4 sm:p-6">
             <div
               class="overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel"
               role="group"
@@ -1320,7 +1371,7 @@
             </div>
           </div>
         {:else}
-          <div class="py-1" role="group" aria-label="Network media">
+          <div class="px-4 py-1 sm:px-6" role="group" aria-label="Network media">
             {#each mediaItems as item (item.id)}
               <MediaListRow
                 {item}

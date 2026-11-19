@@ -217,7 +217,7 @@
   />
 
   <div
-    class="flex min-h-[40px] shrink-0 items-center gap-2 border-b border-vlc-border bg-vlc-app px-6"
+    class="flex min-h-[40px] shrink-0 items-center gap-2 border-b border-vlc-border bg-vlc-app px-4 sm:px-6"
   >
     {#if pathEditing}
       <form class="flex min-w-0 flex-1 items-center gap-2" on:submit|preventDefault={submitPath}>
@@ -267,7 +267,7 @@
       </form>
     {:else}
       <nav
-        class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-[12px] leading-none"
+        class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-[12px] leading-none"
         aria-label="Library path"
       >
         {#each [libraryRootName, ...$breadcrumb] as crumb, index (index)}
@@ -281,7 +281,7 @@
           {/if}
           <button
             type="button"
-            class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+            class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70"
             class:text-vlc-text={index === $breadcrumb.length}
             class:text-vlc-secondary={index !== $breadcrumb.length}
             class:hover:text-vlc-text={index !== $breadcrumb.length}
@@ -309,7 +309,7 @@
 
   {#if $libraryImportLog}
     <div
-      class="flex shrink-0 items-center gap-2 border-b border-vlc-border bg-vlc-panel px-6 py-1.5"
+      class="flex shrink-0 items-center gap-2 border-b border-vlc-border bg-vlc-panel px-4 py-1.5 sm:px-6"
       role="status"
       aria-live="polite"
     >
@@ -340,20 +340,22 @@
       {#if $currentFolders.length > 0}
         {#if $libraryViewMode === 'grid'}
           <div
-            class="grid grid-cols-2 gap-x-5 gap-y-7 px-6 pt-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            class="grid grid-cols-2 gap-x-5 gap-y-7 px-4 pt-6 sm:px-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
             role="group"
             aria-label="Library folders"
           >
             {#each $currentFolders as folder (folder.path)}
               <button
                 type="button"
-                class="group text-left focus-visible:outline-none"
+                class="group rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
                 aria-label={`Open folder ${getDisplayName(folder)}`}
                 title={folder.path}
                 on:click={() => openFolder(folder)}
-          on:contextmenu={(e) => openFolderContextMenu(e, folder.path)}
+                on:contextmenu={(e) => openFolderContextMenu(e, folder.path)}
               >
-                <div class="relative flex aspect-[16/10] w-full flex-col justify-end overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] p-4 transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105">
+                <div
+                  class="relative flex aspect-[16/10] w-full flex-col justify-end overflow-hidden rounded-lg border border-vlc-border bg-[linear-gradient(180deg,#1B1B1B_0%,#0E0E0E_100%)] p-4 transition-[border-color,filter] duration-150 group-hover:border-vlc-borderStrong group-hover:brightness-105 group-focus-visible:border-vlc-orange/70"
+                >
                   {#if folder.representativeId && $mediaThumbnails.has(folder.representativeId)}
                     <img
                       src={$mediaThumbnails.get(folder.representativeId)}
@@ -362,23 +364,31 @@
                       loading="lazy"
                       class="absolute inset-0 h-full w-full object-cover"
                     />
-                    <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1)_0%,rgba(0,0,0,0.72)_100%)]" aria-hidden="true"></div>
+                    <div
+                      class="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1)_0%,rgba(0,0,0,0.72)_100%)]"
+                      aria-hidden="true"
+                    ></div>
                   {/if}
-                  <div class="flex h-11 w-11 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-orange">
+                  <div
+                    class="relative flex h-11 w-11 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-orange"
+                  >
                     <Folder size={22} strokeWidth={1.6} aria-hidden="true" />
                   </div>
                 </div>
-                <div class="mt-2.5 truncate text-[12px] font-medium leading-4 text-vlc-secondary group-hover:text-vlc-text">
+                <div
+                  class="mt-2.5 truncate text-[12px] font-medium leading-4 text-vlc-text"
+                  title={getDisplayName(folder)}
+                >
                   {getDisplayName(folder)}
                 </div>
-                <div class="text-[10px] leading-4 text-vlc-muted">
+                <div class="text-[11px] leading-4 text-vlc-muted">
                   {folder.total} {folder.total === 1 ? 'item' : 'items'}
                 </div>
               </button>
             {/each}
           </div>
-        {:else}
-          <div class="px-6 pt-6">
+        {:else if $libraryViewMode === 'list'}
+          <div class="px-4 pt-6 sm:px-6">
             <div
               class="overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel"
               role="group"
@@ -387,13 +397,15 @@
               {#each $currentFolders as folder (folder.path)}
                 <button
                   type="button"
-                  class="flex w-full items-center gap-3 border-b border-vlc-border px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-vlc-orange/50"
+                  class="flex w-full items-center gap-3 border-b border-vlc-border px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/70"
                   aria-label={`Open folder ${getDisplayName(folder)}`}
                   title={folder.path}
                   on:click={() => openFolder(folder)}
-          on:contextmenu={(e) => openFolderContextMenu(e, folder.path)}
+                  on:contextmenu={(e) => openFolderContextMenu(e, folder.path)}
                 >
-                  <span class="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-input border border-vlc-border bg-vlc-card text-vlc-orange">
+                  <span
+                    class="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-input border border-vlc-border bg-vlc-card text-vlc-orange"
+                  >
                     {#if folder.representativeId && $mediaThumbnails.has(folder.representativeId)}
                       <img
                         src={$mediaThumbnails.get(folder.representativeId)}
@@ -407,60 +419,105 @@
                     <Folder size={18} strokeWidth={1.6} aria-hidden="true" />
                   </span>
                   <span class="min-w-0 flex-1">
-                    <span class="block truncate text-[13px] text-vlc-text">{getDisplayName(folder)}</span>
-                    <span class="block truncate font-mono text-[10px] text-vlc-muted">{folder.path}</span>
+                    <span class="block truncate text-[13px] text-vlc-text" title={getDisplayName(folder)}
+                      >{getDisplayName(folder)}</span
+                    >
+                    <span class="block truncate font-mono text-[10px] text-vlc-muted" title={folder.path}
+                      >{folder.path}</span
+                    >
                   </span>
                   <span class="shrink-0 text-[11px] tabular-nums text-vlc-muted">
                     {folder.total} {folder.total === 1 ? 'item' : 'items'}
                   </span>
-                  <ChevronRight size={14} strokeWidth={1.75} class="shrink-0 text-vlc-muted" aria-hidden="true" />
+                  <ChevronRight
+                    size={14}
+                    strokeWidth={1.75}
+                    class="shrink-0 text-vlc-muted"
+                    aria-hidden="true"
+                  />
                 </button>
               {/each}
             </div>
+          </div>
+        {:else}
+          <div class="px-4 pt-2 sm:px-6" role="group" aria-label="Library folders">
+            {#each $currentFolders as folder (folder.path)}
+              <button
+                type="button"
+                class="flex h-10 w-full items-center gap-3 border-b border-vlc-border/40 px-2 text-left text-xs transition-colors last:border-b-0 hover:bg-vlc-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vlc-orange/70"
+                aria-label={`Open folder ${getDisplayName(folder)}`}
+                title={folder.path}
+                on:click={() => openFolder(folder)}
+                on:contextmenu={(e) => openFolderContextMenu(e, folder.path)}
+              >
+                <Folder
+                  size={14}
+                  strokeWidth={1.75}
+                  class="shrink-0 text-vlc-orange"
+                  aria-hidden="true"
+                />
+                <span class="min-w-0 flex-1 truncate text-vlc-text" title={getDisplayName(folder)}
+                  >{getDisplayName(folder)}</span
+                >
+                <span class="shrink-0 text-[11px] tabular-nums text-vlc-muted">
+                  {folder.total} {folder.total === 1 ? 'item' : 'items'}
+                </span>
+                <ChevronRight
+                  size={14}
+                  strokeWidth={1.75}
+                  class="shrink-0 text-vlc-muted"
+                  aria-hidden="true"
+                />
+              </button>
+            {/each}
           </div>
         {/if}
       {/if}
 
       {#if $sortedItems.length > 0}
-      {#if $libraryViewMode === 'grid'}
-        <div
-          class="grid grid-cols-2 gap-x-5 gap-y-7 p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        >
-          {#each $sortedItems as item (item.id)}
-            <MediaCard {item} onSelect={handleSelect} on:info={(event) => openDetails(event.detail)} />
-          {/each}
-        </div>
-      {:else if $libraryViewMode === 'list'}
-        <div class="p-6">
+        {#if $libraryViewMode === 'grid'}
           <div
-            class="overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel"
-            role="group"
-            aria-label="Library items, list view"
+            class="grid grid-cols-2 gap-x-5 gap-y-7 p-4 sm:p-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
           >
+            {#each $sortedItems as item (item.id)}
+              <MediaCard
+                {item}
+                onSelect={handleSelect}
+                on:info={(event) => openDetails(event.detail)}
+              />
+            {/each}
+          </div>
+        {:else if $libraryViewMode === 'list'}
+          <div class="p-4 sm:p-6">
+            <div
+              class="overflow-hidden rounded-panel border border-vlc-border bg-vlc-panel"
+              role="group"
+              aria-label="Library items, list view"
+            >
+              {#each $sortedItems as item (item.id)}
+                <MediaListRow
+                  {item}
+                  mode="list"
+                  onSelect={handleSelect}
+                  selected={$currentTrack?.id === item.id}
+                  on:info={(event) => openDetails(event.detail)}
+                />
+              {/each}
+            </div>
+          </div>
+        {:else}
+          <div class="px-4 py-1 sm:px-6" role="group" aria-label="Library items, compact view">
             {#each $sortedItems as item (item.id)}
               <MediaListRow
                 {item}
-                mode="list"
+                mode="compact"
                 onSelect={handleSelect}
                 selected={$currentTrack?.id === item.id}
                 on:info={(event) => openDetails(event.detail)}
               />
             {/each}
           </div>
-        </div>
-      {:else}
-        <div class="py-1" role="group" aria-label="Library items, compact view">
-          {#each $sortedItems as item (item.id)}
-            <MediaListRow
-              {item}
-              mode="compact"
-              onSelect={handleSelect}
-              selected={$currentTrack?.id === item.id}
-              on:info={(event) => openDetails(event.detail)}
-            />
-          {/each}
-        </div>
-      {/if}
+        {/if}
       {/if}
     {:else}
       <div class="flex h-full min-h-[360px] flex-col items-center justify-center px-6 text-center">

@@ -616,7 +616,7 @@
 <svelte:window on:dragend={handleWindowDragEnd} on:keydown={handleDetailsKeydown} />
 
 <div class="flex h-full min-h-0 flex-col bg-vlc-app">
-    <header class="flex min-h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-4 py-2 sm:px-6">
+  <header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-4 sm:px-6">
     <button
       type="button"
       class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control transition-colors {activePlaylist
@@ -637,7 +637,8 @@
       {#if activePlaylist}
         <button
           type="button"
-          class="min-w-0 truncate whitespace-nowrap text-vlc-secondary transition-colors hover:text-vlc-text {focusRing}"
+          class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 text-vlc-secondary transition-colors hover:text-vlc-text {focusRing}"
+          title="Go to Playlists"
           on:click={closePlaylist}
         >
           Playlists
@@ -660,25 +661,37 @@
             />
           </div>
         {:else}
-          <span class="min-w-0 truncate whitespace-nowrap text-vlc-text" aria-current="page">
+          <span
+            class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 text-vlc-text"
+            aria-current="page"
+            title={activePlaylist.name}
+          >
             {activePlaylist.name}
           </span>
         {/if}
       {:else}
-        <span class="min-w-0 truncate whitespace-nowrap text-vlc-text" aria-current="page">
+        <span
+          class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 text-vlc-text"
+          aria-current="page"
+          title="Playlists"
+        >
           Playlists
         </span>
       {/if}
     </nav>
 
-    <div class="ml-auto flex min-w-0 items-center gap-2">
-      <span class="hidden whitespace-nowrap text-xs text-vlc-muted sm:inline" aria-live="polite">
+    <div class="ml-auto flex min-w-0 items-center gap-1.5">
+      <span class="mr-1 hidden whitespace-nowrap text-xs text-vlc-muted sm:inline" aria-live="polite">
         {itemCount}
         {itemCount === 1 ? 'item' : 'items'}
       </span>
       <div class="w-36 shrink sm:w-44 md:w-56">
         {#key searchKey}
-          <FuzzySearch placeholder="Search…" on:search={handleSearch} />
+          <FuzzySearch
+            placeholder="Search…"
+            label={activePlaylist ? 'Search tracks' : 'Search playlists'}
+            on:search={handleSearch}
+          />
         {/key}
       </div>
       {#if !activePlaylist}
@@ -778,24 +791,35 @@
           }}
         />
       {:else if activePlaylist.tracks.length === 0}
-          <div class="flex min-h-[240px] flex-col items-center justify-center gap-2 p-8 text-center">
-            <ListMusic size={30} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
+          <div class="flex h-full min-h-[360px] flex-col items-center justify-center px-6 text-center">
+            <div
+              class="mb-3 flex h-12 w-12 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-muted"
+            >
+              <ListMusic size={22} strokeWidth={1.5} aria-hidden="true" />
+            </div>
             <p class="text-sm font-medium text-vlc-secondary">This playlist is empty</p>
-            <p class="max-w-xs text-xs text-vlc-muted">
+            <p class="mt-1 max-w-xs text-xs text-vlc-muted">
               Drag a track here from your library, or use Add to playlist on a track.
             </p>
           </div>
         {:else if visibleTracks.length === 0}
-          <div class="flex min-h-[240px] flex-col items-center justify-center gap-2 p-8 text-center">
-            <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
-            <p class="text-sm font-medium text-vlc-secondary">No tracks match “{query}”</p>
-            <button
-              type="button"
-              class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
-              on:click={clearSearch}
+          <div class="flex h-full min-h-[360px] flex-col items-center justify-center px-6 text-center">
+            <div
+              class="mb-3 flex h-12 w-12 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-muted"
             >
-              Clear search
-            </button>
+              <ListMusic size={22} strokeWidth={1.5} aria-hidden="true" />
+            </div>
+            <p class="text-sm font-medium text-vlc-secondary">No tracks match “{query}”</p>
+            <p class="mt-1 text-xs text-vlc-muted">Try a different title or clear the search.</p>
+            <div class="mt-4">
+              <button
+                type="button"
+                class="rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+                on:click={clearSearch}
+              >
+                Clear search
+              </button>
+            </div>
           </div>
         {:else if $playlistsViewMode === 'grid'}
           <div
@@ -836,10 +860,12 @@
                       {formatDuration(track.duration)}
                     </span>
                   </div>
-                  <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">
+                  <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text" title={track.title}>
                     {track.title}
                   </div>
-                  <div class="truncate text-[11px] text-vlc-muted">{track.artist}</div>
+                  <div class="truncate text-[11px] text-vlc-muted" title={track.artist}>
+                    {track.artist}
+                  </div>
                 </button>
                 {/if}
 
@@ -899,10 +925,11 @@
             {/each}
           </div>
         {:else if $playlistsViewMode === 'list'}
-          <div class="border-t border-vlc-border">
+          <div>
             {#if visibleTracks.some((track) => !mediaItemForTrack(track))}
               <div
-                class="grid grid-cols-[24px_1fr_80px] items-center gap-3 px-6 py-2 text-[11px] uppercase text-vlc-muted"
+                class="grid grid-cols-[24px_1fr_80px] items-center gap-3 border-b border-vlc-border px-4 py-2 text-[11px] uppercase tracking-wide text-vlc-muted sm:px-6"
+                aria-hidden="true"
               >
                 <span></span>
                 <div class="grid grid-cols-[32px_1fr_120px_100px] items-center gap-3">
@@ -1014,8 +1041,8 @@
                   on:click={() => playPlaylistTrack(i)}
                 >
                   <span class="text-vlc-muted">{i + 1}</span>
-                  <span class="truncate text-vlc-text">{track.title}</span>
-                  <span class="truncate">{track.artist}</span>
+                  <span class="truncate text-vlc-text" title={track.title}>{track.title}</span>
+                  <span class="truncate" title={track.artist}>{track.artist}</span>
                   <span class="text-right text-vlc-muted">
                     {formatDuration(track.duration)}
                   </span>
@@ -1064,7 +1091,7 @@
             {/each}
           </div>
         {:else}
-          <div class="border-t border-vlc-border px-4 py-2 sm:px-6">
+          <div class="px-4 py-2 sm:px-6">
             {#each visibleTracks as track (track.id)}
               {@const i = trackSourceIndex(track.id, track.src)}
               {@const videoItem = mediaItemForTrack(track)}
@@ -1150,9 +1177,12 @@
                   on:click={() => playPlaylistTrack(i)}
                 >
                   <span class="w-6 shrink-0 text-right text-[11px] text-vlc-muted">{i + 1}</span>
-                  <span class="min-w-0 flex-1 truncate text-vlc-text">{track.title}</span>
+                  <span class="min-w-0 flex-1 truncate text-vlc-text" title={track.title}
+                    >{track.title}</span
+                  >
                   <span
                     class="hidden w-40 shrink-0 truncate text-right text-[11px] text-vlc-muted sm:block"
+                    title={track.artist}
                   >
                     {track.artist}
                   </span>
@@ -1220,34 +1250,47 @@
         {/if}
     {:else if $playlistsData.length === 0}
       <div
-        class="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+        class="flex h-full min-h-[360px] flex-col items-center justify-center px-6 text-center"
       >
-        <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
+        <div
+          class="mb-3 flex h-12 w-12 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-muted"
+        >
+          <ListMusic size={22} strokeWidth={1.5} aria-hidden="true" />
+        </div>
         <p class="text-sm font-medium text-vlc-secondary">No playlists yet</p>
-        <p class="max-w-xs text-xs text-vlc-muted">
+        <p class="mt-1 max-w-xs text-xs text-vlc-muted">
           Create a playlist, then add tracks from your library.
         </p>
-        <button
-          type="button"
-          class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
-          on:click={openCreateDialog}
-        >
-          Create playlist
-        </button>
+        <div class="mt-4">
+          <button
+            type="button"
+            class="rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+            on:click={openCreateDialog}
+          >
+            Create playlist
+          </button>
+        </div>
       </div>
     {:else if sortedPlaylists.length === 0}
       <div
-        class="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+        class="flex h-full min-h-[360px] flex-col items-center justify-center px-6 text-center"
       >
-        <ListMusic size={28} strokeWidth={1.5} class="text-vlc-muted" aria-hidden="true" />
-        <p class="text-sm font-medium text-vlc-secondary">No playlists match “{query}”</p>
-        <button
-          type="button"
-          class="mt-2 rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
-          on:click={clearSearch}
+        <div
+          class="mb-3 flex h-12 w-12 items-center justify-center rounded-panel border border-vlc-border bg-vlc-card text-vlc-muted"
         >
-          Clear search
-        </button>
+          <ListMusic size={22} strokeWidth={1.5} aria-hidden="true" />
+        </div>
+        <p class="text-sm font-medium text-vlc-secondary">No playlists match “{query}”</p>
+        <p class="mt-1 text-xs text-vlc-muted">Try a different name or clear the search.</p>
+        <div class="mt-4">
+          <button
+            type="button"
+            class="rounded-control border border-vlc-border bg-vlc-card px-3 py-1.5 text-xs text-vlc-secondary transition-colors hover:border-vlc-borderStrong hover:text-vlc-text {focusRing}"
+            on:click={clearSearch}
+          >
+            Clear search
+          </button>
+        </div>
       </div>
     {:else}
       <div class="px-4 py-5 sm:px-6">
@@ -1300,7 +1343,10 @@
                           <ListMusic size={30} strokeWidth={1.5} aria-hidden="true" />
                         </div>
                         {#if renamingId !== pl.id}
-                          <div class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text">
+                          <div
+                            class="mt-2.5 truncate text-[12px] leading-4 text-vlc-text"
+                            title={pl.name}
+                          >
                             {pl.name}
                           </div>
                           <div class="truncate text-[11px] text-vlc-muted">
@@ -1398,7 +1444,9 @@
                           >
                             <ListMusic size={16} strokeWidth={1.75} />
                           </span>
-                          <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text">{pl.name}</span>
+                          <span class="min-w-0 flex-1 truncate text-[13px] text-vlc-text" title={pl.name}
+                            >{pl.name}</span
+                          >
                           <span class="w-24 shrink-0 text-right text-xs text-vlc-secondary">
                             {playlistTrackLabel(pl.trackCount)}
                           </span>
@@ -1468,7 +1516,9 @@
                           aria-label={`Open ${pl.name}`}
                           on:click={() => openPlaylist(pl.id)}
                         >
-                          <span class="min-w-0 flex-1 truncate text-vlc-text">{pl.name}</span>
+                          <span class="min-w-0 flex-1 truncate text-vlc-text" title={pl.name}
+                            >{pl.name}</span
+                          >
                           <span class="w-20 shrink-0 text-right text-[11px] text-vlc-muted">
                             {playlistTrackLabel(pl.trackCount)}
                           </span>

@@ -8,6 +8,10 @@ Dates use `YYYY-MM-DD`. This file records project milestones and documentation c
 
 - Shell context menus now use panel tokens and keyboard navigation, stop bubbling into the empty-space handler, toggle Play/Pause Hide/Show and Mute/Unmute labels from live state, and hide history Watch Later for non-video entries.
 
+### Changed — Browse pages share denser toolbars and clearer empty states
+
+- Videos, Music, Playlists and Network align toolbar height, search controls, focus rings, truncated titles, grid/list/compact rows and empty-state actions without changing the existing vlc token look.
+
 ## 2026-11-18
 
 ### Changed — HTML5 is the temporary default playback engine

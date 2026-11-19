@@ -73,47 +73,49 @@
   }
 </script>
 
-<header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-6">
+<header class="flex h-16 shrink-0 items-center gap-3 border-b border-vlc-border px-4 sm:px-6">
   <button
     type="button"
-    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
+    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-vlc-secondary transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 focus-visible:ring-offset-1 focus-visible:ring-offset-vlc-app"
     title="Back"
     aria-label="Go back"
     on:click={onBack}
   >
-    <ArrowLeft size={18} strokeWidth={1.75} />
+    <ArrowLeft size={18} strokeWidth={1.75} aria-hidden="true" />
   </button>
 
-  <nav
-    class="flex min-w-0 items-center gap-2 text-[13px] leading-none"
-    aria-label="Breadcrumb"
-  >
-    {#each breadcrumb as crumb, index}
-      {#if index > 0}
-        <ChevronRight
-          size={14}
-          strokeWidth={1.75}
-          class="shrink-0 text-vlc-muted"
-          aria-hidden="true"
-        />
-      {/if}
-      <button
-        type="button"
-        class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50"
-        class:text-vlc-text={index === breadcrumb.length - 1}
-        class:text-vlc-secondary={index !== breadcrumb.length - 1}
-        class:hover:text-vlc-text={index !== breadcrumb.length - 1}
-        aria-current={index === breadcrumb.length - 1 ? 'page' : undefined}
-        title={index === breadcrumb.length - 1 ? crumb : `Go to ${crumb}`}
-        on:click={() => onBreadcrumbSelect(index)}
-      >
-        {crumb}
-      </button>
-    {/each}
-  </nav>
+  {#if breadcrumb.length > 0}
+    <nav
+      class="flex min-w-0 items-center gap-1.5 text-[13px] leading-none"
+      aria-label="Breadcrumb"
+    >
+      {#each breadcrumb as crumb, index}
+        {#if index > 0}
+          <ChevronRight
+            size={14}
+            strokeWidth={1.75}
+            class="shrink-0 text-vlc-muted"
+            aria-hidden="true"
+          />
+        {/if}
+        <button
+          type="button"
+          class="min-w-0 truncate whitespace-nowrap rounded-[4px] px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70"
+          class:text-vlc-text={index === breadcrumb.length - 1}
+          class:text-vlc-secondary={index !== breadcrumb.length - 1}
+          class:hover:text-vlc-text={index !== breadcrumb.length - 1}
+          aria-current={index === breadcrumb.length - 1 ? 'page' : undefined}
+          title={index === breadcrumb.length - 1 ? crumb : `Go to ${crumb}`}
+          on:click={() => onBreadcrumbSelect(index)}
+        >
+          {crumb}
+        </button>
+      {/each}
+    </nav>
+  {/if}
 
-  <div class="ml-auto flex min-w-0 items-center gap-1 flex-wrap">
-    <span class="mr-2 whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
+  <div class="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
+    <span class="mr-1 whitespace-nowrap text-xs text-vlc-muted" aria-live="polite">
       {itemCount} {itemCount === 1 ? 'item' : 'items'}
     </span>
 
@@ -133,7 +135,7 @@
           aria-checked={active}
           aria-label={option.ariaLabel}
           tabindex={active ? 0 : -1}
-          class="h-6 whitespace-nowrap rounded-input px-1.5 text-[11px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/50 {active
+          class="h-6 whitespace-nowrap rounded-input px-1.5 text-[11px] leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70 {active
             ? 'bg-vlc-raised text-vlc-text'
             : 'text-vlc-secondary hover:text-vlc-text'}"
           title={option.ariaLabel}
@@ -159,7 +161,7 @@
       label="Library view mode"
     />
 
-    <label class="relative ml-2 min-w-0 flex-1 max-w-60">
+    <label class="relative ml-1 min-w-0 max-w-52 flex-1 sm:max-w-60">
       <Search
         size={14}
         strokeWidth={1.75}
@@ -176,7 +178,7 @@
       />
     </label>
 
-    <span class="mx-2 h-5 w-px bg-vlc-border" aria-hidden="true"></span>
+    <span class="mx-1.5 h-5 w-px shrink-0 bg-vlc-border" aria-hidden="true"></span>
 
     <LibraryAddMenu />
   </div>

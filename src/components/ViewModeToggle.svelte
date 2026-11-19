@@ -22,8 +22,8 @@
   // Keep the canonical option order and ignore duplicates or unknown values.
   $: visibleOptions = viewModeOptions.filter((option) => options.includes(option.value));
   $: containerSize = size === 'sm' ? 'h-7' : 'h-8';
-  $: buttonSize = size === 'sm' ? 'h-6 w-7' : 'h-7 w-8';
-  $: iconSize = size === 'sm' ? 14 : 16;
+  $: buttonSize = size === 'sm' ? 'h-5 w-6' : 'h-6 w-7';
+  $: iconSize = size === 'sm' ? 13 : 15;
 
   function select(mode: ViewMode): void {
     if (mode === value) return;
@@ -32,7 +32,7 @@
 </script>
 
 <div
-  class="inline-flex {containerSize} items-center gap-0.5 rounded-control border border-vlc-border bg-vlc-card p-px"
+  class="inline-flex {containerSize} shrink-0 items-center gap-0.5 rounded-control border border-vlc-border bg-vlc-card p-0.5"
   role="group"
   aria-label={label}
 >

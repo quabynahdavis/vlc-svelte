@@ -8,7 +8,7 @@
   import { libraryImportLog } from '../stores/library';
   import { addToQueue, type Track } from '../stores/player';
   import { openPlaylistTarget } from '../stores/playlistTarget';
-import { openMediaContextMenu } from '../stores/ui';
+  import { openMediaContextMenu } from '../stores/ui';
 
   export let item: MediaItem;
   export let mode: 'list' | 'compact' = 'list';
@@ -54,7 +54,7 @@ import { openMediaContextMenu } from '../stores/ui';
     .join(', ');
 
   const actionClass =
-    'flex h-6 w-6 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vlc-orange/60';
+    'flex h-6 w-6 items-center justify-center rounded-[4px] text-vlc-muted transition-colors hover:bg-vlc-raised hover:text-vlc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vlc-orange/70';
 
   function trackFromItem(): Track {
     return {
@@ -131,7 +131,9 @@ import { openMediaContextMenu } from '../stores/ui';
       </span>
 
       <span class="min-w-0 flex-1">
-        <span class="block truncate text-[13px] leading-4 text-vlc-text">{item.title}</span>
+        <span class="block truncate text-[13px] leading-4 text-vlc-text" title={item.title}
+          >{item.title}</span
+        >
 
         {#if episodeCode || durationLabel || hasProgress}
           <span class="mt-1 flex items-center gap-1.5 text-[11px] leading-4 text-vlc-secondary">
@@ -153,13 +155,15 @@ import { openMediaContextMenu } from '../stores/ui';
           </span>
         {/if}
 
-        <span
-          class="mt-2 block h-[3px] w-full max-w-xs overflow-hidden rounded-full bg-vlc-raised"
-          aria-hidden="true"
-        >
-          <span class="block h-full rounded-full bg-vlc-orange" style={`width: ${progressPercent}`}
-          ></span>
-        </span>
+        {#if hasProgress}
+          <span
+            class="mt-2 block h-[3px] w-full max-w-xs overflow-hidden rounded-full bg-vlc-raised"
+            aria-hidden="true"
+          >
+            <span class="block h-full rounded-full bg-vlc-orange" style={`width: ${progressPercent}`}
+            ></span>
+          </span>
+        {/if}
       </span>
 
       <span
@@ -173,7 +177,9 @@ import { openMediaContextMenu } from '../stores/ui';
         <Play size={11} strokeWidth={2} />
       </span>
 
-      <span class="min-w-0 flex-1 truncate text-xs text-vlc-text">{item.title}</span>
+      <span class="min-w-0 flex-1 truncate text-xs text-vlc-text" title={item.title}
+        >{item.title}</span
+      >
 
       {#if episodeCode}
         <span
